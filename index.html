@@ -264,6 +264,49 @@ body.unlocked #adminGate{display:none!important;}
   }
 }
 
+
+/* 확대/축소 상태에서 자유 드래그 허용 */
+html, body{
+  width:auto !important;
+  min-width:100% !important;
+  height:auto !important;
+  min-height:100% !important;
+  overflow:auto !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+  overscroll-behavior:auto !important;
+}
+body{
+  -webkit-overflow-scrolling:touch !important;
+}
+.app{
+  max-width:none !important;
+  overflow:visible !important;
+}
+.table-wrap{
+  width:100% !important;
+  max-width:none !important;
+  overflow:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+  overscroll-behavior:auto !important;
+}
+.scale-stage{
+  min-width:max-content !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+}
+.member-table{
+  width:max-content !important;
+}
+@media(max-width:480px){
+  html,body,.app,.table-wrap,.scale-stage{
+    touch-action:pan-x pan-y pinch-zoom !important;
+    -webkit-overflow-scrolling:touch !important;
+  }
+  .table-wrap{
+    max-height:calc(100vh - 48px) !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -307,7 +350,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint"></div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. member-list 전용 Firebase(membel-list)의 memberList/main 경로로 실시간 저장/불러오기를 합니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -677,7 +720,7 @@ body.unlocked #adminGate{display:none!important;}
   function deleteCol(){if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function normalizePhoneText(v){let t=String(v||"").trim(); if(!t)return""; const digits=t.replace(/\D/g,""); if(digits.length===8)return"010 "+digits.slice(0,4)+" "+digits.slice(4); if(digits.length===10&&digits.startsWith("10"))return"0"+digits.slice(0,2)+" "+digits.slice(2,6)+" "+digits.slice(6); if(digits.length===11)return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7); return t}
   function getPhoneColumnIndexes(){return[5,6]}
-  function scaleWholeTable(){scaleStage.style.transform="none"; scaleStage.style.height="auto"; const wrapW=tableWrap.clientWidth||window.innerWidth; const tableW=table.scrollWidth||table.offsetWidth; const scale=Math.min(1,wrapW/tableW); scaleStage.style.zoom=String(scale); scaleStage.style.width=tableW+"px"; tableWrap.style.overflow="auto";}
+  function scaleWholeTable(){scaleStage.style.transform="none"; scaleStage.style.height="auto"; const wrapW=tableWrap.clientWidth||window.innerWidth; const tableW=table.scrollWidth||table.offsetWidth; const scale=Math.min(1,wrapW/tableW); scaleStage.style.zoom=String(scale); scaleStage.style.width=tableW+"px"; tableWrap.style.overflow="auto"; tableWrap.style.touchAction="pan-x pan-y pinch-zoom"; document.documentElement.style.touchAction="pan-x pan-y pinch-zoom"; document.body.style.touchAction="pan-x pan-y pinch-zoom";}
   function scheduleScaleWholeTable(){clearTimeout(window.__scaleTimer);window.__scaleTimer=setTimeout(scaleWholeTable,60)}
   function backupDataJson(){
     sortRowsByNameAsc();
