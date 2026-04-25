@@ -219,9 +219,10 @@ body.unlocked #adminGate{display:none!important;}
     messagingSenderId: "744201337161",
     appId: "1:744201337161:web:a63c6118182a4ed8dd0298"
   };
-  const FIREBASE_PATH = "busSeatApp/memberList";
+  const FIREBASE_ROOT_PATH = "busSeatApp";
+  const FIREBASE_MEMBER_CHILD_PATH = "busSeatApp/memberList";
   const FIREBASE_LEGACY_PATH = "memberList/main";
-  const FIREBASE_PATHS = [FIREBASE_PATH, FIREBASE_LEGACY_PATH];
+  const FIREBASE_PATHS = [FIREBASE_MEMBER_CHILD_PATH, FIREBASE_LEGACY_PATH];
   let firebaseApp = null;
   let firebaseDb = null;
   let firebaseRef = null;
@@ -257,6 +258,134 @@ body.unlocked #adminGate{display:none!important;}
     box.classList.toggle("off",!isOn);
   }
 
+
+  function busSeatStatusLabel(status){
+    if(status==="paid") return "완납";
+    if(status==="waiting") return "입금대기";
+    if(status==="waiting_alt") return "자리이동";
+    if(status==="paid_new") return "완납/신입";
+    if(status==="paid_new_move") return "자리이동";
+    if(status==="reserved") return "이름만 표시";
+    return "";
+  }
+
+  function busSeatDisplayNumber(busType, seatNumber){
+    const n=Number(seatNumber);
+    if(busType==="31"){
+      const map={1:1,2:2,4:3,5:4,6:5,8:6,9:7,10:8,12:9,13:10,14:11,16:12,17:13,18:14,20:15,21:16,22:17,24:18,25:19,26:20,28:21,29:22,30:23,32:24,33:25,34:26,36:27,37:28,38:29,39:30,40:31};
+      return map[n] || n;
+    }
+    return n;
+  }
+
+  function isBusSeatBlocked(busType, seatNumber){
+    const n=Number(seatNumber);
+    if(busType==="44") return n===4;
+    if(busType==="31") return [3,7,11,15,19,23,27,31,35,41,42,43,44].includes(n);
+    return false;
+  }
+
+  function getBusSeatRootUpdatedAt(root){
+    let latest=Number(root?.meta?.updatedAt||0);
+    const seats=root?.seats||{};
+    Object.keys(seats).forEach(k=>{
+      const t=Number(seats[k]?.updatedAt||0);
+      if(t>latest) latest=t;
+    });
+    const child=Number(root?.memberList?.updatedAt||0);
+    if(child>latest) latest=child;
+    return latest || Date.now();
+  }
+
+  function buildMemberTableDataFromBusSeatRoot(root){
+    if(!root || !root.seats) return null;
+    const busType=String(root.busType||"44");
+    const headerCells=headers.map(h=>({
+      html:h,
+      tag:"th",
+      className:"header-cell",
+      style:"font-weight:700;font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;"
+    }));
+    const baseStyle="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";
+    const rows=[headerCells];
+    const seatItems=Object.keys(root.seats||{}).map(k=>({
+      seatNumber:Number(k),
+      seat:root.seats[k]||{}
+    }))
+    .filter(item=>!isBusSeatBlocked(busType,item.seatNumber) && String(item.seat.name||"").trim()!=="")
+    .sort((a,b)=>{
+      const an=String(a.seat.name||"");
+      const bn=String(b.seat.name||"");
+      const cmp=an.localeCompare(bn,"ko-KR",{sensitivity:"base",numeric:true});
+      return cmp!==0?cmp:a.seatNumber-b.seatNumber;
+    });
+
+    seatItems.forEach(item=>{
+      const row=headers.map(()=>({html:"",tag:"td",className:"",style:baseStyle}));
+      const displayNo=busSeatDisplayNumber(busType,item.seatNumber);
+      row[1].html=String(item.seat.name||"");
+      row[12].html=`${displayNo}번`;
+      row[13].html=busSeatStatusLabel(item.seat.status||"");
+      row[14].html=`좌석${displayNo}`;
+      row[15].html=String(item.seatNumber);
+      row[16].html=busType;
+      rows.push(row);
+    });
+
+    for(let i=rows.length;i<21;i++){
+      rows.push(headers.map(()=>({html:"",tag:"td",className:"",style:baseStyle})));
+    }
+    return {
+      cols:colWidths.map(w=>`width:${w}px`),
+      rows,
+      updatedAt:new Date().toISOString()
+    };
+  }
+
+  function extractMemberListDataFromSnapshotValue(value, pathLabel){
+    if(!value) return null;
+
+    // 1) busSeatApp root: prefer memberList child if present, otherwise convert seats directly.
+    if(value.seats){
+      if(value.memberList && value.memberList.data){
+        return {
+          data:value.memberList.data,
+          updatedAt:Number(value.memberList.updatedAt||getBusSeatRootUpdatedAt(value)),
+          source:`${pathLabel}/memberList`
+        };
+      }
+      const converted=buildMemberTableDataFromBusSeatRoot(value);
+      if(converted){
+        return {
+          data:converted,
+          updatedAt:getBusSeatRootUpdatedAt(value),
+          source:`${pathLabel}/seats`
+        };
+      }
+    }
+
+    // 2) memberList child / legacy direct payload
+    if(value.data){
+      return {
+        data:value.data,
+        updatedAt:Number(value.updatedAt||Date.now()),
+        source:pathLabel
+      };
+    }
+
+    // 3) raw table data
+    if(value.rows){
+      return {
+        data:value,
+        updatedAt:Number(value.updatedAt||Date.now()),
+        source:pathLabel
+      };
+    }
+
+    return null;
+  }
+
+
   function initFirebaseRealtime(){
     try{
       if(!window.firebase){
@@ -267,32 +396,41 @@ body.unlocked #adminGate{display:none!important;}
         ? firebase.apps[0]
         : firebase.initializeApp(FIREBASE_CONFIG);
       firebaseDb = firebase.database(firebaseApp);
-      firebaseRef = firebaseDb.ref(FIREBASE_PATH);
+      firebaseRef = firebaseDb.ref(FIREBASE_MEMBER_CHILD_PATH);
       firebaseReady = true;
       setRealtimeStatus("실시간 연결중",true);
 
       let latestRemoteUpdatedAt = 0;
-      FIREBASE_PATHS.forEach((path)=>{
+      const watchPaths=[FIREBASE_ROOT_PATH, FIREBASE_MEMBER_CHILD_PATH, FIREBASE_LEGACY_PATH];
+
+      watchPaths.forEach((path)=>{
         firebaseDb.ref(path).on("value",(snap)=>{
           if(!snap.exists()){
             setRealtimeStatus("실시간 연결됨 / 데이터 없음: "+path,true);
             return;
           }
-          const value=snap.val();
-          const remoteUpdatedAt = Number(value&&value.updatedAt || 0);
-          if(remoteUpdatedAt && remoteUpdatedAt < latestRemoteUpdatedAt) return;
-          if(remoteUpdatedAt) latestRemoteUpdatedAt = remoteUpdatedAt;
-          const remoteData=value&&value.data?value.data:value;
-          const data=normalizeData(remoteData);
-          if(!data){
-            setRealtimeStatus("실시간 데이터 형식 오류: "+path,false);
+
+          const extracted=extractMemberListDataFromSnapshotValue(snap.val(),path);
+          if(!extracted){
+            setRealtimeStatus("실시간 데이터 없음: "+path,true);
             return;
           }
+
+          const remoteUpdatedAt=Number(extracted.updatedAt||0);
+          if(remoteUpdatedAt && remoteUpdatedAt < latestRemoteUpdatedAt) return;
+          if(remoteUpdatedAt) latestRemoteUpdatedAt=remoteUpdatedAt;
+
+          const data=normalizeData(extracted.data);
+          if(!data){
+            setRealtimeStatus("실시간 데이터 형식 오류: "+extracted.source,false);
+            return;
+          }
+
           applyingRemoteData=true;
           applyData(data);
           saveToAllKeys(collectData());
           applyingRemoteData=false;
-          setRealtimeStatus("실시간 동기화 완료: "+path,true);
+          setRealtimeStatus("실시간 동기화 완료: "+extracted.source,true);
         },(error)=>{
           console.error("Firebase realtime read failed",path,error);
           setRealtimeStatus("실시간 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
