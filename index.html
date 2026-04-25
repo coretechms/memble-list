@@ -707,7 +707,12 @@ body.unlocked #adminGate{display:none!important;}
   const PASS_KEY="memberList.admin.passwordHash.v1";
   const RECOVERY_KEY="memberList.admin.recoveryHash.v1";
   const DEFAULT_PASSWORD="1234";
+  const ADMIN_SYNC_PATH="admin/passwordSync";
   const $=(id)=>document.getElementById(id);
+  let adminDb=null, adminRef=null;
+  let adminReady=false, adminRemoteLoaded=false;
+  let adminPasswordHash="", adminRecoveryHash="";
+  let adminWriteTimer=null;
 
   async function sha256(text){
     if(window.crypto && crypto.subtle){
@@ -720,90 +725,175 @@ body.unlocked #adminGate{display:none!important;}
     return "fallback-"+String(h);
   }
 
+  function setGateMsg(msg,color="#c00"){
+    const el=$("adminGateMsg");
+    if(el){el.textContent=msg||"";el.style.color=color;}
+  }
+  function setRealtimeBoxMsg(msg,isOn){
+    const box=$("realtimeStatusBox");
+    if(!box)return;
+    box.textContent=msg;
+    box.classList.toggle("off",!isOn);
+  }
   function makeRecoveryCode(){
     const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const part=()=>Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
     return [part(),part(),part(),part()].join("-");
   }
-
-  async function ensureDefaultPassword(){
-    if(!localStorage.getItem(PASS_KEY)){
-      localStorage.setItem(PASS_KEY,await sha256(DEFAULT_PASSWORD));
+  function normalizeAdminPayload(value){
+    if(!value)return null;
+    if(typeof value==="string")return {passwordHash:value,recoveryHash:""};
+    if(typeof value!=="object")return null;
+    const passwordHash=String(value.passwordHash||value.passHash||value.adminPasswordHash||value.hash||"");
+    const recoveryHash=String(value.recoveryHash||value.adminRecoveryHash||value.recoveryCodeHash||"");
+    if(!passwordHash)return null;
+    return {passwordHash,recoveryHash};
+  }
+  async function getDefaultHash(){return await sha256(DEFAULT_PASSWORD);}
+  async function loadLocalAdminCache(){
+    let pass=localStorage.getItem(PASS_KEY)||"";
+    if(!pass){pass=await getDefaultHash();localStorage.setItem(PASS_KEY,pass);}
+    adminPasswordHash=pass;
+    adminRecoveryHash=localStorage.getItem(RECOVERY_KEY)||"";
+  }
+  function saveLocalAdminCache(){
+    if(adminPasswordHash)localStorage.setItem(PASS_KEY,adminPasswordHash);
+    if(adminRecoveryHash)localStorage.setItem(RECOVERY_KEY,adminRecoveryHash);
+    else localStorage.removeItem(RECOVERY_KEY);
+  }
+  function buildAdminPayload(reason){
+    return {
+      type:"admin-password-sync",
+      version:"bus-seat-compatible-1.0",
+      source:"member-list",
+      reason:reason||"update",
+      passwordHash:adminPasswordHash,
+      recoveryHash:adminRecoveryHash||"",
+      updatedAt:Date.now(),
+      updatedAtISO:new Date().toISOString()
+    };
+  }
+  function writeAdminSync(reason){
+    saveLocalAdminCache();
+    if(!adminReady||!adminRef)return;
+    clearTimeout(adminWriteTimer);
+    adminWriteTimer=setTimeout(()=>{
+      adminRef.set(buildAdminPayload(reason)).then(()=>{
+        setRealtimeBoxMsg("관리자 비밀번호 동기화 완료",true);
+      }).catch((error)=>{
+        console.error("Admin password sync write failed",error);
+        setRealtimeBoxMsg("관리자 비밀번호 동기화 실패",false);
+      });
+    },120);
+  }
+  async function seedAdminSyncIfEmpty(){
+    if(!adminRef)return;
+    await loadLocalAdminCache();
+    adminRef.set(buildAdminPayload("initial-create")).catch((error)=>{
+      console.error("Admin password initial create failed",error);
+      setRealtimeBoxMsg("관리자 비밀번호 초기 생성 실패",false);
+    });
+  }
+  async function initAdminFirebaseSync(){
+    await loadLocalAdminCache();
+    try{
+      if(!window.firebase || !firebase.apps || !firebase.apps.length){
+        adminRemoteLoaded=true;
+        setGateMsg("Firebase 연결 전입니다. 임시로 이 기기 저장 비밀번호를 사용합니다.","#b45309");
+        return;
+      }
+      adminDb=firebase.database(firebase.apps[0]);
+      adminRef=adminDb.ref(ADMIN_SYNC_PATH);
+      adminReady=true;
+      adminDb.ref(".info/connected").on("value",snap=>{
+        if(snap.val()===true)setRealtimeBoxMsg("실시간 연결됨",true);
+      });
+      adminRef.on("value",async snap=>{
+        const payload=normalizeAdminPayload(snap.val());
+        if(!payload){
+          adminRemoteLoaded=true;
+          await seedAdminSyncIfEmpty();
+          setGateMsg("관리자 비밀번호 동기화 초기화 완료","#0b7a28");
+          setTimeout(()=>setGateMsg(""),1200);
+          return;
+        }
+        adminPasswordHash=payload.passwordHash;
+        adminRecoveryHash=payload.recoveryHash||"";
+        saveLocalAdminCache();
+        adminRemoteLoaded=true;
+        setGateMsg("");
+      },error=>{
+        console.error("Admin password sync read failed",error);
+        adminRemoteLoaded=true;
+        setGateMsg("관리자 비밀번호 동기화 읽기 실패. 이 기기 저장값으로 로그인합니다.","#b45309");
+      });
+    }catch(error){
+      console.error("Admin password sync init failed",error);
+      adminRemoteLoaded=true;
+      setGateMsg("관리자 비밀번호 동기화 연결 실패. 이 기기 저장값으로 로그인합니다.","#b45309");
     }
   }
-
+  async function ensureAdminReadyForLogin(){
+    if(!adminRemoteLoaded){
+      setGateMsg("관리자 비밀번호 동기화 확인중입니다. 잠시 후 다시 눌러주세요.","#b45309");
+      await new Promise(resolve=>setTimeout(resolve,350));
+    }
+    if(!adminPasswordHash){adminPasswordHash=await getDefaultHash();writeAdminSync("default-created");}
+  }
   async function unlockWithPassword(){
-    await ensureDefaultPassword();
+    await ensureAdminReadyForLogin();
     const input=$("adminPasswordInput");
-    const msg=$("adminGateMsg");
     const value=(input&&input.value||"").trim();
-    const saved=localStorage.getItem(PASS_KEY);
-    if(await sha256(value)===saved){
+    if(await sha256(value)===adminPasswordHash){
       document.body.classList.remove("locked");
       document.body.classList.add("unlocked");
       if(input)input.value="";
-      if(msg)msg.textContent="";
+      setGateMsg("");
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
     }else{
-      if(msg)msg.textContent="비밀번호가 맞지 않습니다.";
+      setGateMsg("비밀번호가 맞지 않습니다.");
       if(input){input.select();input.focus();}
     }
   }
-
   function logout(){
     document.body.classList.remove("unlocked");
     document.body.classList.add("locked");
     const input=$("adminPasswordInput");
     if(input)setTimeout(()=>input.focus(),50);
   }
-
   async function changePassword(){
+    await ensureAdminReadyForLogin();
     const oldPw=prompt("현재 비밀번호를 입력하세요.");
     if(oldPw===null)return;
-    await ensureDefaultPassword();
-    if(await sha256(oldPw.trim())!==localStorage.getItem(PASS_KEY)){
-      alert("현재 비밀번호가 맞지 않습니다.");
-      return;
-    }
+    if(await sha256(oldPw.trim())!==adminPasswordHash){alert("현재 비밀번호가 맞지 않습니다.");return;}
     const next=prompt("새 비밀번호를 입력하세요.");
     if(next===null)return;
-    if(!next.trim()){
-      alert("새 비밀번호가 비어 있습니다.");
-      return;
-    }
+    if(!next.trim()){alert("새 비밀번호가 비어 있습니다.");return;}
     const again=prompt("새 비밀번호를 다시 입력하세요.");
     if(again===null)return;
-    if(next.trim()!==again.trim()){
-      alert("새 비밀번호가 서로 다릅니다.");
-      return;
-    }
-    localStorage.setItem(PASS_KEY,await sha256(next.trim()));
-    alert("비밀번호가 변경되었습니다.");
+    if(next.trim()!==again.trim()){alert("새 비밀번호가 서로 다릅니다.");return;}
+    adminPasswordHash=await sha256(next.trim());
+    writeAdminSync("password-change");
+    alert("비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
   }
-
   async function createRecoveryCode(){
+    await ensureAdminReadyForLogin();
     const code=makeRecoveryCode();
-    localStorage.setItem(RECOVERY_KEY,await sha256(code));
-    alert("복구코드가 생성되었습니다.\n\n"+code+"\n\n이 코드는 지금만 확인 가능합니다. 반드시 따로 보관하세요.");
+    adminRecoveryHash=await sha256(code);
+    writeAdminSync("recovery-code-create");
+    alert("복구코드가 생성되었고 Firebase에 동기화되었습니다.\n\n"+code+"\n\n이 코드는 지금만 확인 가능합니다. 반드시 따로 보관하세요.");
   }
-
   async function resetPassword(){
+    await ensureAdminReadyForLogin();
     const code=prompt("복구코드를 입력하세요.");
     if(code===null)return;
-    const saved=localStorage.getItem(RECOVERY_KEY);
-    if(!saved){
-      alert("생성된 복구코드가 없습니다. 관리자 로그인 후 복구코드를 먼저 생성하세요.");
-      return;
-    }
-    if(await sha256(code.trim().toUpperCase())!==saved){
-      alert("복구코드가 맞지 않습니다.");
-      return;
-    }
-    localStorage.setItem(PASS_KEY,await sha256(DEFAULT_PASSWORD));
-    localStorage.removeItem(RECOVERY_KEY);
-    alert("비밀번호가 1234로 초기화되었습니다.");
+    if(!adminRecoveryHash){alert("생성된 복구코드가 없습니다. 관리자 로그인 후 복구코드를 먼저 생성하세요.");return;}
+    if(await sha256(code.trim().toUpperCase())!==adminRecoveryHash){alert("복구코드가 맞지 않습니다.");return;}
+    adminPasswordHash=await sha256(DEFAULT_PASSWORD);
+    adminRecoveryHash="";
+    writeAdminSync("password-reset");
+    alert("비밀번호가 1234로 초기화되었고 Firebase에 실시간 동기화되었습니다.");
   }
-
   function bindAdmin(){
     const loginBtn=$("adminLoginBtn");
     const input=$("adminPasswordInput");
@@ -811,19 +901,14 @@ body.unlocked #adminGate{display:none!important;}
     const changeBtn=$("adminChangePasswordBtn");
     const recoveryBtn=$("adminRecoveryCodeBtn");
     const resetBtn=$("adminResetPasswordBtn");
-
     if(loginBtn)loginBtn.onclick=unlockWithPassword;
-    if(input){
-      input.addEventListener("keydown",(e)=>{if(e.key==="Enter")unlockWithPassword();});
-      setTimeout(()=>input.focus(),80);
-    }
+    if(input){input.addEventListener("keydown",(e)=>{if(e.key==="Enter")unlockWithPassword();});setTimeout(()=>input.focus(),80);}
     if(logoutBtn)logoutBtn.onclick=logout;
     if(changeBtn)changeBtn.onclick=changePassword;
     if(recoveryBtn)recoveryBtn.onclick=createRecoveryCode;
     if(resetBtn)resetBtn.onclick=resetPassword;
-    ensureDefaultPassword();
+    initAdminFirebaseSync();
   }
-
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAdmin);
   else bindAdmin();
 })();
