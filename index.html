@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
+<title>회원명부_Firebase등록_완성</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f5f6f8;font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;color:#111;overflow:auto}body{padding:8px}.app{width:100%;min-width:0;max-width:100vw;margin:0 auto}.toolbar{position:relative;z-index:1;display:flex;gap:5px;align-items:center;flex-wrap:wrap;width:100%;padding:6px;margin-bottom:6px;background:rgba(255,255,255,.97);border:1px solid #cfd4dc;box-shadow:0 2px 8px rgba(0,0,0,.08)}.toolbar button,.toolbar input{height:32px;border:1px solid #999;border-radius:4px;background:#fff;font-family:inherit;font-size:12px}.toolbar button{padding:0 8px;cursor:pointer;background:#f4f4f4}.toolbar button.primary{background:#1737c9;color:#fff;border-color:#1737c9}.toolbar input{padding:0 8px;min-width:120px}.total-box{height:32px;display:inline-flex;align-items:center;padding:0 8px;border:1px solid #999;border-radius:4px;background:#ffff00;font-size:12px;font-weight:700;white-space:nowrap}.status{font-size:12px;color:#0b7a28;margin-left:1px;white-space:nowrap}.table-wrap{width:100%;max-width:100%;overflow:hidden;border:1px solid #222;background:#fff}.scale-stage{transform-origin:top left;will-change:transform}table.member-table{border-collapse:collapse;table-layout:auto;width:max-content;min-width:0;background:#fff;font-size:12px}.member-table col{min-width:45px}.member-table td,.member-table th{border:1px dotted #555;min-height:24px;height:26px;padding:3px .6em;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;outline:none;background-clip:padding-box;font-size:12px}.member-table th.header-cell{position:static;background:#d9d9d9!important;font-weight:700}.member-table td:focus,.member-table th:focus,.selected-cell{outline:2px solid #1737c9!important;outline-offset:-2px}tr.hidden-by-search{display:none!important}.search-label,.search-input-cell{background:#ffff00!important;font-weight:700!important}.hint{font-size:12px;color:#555;margin-top:6px}.found-row td{background:#fff5b8!important}.toolbar,.member-table th.header-cell{top:auto!important}
+@media(max-width:480px){body{padding:5px}.toolbar button{flex:1 1 calc(33.333% - 6px)}.toolbar input{flex:1 1 calc(50% - 6px)}}@media print{body{padding:0;background:#fff}.toolbar,.hint{display:none!important}.table-wrap{overflow:visible;border:none}.scale-stage{transform:none!important}.member-table th.header-cell{position:static}}
+/* 제목행(직책/이름/성별...) 틀고정 */
+.table-wrap{
+  overflow:auto !important;
+  max-height:calc(100vh - 92px) !important;
+  -webkit-overflow-scrolling:touch;
+}
+.member-table th.header-cell{
+  position:sticky !important;
+  top:0 !important;
+  z-index:30 !important;
+  background:#d9d9d9 !important;
+  box-shadow:0 2px 0 #555 !important;
+}
+.member-table th.header-cell::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-1px;
+  border-bottom:1px solid #555;
+}
+@media(max-width:480px){.table-wrap{max-height:calc(100vh - 128px) !important;}}
+
+/* 제목행 필터 */
+.member-table th.header-cell{padding:2px 3px !important;height:44px !important;min-height:44px !important;vertical-align:top !important;}
+.header-filter-wrap{display:flex;flex-direction:column;gap:2px;align-items:stretch;justify-content:center;min-width:42px;}
+.header-title{font-weight:700;line-height:16px;text-align:center;white-space:nowrap;pointer-events:none;}
+.column-filter{width:100%;height:20px;min-width:42px;border:1px solid #777;border-radius:3px;background:#fff;font-size:11px;font-family:inherit;padding:0 1px;}
+.filter-active .header-title{color:#1737c9;}.filter-active .column-filter{border-color:#1737c9;background:#eef2ff;}
+
+@media print{.table-wrap{max-height:none !important;overflow:visible !important}.member-table th.header-cell{position:static !important;box-shadow:none !important}}
+
+/* 셀 글자 자동완성 */
+.autocomplete-box{
+  position:fixed;
+  display:none;
+  z-index:99999;
+  max-height:170px;
+  min-width:120px;
+  overflow:auto;
+  background:#fff;
+  border:1px solid #1737c9;
+  border-radius:4px;
+  box-shadow:0 4px 12px rgba(0,0,0,.18);
+  font-size:12px;
+}
+.autocomplete-item{
+  padding:6px 8px;
+  cursor:pointer;
+  white-space:nowrap;
+  border-bottom:1px solid #eee;
+}
+.autocomplete-item:last-child{border-bottom:none;}
+.autocomplete-item.active,.autocomplete-item:hover{background:#eef2ff;color:#1737c9;font-weight:700;}
+@media print{.autocomplete-box{display:none!important}}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="toolbar">
+    <span class="total-box" id="totalBox">총회원수: <b id="totalCount">0</b></span>
+    <button type="button" id="resetBtn">초기화</button>
+    <button type="button" id="dataBackupBtn">데이터백업</button>
+    <button type="button" id="dataRestoreBtn">데이터복구</button>
+    <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
+    <button type="button" id="firebaseConfigBtn">Firebase설정</button>
+    <button type="button" id="firebaseUploadBtn" class="primary">Firebase등록</button>
+    <button type="button" id="firebaseDownloadBtn">Firebase불러오기</button>
+    <button type="button" id="addRowBtn">선택행 아래 추가</button>
+    <button type="button" id="delRowBtn">선택행 삭제</button>
+    <button type="button" id="addColBtn">선택칸 오른쪽 칸 추가</button>
+    <button type="button" id="delColBtn">선택칸 열 삭제</button>
+    <input id="nameSearch" type="search" placeholder="이름 검색">
+    <input id="nickSearch" type="search" placeholder="닉네임 검색">
+    <button type="button" id="clearSearchBtn">검색해제</button>
+    <span class="status" id="statusText">편집 가능</span>
+  </div>
+  <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
+  <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. 파일 내부에는 회원 데이터가 저장되지 않습니다. 데이터복구 버튼으로 JSON 백업 파일을 불러오세요. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다. Firebase설정 후 Firebase등록 버튼을 누르면 현재 회원명부가 Firebase Realtime Database에 등록됩니다.</div>
+</div>
+<script id="initialData" type="application/json"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script>
+(function(){
+  const STORAGE_KEY="memberList.htmlForm.v3.safe";
+  const STORAGE_KEYS=[
+    "memberList.htmlForm.v3.safe",
+    "memberList.htmlForm.v1",
+    "memberList.htmlForm.v2",
+    "member-list-scale-fixed",
+    "memberListData",
+    "memberData",
+    "members",
+    "tableData",
+    "member-list-data",
+    "회원명부",
+    "회원명부데이터"
+  ];
+  const table=document.getElementById("memberTable");
+  const tableWrap=document.getElementById("tableWrap");
+  const scaleStage=document.getElementById("scaleStage");
+  const statusText=document.getElementById("statusText");
+  const autocompleteBox=document.getElementById("autocompleteBox");
+  let selectedCell=null;
+  let autocompleteCell=null;
+  let autocompleteItems=[];
+  let autocompleteIndex=-1;
+  const EMPTY_FILTER_VALUE="__EMPTY__";
+  const headers=["직 책","이 름","성별","출생년도","주민번호","연락처","비상연락처<br>( 가족 )","구","거주지","집","배우자","닉네임","버스타는곳","참석  ○ △ Χ","연관검색","연관검색","연관검색","전임직책","전임총무"];
+  const colWidths=[72,78,45,57,78,118,118,54,86,133,72,94,141,86,70,110,62,70,94];
+  const sampleRows=[];
+  function makeCell(v="",style="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;"){return{html:String(v),tag:"td",className:"",style}};
+  function defaultData(){
+    const rows=[];
+    rows.push(headers.map(h=>({html:h,tag:"th",className:"header-cell",style:"font-weight:700;font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;"})));
+    for(let i=0;i<20;i++) rows.push(headers.map(()=>makeCell("")));
+    return{cols:colWidths.map(w=>`width:${w}px`),rows};
+  }
+  function setStatus(msg){statusText.textContent=msg;clearTimeout(window.__statusTimer);window.__statusTimer=setTimeout(()=>statusText.textContent="편집 가능",1800)}
+  function rowsArray(){return Array.from(table.tBodies[0]?.rows||[])}
+  function cellText(cell){return String(cell?.innerText||"").trim()}
+  function normalize(v){return String(v||"").trim().toLowerCase().replace(/\s+/g,"")}
+  function safeJsonParse(raw){try{return JSON.parse(raw)}catch(e){return null}}
+  function plainTextFromHtml(v){const d=document.createElement("div"); d.innerHTML=String(v??""); return d.innerText.trim()}
+  function isCellObj(c){return c&&typeof c==="object"&&(Object.prototype.hasOwnProperty.call(c,"html")||Object.prototype.hasOwnProperty.call(c,"v")||Object.prototype.hasOwnProperty.call(c,"text"))}
+  function normalizeCell(c,rIdx){
+    if(isCellObj(c)) return {html:String(c.html??c.v??c.text??""),tag:c.tag||((rIdx===0)?"th":"td"),className:c.className||((rIdx===0)?"header-cell":""),style:c.style||"font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;"};
+    return {html:String(c??""),tag:(rIdx===0)?"th":"td",className:(rIdx===0)?"header-cell":"",style:"font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;"};
+  }
+  function normalizeData(raw){
+    if(!raw) return null;
+    let data=raw;
+    if(Array.isArray(data)) data={rows:data};
+    if(data.data&&Array.isArray(data.data)) data={rows:data.data};
+    if(data.table&&Array.isArray(data.table)) data={rows:data.table};
+    if(!data.rows||!Array.isArray(data.rows)) return null;
+    let rows=data.rows.filter(r=>Array.isArray(r)).map((row,rIdx)=>row.map(c=>normalizeCell(c,rIdx)));
+    if(!rows.length) return null;
+
+    // 예전 파일의 1, 2행(총회원수/검색줄)이 저장되어 있으면 자동 제거
+    if(rows.length>=3){
+      const r0=normalize(rows[0].map(c=>plainTextFromHtml(c.html)).join(" "));
+      const r1=normalize(rows[1].map(c=>plainTextFromHtml(c.html)).join(" "));
+      const r2=normalize(rows[2].map(c=>plainTextFromHtml(c.html)).join(" "));
+      if((r0.includes("총회원수")||r0.includes("회원수")) && (r1.includes("이름검색")||r1.includes("닉네임검색")) && (r2.includes("이름")||r2.includes("닉네임"))){
+        rows=rows.slice(2);
+      }
+    }
+
+    // 제목행이 없으면 제목행을 강제로 붙여 기존 데이터가 사라지지 않게 함
+    const firstText=normalize(rows[0].map(c=>plainTextFromHtml(c.html)).join(" "));
+    if(!(firstText.includes("이름")&&firstText.includes("닉네임"))){
+      rows.unshift(headers.map(h=>({html:h,tag:"th",className:"header-cell",style:"font-weight:700;font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;"})));
+    }
+
+    const cols=Array.isArray(data.cols)&&data.cols.length?data.cols:colWidths.map(w=>`width:${w}px`);
+    return {cols,rows};
+  }
+  function dataScore(data){
+    data=normalizeData(data); if(!data) return 0;
+    let score=0;
+    data.rows.forEach((row,r)=>row.forEach(cell=>{const t=plainTextFromHtml(cell.html); if(t) score+=(r===0?1:3)}));
+    return score+data.rows.length;
+  }
+  function getEmbeddedData(){
+    const el=document.getElementById("initialData");
+    const raw=el?el.textContent.trim():"";
+    return raw?safeJsonParse(raw):null;
+  }
+  function loadAllSavedCandidates(){
+    const candidates=[];
+    STORAGE_KEYS.forEach(k=>{const raw=localStorage.getItem(k); if(raw){const parsed=safeJsonParse(raw); const score=dataScore(parsed); if(score>0)candidates.push({key:k,data:parsed,score})}});
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i); if(STORAGE_KEYS.includes(k)) continue;
+      const raw=localStorage.getItem(k); if(!raw||raw.length<20) continue;
+      const parsed=safeJsonParse(raw); const score=dataScore(parsed);
+      if(score>80)candidates.push({key:k,data:parsed,score});
+    }
+    candidates.sort((a,b)=>b.score-a.score);
+    return candidates;
+  }
+  function loadBestSaved(){
+    const candidates=loadAllSavedCandidates();
+    if(candidates.length) return normalizeData(candidates[0].data);
+    return null;
+  }
+  function applyData(raw){
+    const data=normalizeData(raw)||defaultData();
+    table.innerHTML="";
+    const colgroup=document.createElement("colgroup");
+    (data.cols||colWidths.map(w=>`width:${w}px`)).forEach(st=>{const c=document.createElement("col");c.setAttribute("style",st||"width:auto");colgroup.appendChild(c)});
+    table.appendChild(colgroup); const tbody=document.createElement("tbody"); table.appendChild(tbody);
+    (data.rows||[]).forEach((row,rIdx)=>{const tr=document.createElement("tr"); row.forEach(cell=>{const el=document.createElement(cell.tag||((rIdx===0)?"th":"td")); el.contentEditable="true"; el.className=cell.className||((rIdx===0)?"header-cell":""); el.setAttribute("style",cell.style||""); el.innerHTML=String(cell.html??cell.v??""); tr.appendChild(el)}); tbody.appendChild(tr)});
+    bindSearchCells(); setupHeaderFilters(); updateTotalCount(); scheduleScaleWholeTable();
+  }
+  function collectData(){
+    const cols=Array.from(table.querySelectorAll("col")).map(c=>c.getAttribute("style")||"");
+    const rows=rowsArray().map((tr,rIdx)=>Array.from(tr.cells).map(cell=>{
+      let html=cell.innerHTML;
+      let className=cell.className;
+      if(rIdx===0){
+        html=cell.dataset.headerTitle||cell.querySelector(".header-title")?.innerText||cell.innerText||"";
+        className="header-cell";
+      }
+      return{html,tag:cell.tagName.toLowerCase(),className,style:cell.getAttribute("style")||""};
+    }));
+    return{cols,rows,updatedAt:new Date().toISOString()};
+  }
+  function saveToAllKeys(data){STORAGE_KEYS.forEach(k=>{try{localStorage.setItem(k,JSON.stringify(data))}catch(e){}})}
+  function autoSave(){clearTimeout(window.__autoSaveTimer);window.__autoSaveTimer=setTimeout(()=>{saveToAllKeys(collectData());setStatus("자동 저장됨")},350)}
+  function loadData(){const data=loadBestSaved(); if(!data){setStatus("저장 데이터 없음");return} applyData(data); setStatus("기존 데이터 복구 완료");}
+  function resetData(){
+    if(!confirm("현재 화면의 회원 데이터를 모두 초기화할까요? JSON 백업 파일은 삭제되지 않습니다."))return;
+    applyData(defaultData());
+    selectedCell=null;
+    document.getElementById("nameSearch").value="";
+    document.getElementById("nickSearch").value="";
+    STORAGE_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
+    setStatus("초기화 완료");
+  }
+  function getHeaderIndexByText(labelText,fallback){const row=rowsArray()[0]; if(!row)return fallback; const target=normalize(labelText); for(let i=0;i<row.cells.length;i++){const text=normalize(row.cells[i].innerText); if(text===target||text.includes(target))return i} return fallback}
+  function sortRowsByNameAsc(){
+    const tbody=table.tBodies[0];
+    if(!tbody)return;
+    const rows=rowsArray();
+    if(rows.length<=2)return;
+    const nameCol=getHeaderIndexByText("이름",1);
+    const header=rows[0];
+    const bodyRows=rows.slice(1);
+    const filled=[];
+    const blank=[];
+    bodyRows.forEach((row,originalIndex)=>{
+      row.classList.remove("hidden-by-search","found-row");
+      const name=cellText(row.cells[nameCol]);
+      const item={row,name,originalIndex};
+      if(name) filled.push(item); else blank.push(item);
+    });
+    filled.sort((a,b)=>{
+      const cmp=a.name.localeCompare(b.name,"ko-KR",{sensitivity:"base",numeric:true});
+      return cmp!==0?cmp:a.originalIndex-b.originalIndex;
+    });
+    const frag=document.createDocumentFragment();
+    frag.appendChild(header);
+    filled.concat(blank).forEach(item=>frag.appendChild(item.row));
+    tbody.appendChild(frag);
+    updateTotalCount();
+    scheduleScaleWholeTable();
+  }
+  function scheduleAutoSort(){
+    clearTimeout(window.__autoSortTimer);
+    window.__autoSortTimer=setTimeout(()=>{
+      sortRowsByNameAsc();
+      search();
+      autoSave();
+      setStatus("이름 가나다순 자동정렬됨");
+    },450);
+  }
+  function getHeaderTitle(cell){
+    return String(cell?.dataset?.headerTitle || cell?.querySelector?.(".header-title")?.innerText || cell?.innerText || "").trim();
+  }
+  function escapeHtml(v){
+    return String(v??"").replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch]));
+  }
+  function getActiveColumnFilters(){
+    return Array.from(table.querySelectorAll(".column-filter")).map(sel=>({col:Number(sel.dataset.col),value:sel.value||""})).filter(item=>item.value!=="");
+  }
+  function setupHeaderFilters(){
+    const headerRow=rowsArray()[0]; if(!headerRow)return;
+    const previous={}; table.querySelectorAll(".column-filter").forEach(sel=>{previous[sel.dataset.col]=sel.value||""});
+    Array.from(headerRow.cells).forEach((th,idx)=>{
+      const title=getHeaderTitle(th)||headers[idx]||`열${idx+1}`;
+      th.dataset.headerTitle=title; th.contentEditable="false"; th.classList.add("header-cell");
+      const values=[]; const seen=new Set();
+      rowsArray().slice(1).forEach(row=>{const text=cellText(row.cells[idx]); const key=text||EMPTY_FILTER_VALUE; if(!seen.has(key)){seen.add(key); values.push(text);}});
+      values.sort((a,b)=>String(a).localeCompare(String(b),"ko-KR",{sensitivity:"base",numeric:true}));
+      const selected=previous[idx] && (previous[idx]===EMPTY_FILTER_VALUE || values.includes(previous[idx])) ? previous[idx] : "";
+      const options=['<option value="">전체</option>'].concat(values.map(v=>{const val=v?escapeHtml(v):EMPTY_FILTER_VALUE; const label=v?escapeHtml(v):'(빈칸)'; return `<option value="${val}" ${selected===val?'selected':''}>${label}</option>`;})).join("");
+      th.innerHTML=`<div class="header-filter-wrap"><div class="header-title">${escapeHtml(title)}</div><select class="column-filter" data-col="${idx}" title="${escapeHtml(title)} 필터">${options}</select></div>`;
+      th.classList.toggle("filter-active",!!selected);
+    });
+    table.querySelectorAll(".column-filter").forEach(sel=>{sel.onmousedown=e=>e.stopPropagation(); sel.onclick=e=>e.stopPropagation(); sel.onchange=()=>{sel.closest("th")?.classList.toggle("filter-active",!!sel.value); applyAllFilters();};});
+  }
+  function refreshHeaderFiltersSoon(){
+    clearTimeout(window.__filterRefreshTimer);
+    window.__filterRefreshTimer=setTimeout(()=>{
+      const active=getActiveColumnFilters(); setupHeaderFilters();
+      active.forEach(item=>{const sel=table.querySelector(`.column-filter[data-col="${item.col}"]`); if(sel){sel.value=item.value; sel.closest("th")?.classList.toggle("filter-active",!!sel.value);}});
+      applyAllFilters();
+    },300);
+  }
+  function applyAllFilters(){
+    const nameInput=document.getElementById("nameSearch"), nickInput=document.getElementById("nickSearch");
+    const nameQ=normalize(nameInput.value); const nickQ=normalize(nickInput.value);
+    const nameCol=getHeaderIndexByText("이름",1), nickCol=getHeaderIndexByText("닉네임",11);
+    const activeFilters=getActiveColumnFilters(); let found=0, visibleCount=0;
+    rowsArray().forEach((row,idx)=>{
+      row.classList.remove("found-row"); if(idx<1){row.classList.remove("hidden-by-search");return;}
+      const name=normalize(row.cells[nameCol]?.innerText); const nick=normalize(row.cells[nickCol]?.innerText);
+      let visible=(!nameQ||name.includes(nameQ))&&(!nickQ||nick.includes(nickQ));
+      if(visible&&activeFilters.length){visible=activeFilters.every(item=>{const text=cellText(row.cells[item.col]); return item.value===EMPTY_FILTER_VALUE ? !text : text===item.value;});}
+      row.classList.toggle("hidden-by-search",!visible);
+      if(visible){visibleCount++; if(nameQ||nickQ){found++; row.classList.add("found-row");}}
+    });
+    const hasSearch=!!(nameQ||nickQ), hasFilter=activeFilters.length>0;
+    if(hasSearch&&hasFilter)setStatus(`검색/필터 결과 ${visibleCount}명`); else if(hasSearch)setStatus(`검색 결과 ${found}명`); else if(hasFilter)setStatus(`필터 결과 ${visibleCount}명`); else setStatus("검색/필터 해제");
+    scheduleScaleWholeTable();
+  }
+  function updateTotalCount(){const nameCol=getHeaderIndexByText("이름",1); let count=0; rowsArray().forEach((row,idx)=>{if(idx>=1&&cellText(row.cells[nameCol]))count++}); const total=document.getElementById("totalCount"); if(total)total.textContent=String(count)}
+  function search(){applyAllFilters();}
+  function bindSearchCells(){const nameInput=document.getElementById("nameSearch"), nickInput=document.getElementById("nickSearch"); nameInput.oninput=search; nickInput.oninput=search}
+  function addRow(){const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="true";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function deleteRow(){if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); tr.remove(); selectedCell=null; updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function addCol(){const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="true";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function deleteCol(){if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function normalizePhoneText(v){let t=String(v||"").trim(); if(!t)return""; const digits=t.replace(/\D/g,""); if(digits.length===8)return"010 "+digits.slice(0,4)+" "+digits.slice(4); if(digits.length===10&&digits.startsWith("10"))return"0"+digits.slice(0,2)+" "+digits.slice(2,6)+" "+digits.slice(6); if(digits.length===11)return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7); return t}
+  function getPhoneColumnIndexes(){return[5,6]}
+  function scaleWholeTable(){scaleStage.style.transform="scale(1)"; scaleStage.style.width="auto"; scaleStage.style.height="auto"; const wrapW=tableWrap.clientWidth||window.innerWidth; const tableW=table.scrollWidth||table.offsetWidth; const scale=Math.min(1,wrapW/tableW); scaleStage.style.transform=`scale(${scale})`; scaleStage.style.width=tableW+"px"; scaleStage.style.height=(table.offsetHeight*scale)+"px"}
+  function scheduleScaleWholeTable(){clearTimeout(window.__scaleTimer);window.__scaleTimer=setTimeout(scaleWholeTable,60)}
+  function backupDataJson(){
+    sortRowsByNameAsc();
+    const data=collectData();
+    saveToAllKeys(data);
+    const payload={
+      type:"member-list-table-data",
+      version:"1.0",
+      savedAt:new Date().toISOString(),
+      data
+    };
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json;charset=utf-8"});
+    const a=document.createElement("a");
+    const stamp=new Date().toISOString().slice(0,10).replace(/-/g,"");
+    a.href=URL.createObjectURL(blob);
+    a.download="회원명부_데이터백업_"+stamp+".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+    setStatus("가나다순 정렬 후 데이터 백업 완료");
+  }
+  function restoreDataJsonFile(file){
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try{
+        const parsed=JSON.parse(String(reader.result||""));
+        const raw=parsed&&parsed.data?parsed.data:parsed;
+        const data=normalizeData(raw);
+        if(!data){alert("복구할 수 있는 회원명부 데이터가 아닙니다.");return;}
+        applyData(data);
+        setupHeaderFilters();
+        saveToAllKeys(collectData());
+        document.getElementById("dataRestoreFile").value="";
+        setStatus("데이터 복구 완료");
+      }catch(e){
+        alert("JSON 데이터 파일을 읽지 못했습니다.");
+      }
+    };
+    reader.readAsText(file,"utf-8");
+  }
+
+  const firebaseConfig = {
+  apiKey: "AIzaSyA2a9PQsxUDdExsVWsXHlJoDCHmIPFu1Ec",
+  authDomain: "membel-list.firebaseapp.com",
+  projectId: "membel-list",
+  storageBucket: "membel-list.firebasestorage.app",
+  messagingSenderId: "628411800641",
+  appId: "1:628411800641:web:5d188f9f3c6c285f81bac0"
+};
+  function getFirebasePath(){return localStorage.getItem(FIREBASE_PATH_KEY)||DEFAULT_FIREBASE_PATH;}
+  function saveFirebaseSettings(config,path){
+    localStorage.setItem(FIREBASE_CONFIG_KEY,JSON.stringify(config));
+    localStorage.setItem(FIREBASE_PATH_KEY,String(path||DEFAULT_FIREBASE_PATH).replace(/^\/+|\/+$/g,""));
+  }
+  function inputFirebaseConfig(){
+    const current=getSavedFirebaseConfig();
+    const guide='Firebase 설정 JSON을 붙여넣으세요.\n\n예) {"apiKey":"...","authDomain":"...","databaseURL":"https://...firebaseio.com","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}';
+    const raw=prompt(guide,current?JSON.stringify(current,null,2):'');
+    if(raw===null)return;
+    let config;
+    try{config=JSON.parse(raw)}catch(e){alert('Firebase 설정 JSON 형식이 올바르지 않습니다.');return;}
+    if(!config.apiKey||!config.databaseURL||!config.projectId){alert('apiKey, databaseURL, projectId 값이 필요합니다.');return;}
+    const path=prompt('저장 경로를 입력하세요.',getFirebasePath())||DEFAULT_FIREBASE_PATH;
+    saveFirebaseSettings(config,path);
+    firebaseAppInstance=null;
+    setStatus('Firebase 설정 저장 완료');
+  }
+  function ensureFirebaseReady(){
+    if(!window.firebase)throw new Error('Firebase SDK를 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
+    const config=getSavedFirebaseConfig();
+    if(!config)throw new Error('Firebase설정을 먼저 입력하세요.');
+    if(firebaseAppInstance)return firebaseAppInstance;
+    const appName='member-list-app';
+    const existing=firebase.apps.find(app=>app.name===appName);
+    firebaseAppInstance=existing||firebase.initializeApp(config,appName);
+    return firebaseAppInstance;
+  }
+  function firebasePayload(){
+    const data=collectData();
+    return {
+      type:'member-list-table-data',
+      version:'firebase-1.0',
+      savedAt:new Date().toISOString(),
+      totalCount:Number(document.getElementById('totalCount')?.textContent||0),
+      data
+    };
+  }
+  async function uploadToFirebase(){
+    try{
+      sortRowsByNameAsc();
+      refreshHeaderFiltersSoon();
+      saveToAllKeys(collectData());
+      ensureFirebaseReady();
+      const path=getFirebasePath();
+      await firebase.database().ref(path).set(firebasePayload());
+      setStatus('Firebase 등록 완료');
+      alert('Firebase 등록 완료\n경로: '+path);
+    }catch(e){
+      alert(e.message||'Firebase 등록 중 오류가 발생했습니다.');
+      setStatus('Firebase 등록 실패');
+    }
+  }
+  async function downloadFromFirebase(){
+    try{
+      ensureFirebaseReady();
+      const path=getFirebasePath();
+      const snap=await firebase.database().ref(path).get();
+      if(!snap.exists()){alert('Firebase 경로에 저장된 데이터가 없습니다.\n경로: '+path);return;}
+      const value=snap.val();
+      const raw=value&&value.data?value.data:value;
+      const data=normalizeData(raw);
+      if(!data){alert('Firebase 데이터 형식이 회원명부와 맞지 않습니다.');return;}
+      applyData(data);
+      setupHeaderFilters();
+      saveToAllKeys(collectData());
+      setStatus('Firebase 불러오기 완료');
+    }catch(e){
+      alert(e.message||'Firebase 불러오기 중 오류가 발생했습니다.');
+      setStatus('Firebase 불러오기 실패');
+    }
+  }
+
+  function setCaretToEnd(el){
+    try{
+      el.focus();
+      const range=document.createRange();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      const sel=window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }catch(e){}
+  }
+  function hideAutocomplete(){
+    autocompleteBox.style.display="none";
+    autocompleteBox.innerHTML="";
+    autocompleteCell=null;
+    autocompleteItems=[];
+    autocompleteIndex=-1;
+  }
+  function getColumnAutocompleteItems(cell,query){
+    if(!cell||cell.parentElement.rowIndex<1)return[];
+    const col=cell.cellIndex;
+    const q=normalize(query);
+    if(!q)return[];
+    const values=new Map();
+    rowsArray().forEach((row,idx)=>{
+      if(idx<1||row===cell.parentElement)return;
+      const txt=cellText(row.cells[col]);
+      if(!txt)return;
+      const key=normalize(txt);
+      if(!key||key===q)return;
+      if(key.startsWith(q)||key.includes(q)) values.set(txt,txt);
+    });
+    return Array.from(values.values()).sort((a,b)=>String(a).localeCompare(String(b),"ko-KR",{sensitivity:"base",numeric:true})).slice(0,10);
+  }
+  function renderAutocomplete(){
+    autocompleteBox.innerHTML=autocompleteItems.map((v,i)=>`<div class="autocomplete-item ${i===autocompleteIndex?'active':''}" data-index="${i}">${escapeHtml(v)}</div>`).join("");
+    autocompleteBox.querySelectorAll(".autocomplete-item").forEach(item=>{
+      item.onmousedown=e=>{e.preventDefault(); fillAutocomplete(autocompleteItems[Number(item.dataset.index)]);};
+    });
+  }
+  function showAutocomplete(cell){
+    if(!cell||cell.tagName.toLowerCase()!=="td"){hideAutocomplete();return;}
+    const q=cellText(cell);
+    autocompleteItems=getColumnAutocompleteItems(cell,q);
+    if(!autocompleteItems.length){hideAutocomplete();return;}
+    autocompleteCell=cell;
+    autocompleteIndex=0;
+    renderAutocomplete();
+    const rect=cell.getBoundingClientRect();
+    autocompleteBox.style.left=Math.max(4,rect.left)+"px";
+    autocompleteBox.style.top=Math.min(window.innerHeight-180,rect.bottom+2)+"px";
+    autocompleteBox.style.minWidth=Math.max(120,rect.width)+"px";
+    autocompleteBox.style.display="block";
+  }
+  function fillAutocomplete(value){
+    if(!autocompleteCell||!value)return;
+    autocompleteCell.innerText=value;
+    setCaretToEnd(autocompleteCell);
+    hideAutocomplete();
+    updateTotalCount();
+    refreshHeaderFiltersSoon();
+    autoSave();
+    scheduleScaleWholeTable();
+  }
+  function moveAutocomplete(delta){
+    if(autocompleteBox.style.display==="none"||!autocompleteItems.length)return false;
+    autocompleteIndex=(autocompleteIndex+delta+autocompleteItems.length)%autocompleteItems.length;
+    renderAutocomplete();
+    return true;
+  }
+
+  table.addEventListener("click",e=>{const c=e.target.closest("td,th"); if(!c)return; if(selectedCell)selectedCell.classList.remove("selected-cell"); selectedCell=c; c.classList.add("selected-cell")});
+  table.addEventListener("keydown",e=>{
+    if(autocompleteBox.style.display!=="none"&&autocompleteItems.length){
+      if(e.key==="ArrowDown"){e.preventDefault();moveAutocomplete(1);return;}
+      if(e.key==="ArrowUp"){e.preventDefault();moveAutocomplete(-1);return;}
+      if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();fillAutocomplete(autocompleteItems[autocompleteIndex]);return;}
+      if(e.key==="Escape"){hideAutocomplete();return;}
+    }
+  },true);
+  table.addEventListener("input",e=>{
+    const c=e.target.closest&&e.target.closest("td,th");
+    updateTotalCount();
+    refreshHeaderFiltersSoon();
+    autoSave();
+    scheduleScaleWholeTable();
+    if(c)showAutocomplete(c);
+  },true);
+  table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
+  document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]); document.getElementById("firebaseConfigBtn").onclick=inputFirebaseConfig; document.getElementById("firebaseUploadBtn").onclick=uploadToFirebase; document.getElementById("firebaseDownloadBtn").onclick=downloadFromFirebase; document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
+  document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter").forEach(sel=>{sel.value="";sel.closest("th")?.classList.remove("filter-active")}); search()};
+  document.addEventListener("click",e=>{if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();});
+  tableWrap.addEventListener("scroll",hideAutocomplete);
+  window.addEventListener("resize",()=>{hideAutocomplete();scheduleScaleWholeTable();}); window.addEventListener("orientationchange",()=>setTimeout(scaleWholeTable,300));
+  applyData(defaultData());
+  setStatus("백업 파일로 데이터복구 하세요");
+})();
+</script>
+</body>
+</html>
