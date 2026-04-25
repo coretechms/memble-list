@@ -362,6 +362,25 @@ button,
   }
 }
 
+
+/* 모바일 필터 드롭다운 V자 표시 70% 축소 */
+@media(max-width:480px){
+  .column-filter{
+    -webkit-appearance:none !important;
+    appearance:none !important;
+    background-color:#fff !important;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='3' viewBox='0 0 4 3'%3E%3Cpath d='M0 0l2 3 2-3z' fill='%23333'/%3E%3C/svg%3E") !important;
+    background-repeat:no-repeat !important;
+    background-position:right 1px center !important;
+    background-size:4px 3px !important;
+    padding-right:5px !important;
+  }
+  .filter-active .column-filter{
+    background-color:#eef2ff !important;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='3' viewBox='0 0 4 3'%3E%3Cpath d='M0 0l2 3 2-3z' fill='%231737c9'/%3E%3C/svg%3E") !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -394,10 +413,10 @@ button,
     <button type="button" id="dataBackupBtn">데이터백업</button>
     <button type="button" id="dataRestoreBtn">데이터복구</button>
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
-    <button type="button" id="addRowBtn">선택행 아래 추가</button>
-    <button type="button" id="delRowBtn">선택행 삭제</button>
-    <button type="button" id="addColBtn">선택칸 오른쪽 칸 추가</button>
-    <button type="button" id="delColBtn">선택칸 열 삭제</button>
+    <button type="button" id="addRowBtn">행 밑추가</button>
+    <button type="button" id="delRowBtn">행 삭제</button>
+    <button type="button" id="addColBtn">우측 칸 추가</button>
+    <button type="button" id="delColBtn">열 삭제</button>
     <input id="nameSearch" type="search" placeholder="이름 검색">
     <input id="nickSearch" type="search" placeholder="닉네임 검색">
     <button type="button" id="clearSearchBtn">검색해제</button>
