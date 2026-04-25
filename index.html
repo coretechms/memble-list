@@ -187,7 +187,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. bus-seat와 같은 Firebase DB의 busSeatApp/memberList 경로로 실시간 동기화됩니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. bus-seat와 같은 Firebase DB의 busSeatApp/memberList 및 memberList/main 경로를 동시에 감시합니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -220,6 +220,8 @@ body.unlocked #adminGate{display:none!important;}
     appId: "1:744201337161:web:a63c6118182a4ed8dd0298"
   };
   const FIREBASE_PATH = "busSeatApp/memberList";
+  const FIREBASE_LEGACY_PATH = "memberList/main";
+  const FIREBASE_PATHS = [FIREBASE_PATH, FIREBASE_LEGACY_PATH];
   let firebaseApp = null;
   let firebaseDb = null;
   let firebaseRef = null;
@@ -269,26 +271,32 @@ body.unlocked #adminGate{display:none!important;}
       firebaseReady = true;
       setRealtimeStatus("실시간 연결중",true);
 
-      firebaseRef.on("value",(snap)=>{
-        if(!snap.exists()){
-          setRealtimeStatus("실시간 연결됨 / 데이터 없음",true);
-          return;
-        }
-        const value=snap.val();
-        const remoteData=value&&value.data?value.data:value;
-        const data=normalizeData(remoteData);
-        if(!data){
-          setRealtimeStatus("실시간 데이터 형식 오류",false);
-          return;
-        }
-        applyingRemoteData=true;
-        applyData(data);
-        saveToAllKeys(collectData());
-        applyingRemoteData=false;
-        setRealtimeStatus("실시간 동기화 완료",true);
-      },(error)=>{
-        console.error("Firebase realtime read failed",error);
-        setRealtimeStatus("실시간 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
+      let latestRemoteUpdatedAt = 0;
+      FIREBASE_PATHS.forEach((path)=>{
+        firebaseDb.ref(path).on("value",(snap)=>{
+          if(!snap.exists()){
+            setRealtimeStatus("실시간 연결됨 / 데이터 없음: "+path,true);
+            return;
+          }
+          const value=snap.val();
+          const remoteUpdatedAt = Number(value&&value.updatedAt || 0);
+          if(remoteUpdatedAt && remoteUpdatedAt < latestRemoteUpdatedAt) return;
+          if(remoteUpdatedAt) latestRemoteUpdatedAt = remoteUpdatedAt;
+          const remoteData=value&&value.data?value.data:value;
+          const data=normalizeData(remoteData);
+          if(!data){
+            setRealtimeStatus("실시간 데이터 형식 오류: "+path,false);
+            return;
+          }
+          applyingRemoteData=true;
+          applyData(data);
+          saveToAllKeys(collectData());
+          applyingRemoteData=false;
+          setRealtimeStatus("실시간 동기화 완료: "+path,true);
+        },(error)=>{
+          console.error("Firebase realtime read failed",path,error);
+          setRealtimeStatus("실시간 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
+        });
       });
     }catch(error){
       console.error("Firebase init failed",error);
@@ -312,11 +320,14 @@ body.unlocked #adminGate{display:none!important;}
           updatedAtISO:new Date().toISOString(),
           data
         };
-        firebaseRef.set(payload).then(()=>{
-          setRealtimeStatus("실시간 저장 완료",true);
-        }).catch((error)=>{
-          console.error("Firebase realtime write failed",error);
-          setRealtimeStatus("실시간 저장 실패: "+(error&&error.code?error.code:"오류"),false);
+        Promise.allSettled(FIREBASE_PATHS.map((path)=>firebaseDb.ref(path).set(payload).then(()=>path))).then((results)=>{
+          const ok=results.filter((r)=>r.status==="fulfilled").map((r)=>r.value);
+          if(ok.length){
+            setRealtimeStatus("실시간 저장 완료: "+ok[0],true);
+          }else{
+            console.error("Firebase realtime write failed all paths",results);
+            setRealtimeStatus("실시간 저장 실패",false);
+          }
         });
       }catch(error){
         console.error("Firebase realtime push failed",error);
