@@ -307,6 +307,61 @@ body{
   }
 }
 
+
+
+/* 모든 버튼 테두리선 최박형 적용 */
+button,
+.toolbar button,
+.admin-card button,
+.admin-tools button{
+  border-width:0.5px !important;
+  border-style:solid !important;
+}
+.toolbar button,
+.admin-card button,
+.admin-tools button{
+  box-shadow:none !important;
+}
+
+
+
+/* 모바일 관리자 비밀번호 화면: 입력칸 높이 확대 + 버튼 1행 정렬 */
+@media(max-width:480px){
+  #adminGate .admin-card{
+    padding:8px !important;
+  }
+  #adminGate .admin-card input#adminPasswordInput{
+    height:36px !important;
+    min-height:36px !important;
+    font-size:14px !important;
+    line-height:34px !important;
+    padding:0 6px !important;
+  }
+  #adminGate .admin-card .admin-row{
+    display:inline-flex !important;
+    flex-direction:row !important;
+    width:calc(50% - 3px) !important;
+    vertical-align:top !important;
+    gap:2px !important;
+    margin-top:6px !important;
+  }
+  #adminGate .admin-card .admin-row button{
+    width:100% !important;
+    height:14px !important;
+    min-height:14px !important;
+    font-size:5px !important;
+    line-height:12px !important;
+    padding:0 2px !important;
+    border-radius:1px !important;
+    white-space:nowrap !important;
+  }
+  #adminGate .admin-card .admin-msg{
+    display:block !important;
+    clear:both !important;
+    margin-top:6px !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -350,7 +405,7 @@ body{
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. member-list 전용 Firebase(membel-list)의 memberList/main 경로로 실시간 저장/불러오기를 합니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
+  <div class="hint"></div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
