@@ -187,7 +187,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. member-list 전용 Firebase(membel-list)의 memberList/main 경로로 실시간 저장/불러오기를 합니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. member-list 전용 Firebase(membel-list)의 memberList/main 경로로 실시간 저장/불러오기를 하고, 관리자 비밀번호는 memberList/admin 경로로 동기화됩니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -220,6 +220,7 @@ body.unlocked #adminGate{display:none!important;}
     appId: "1:628411800641:web:5d188f9f3c6c285f81bac0"
   };
   const FIREBASE_PATH = "memberList/main";
+  const FIREBASE_ADMIN_PATH = "memberList/admin";
   const FIREBASE_PATHS = [FIREBASE_PATH];
   let firebaseApp = null;
   let firebaseDb = null;
@@ -707,7 +708,35 @@ body.unlocked #adminGate{display:none!important;}
   const PASS_KEY="memberList.admin.passwordHash.v1";
   const RECOVERY_KEY="memberList.admin.recoveryHash.v1";
   const DEFAULT_PASSWORD="1234";
+  const ADMIN_SYNC_PATH="memberList/admin";
+  const FIREBASE_CONFIG_FOR_ADMIN = {
+    apiKey: "AIzaSyA2a9PQsxUDdExsVWsXHlJoDCHmIPFu1Ec",
+    authDomain: "membel-list.firebaseapp.com",
+    databaseURL: "https://membel-list-default-rtdb.firebaseio.com",
+    projectId: "membel-list",
+    storageBucket: "membel-list.firebasestorage.app",
+    messagingSenderId: "628411800641",
+    appId: "1:628411800641:web:5d188f9f3c6c285f81bac0"
+  };
   const $=(id)=>document.getElementById(id);
+  let adminDb=null;
+  let adminRef=null;
+  let remotePasswordHash="";
+  let remoteRecoveryHash="";
+  let adminFirebaseReady=false;
+
+  function setAdminStatus(msg,isOk=true){
+    const msgBox=$("adminGateMsg");
+    if(msgBox && !document.body.classList.contains("unlocked")){
+      msgBox.textContent=msg;
+      msgBox.style.color=isOk?"#0b7a28":"#c00";
+    }
+    const realtime=document.getElementById("realtimeStatusBox");
+    if(realtime && msg){
+      realtime.textContent=msg;
+      realtime.classList.toggle("off",!isOk);
+    }
+  }
 
   async function sha256(text){
     if(window.crypto && crypto.subtle){
@@ -726,18 +755,112 @@ body.unlocked #adminGate{display:none!important;}
     return [part(),part(),part(),part()].join("-");
   }
 
-  async function ensureDefaultPassword(){
+  async function defaultHash(){
+    return await sha256(DEFAULT_PASSWORD);
+  }
+
+  async function ensureLocalDefaultPassword(){
     if(!localStorage.getItem(PASS_KEY)){
-      localStorage.setItem(PASS_KEY,await sha256(DEFAULT_PASSWORD));
+      localStorage.setItem(PASS_KEY,await defaultHash());
     }
   }
 
+  async function initAdminFirebase(){
+    try{
+      if(!window.firebase){
+        await ensureLocalDefaultPassword();
+        setAdminStatus("Firebase SDK 로딩 대기",false);
+        return;
+      }
+      const app=firebase.apps && firebase.apps.length
+        ? firebase.apps[0]
+        : firebase.initializeApp(FIREBASE_CONFIG_FOR_ADMIN);
+      adminDb=firebase.database(app);
+      adminRef=adminDb.ref(ADMIN_SYNC_PATH);
+      adminFirebaseReady=true;
+
+      adminRef.on("value",async (snap)=>{
+        const value=snap.val();
+        if(!value || !value.passwordHash){
+          const localHash=localStorage.getItem(PASS_KEY) || await defaultHash();
+          const payload={
+            passwordHash:localHash,
+            recoveryHash:localStorage.getItem(RECOVERY_KEY)||"",
+            updatedAt:Date.now(),
+            updatedAtISO:new Date().toISOString()
+          };
+          adminRef.set(payload).then(()=>{
+            remotePasswordHash=payload.passwordHash;
+            remoteRecoveryHash=payload.recoveryHash||"";
+            localStorage.setItem(PASS_KEY,remotePasswordHash);
+            if(remoteRecoveryHash)localStorage.setItem(RECOVERY_KEY,remoteRecoveryHash);
+            setAdminStatus("관리자 비밀번호 동기화 생성 완료",true);
+          }).catch((error)=>{
+            console.error("admin password initial sync failed",error);
+            setAdminStatus("비밀번호 동기화 생성 실패: "+(error&&error.code?error.code:"오류"),false);
+          });
+          return;
+        }
+
+        remotePasswordHash=value.passwordHash||"";
+        remoteRecoveryHash=value.recoveryHash||"";
+        if(remotePasswordHash)localStorage.setItem(PASS_KEY,remotePasswordHash);
+        if(remoteRecoveryHash)localStorage.setItem(RECOVERY_KEY,remoteRecoveryHash);
+        else localStorage.removeItem(RECOVERY_KEY);
+        setAdminStatus("관리자 비밀번호 동기화 완료",true);
+      },(error)=>{
+        console.error("admin password sync read failed",error);
+        ensureLocalDefaultPassword();
+        setAdminStatus("비밀번호 동기화 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
+      });
+    }catch(error){
+      console.error("admin firebase init failed",error);
+      await ensureLocalDefaultPassword();
+      setAdminStatus("비밀번호 동기화 연결 실패: "+(error&&error.message?error.message:"오류"),false);
+    }
+  }
+
+  async function saveAdminHashesToFirebase(passwordHash,recoveryHash){
+    localStorage.setItem(PASS_KEY,passwordHash);
+    if(recoveryHash)localStorage.setItem(RECOVERY_KEY,recoveryHash);
+    else localStorage.removeItem(RECOVERY_KEY);
+
+    remotePasswordHash=passwordHash;
+    remoteRecoveryHash=recoveryHash||"";
+
+    if(!adminFirebaseReady||!adminRef){
+      setAdminStatus("Firebase 미연결 - 현재 기기에만 저장",false);
+      return false;
+    }
+
+    try{
+      await adminRef.update({
+        passwordHash,
+        recoveryHash:recoveryHash||"",
+        updatedAt:Date.now(),
+        updatedAtISO:new Date().toISOString()
+      });
+      setAdminStatus("관리자 비밀번호 Firebase 동기화 완료",true);
+      return true;
+    }catch(error){
+      console.error("admin password sync write failed",error);
+      setAdminStatus("비밀번호 동기화 저장 실패: "+(error&&error.code?error.code:"오류"),false);
+      return false;
+    }
+  }
+
+  async function getCurrentPasswordHash(){
+    await ensureLocalDefaultPassword();
+    return remotePasswordHash || localStorage.getItem(PASS_KEY) || await defaultHash();
+  }
+
   async function unlockWithPassword(){
-    await ensureDefaultPassword();
+    await ensureLocalDefaultPassword();
     const input=$("adminPasswordInput");
     const msg=$("adminGateMsg");
     const value=(input&&input.value||"").trim();
-    const saved=localStorage.getItem(PASS_KEY);
+    const saved=await getCurrentPasswordHash();
+
     if(await sha256(value)===saved){
       document.body.classList.remove("locked");
       document.body.classList.add("unlocked");
@@ -745,7 +868,10 @@ body.unlocked #adminGate{display:none!important;}
       if(msg)msg.textContent="";
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
     }else{
-      if(msg)msg.textContent="비밀번호가 맞지 않습니다.";
+      if(msg){
+        msg.textContent="비밀번호가 맞지 않습니다.";
+        msg.style.color="#c00";
+      }
       if(input){input.select();input.focus();}
     }
   }
@@ -760,8 +886,8 @@ body.unlocked #adminGate{display:none!important;}
   async function changePassword(){
     const oldPw=prompt("현재 비밀번호를 입력하세요.");
     if(oldPw===null)return;
-    await ensureDefaultPassword();
-    if(await sha256(oldPw.trim())!==localStorage.getItem(PASS_KEY)){
+    const currentHash=await getCurrentPasswordHash();
+    if(await sha256(oldPw.trim())!==currentHash){
       alert("현재 비밀번호가 맞지 않습니다.");
       return;
     }
@@ -777,20 +903,27 @@ body.unlocked #adminGate{display:none!important;}
       alert("새 비밀번호가 서로 다릅니다.");
       return;
     }
-    localStorage.setItem(PASS_KEY,await sha256(next.trim()));
-    alert("비밀번호가 변경되었습니다.");
+    const newHash=await sha256(next.trim());
+    await saveAdminHashesToFirebase(newHash,remoteRecoveryHash||localStorage.getItem(RECOVERY_KEY)||"");
+    alert("비밀번호가 변경되고 Firebase에 동기화되었습니다.");
   }
 
   async function createRecoveryCode(){
     const code=makeRecoveryCode();
-    localStorage.setItem(RECOVERY_KEY,await sha256(code));
-    alert("복구코드가 생성되었습니다.\n\n"+code+"\n\n이 코드는 지금만 확인 가능합니다. 반드시 따로 보관하세요.");
+    const hash=await sha256(code);
+    const currentHash=await getCurrentPasswordHash();
+    await saveAdminHashesToFirebase(currentHash,hash);
+    alert("복구코드가 생성되고 Firebase에 동기화되었습니다.
+
+"+code+"
+
+이 코드는 지금만 확인 가능합니다. 반드시 따로 보관하세요.");
   }
 
   async function resetPassword(){
     const code=prompt("복구코드를 입력하세요.");
     if(code===null)return;
-    const saved=localStorage.getItem(RECOVERY_KEY);
+    const saved=remoteRecoveryHash||localStorage.getItem(RECOVERY_KEY)||"";
     if(!saved){
       alert("생성된 복구코드가 없습니다. 관리자 로그인 후 복구코드를 먼저 생성하세요.");
       return;
@@ -799,9 +932,8 @@ body.unlocked #adminGate{display:none!important;}
       alert("복구코드가 맞지 않습니다.");
       return;
     }
-    localStorage.setItem(PASS_KEY,await sha256(DEFAULT_PASSWORD));
-    localStorage.removeItem(RECOVERY_KEY);
-    alert("비밀번호가 1234로 초기화되었습니다.");
+    await saveAdminHashesToFirebase(await defaultHash(),"");
+    alert("비밀번호가 1234로 초기화되고 Firebase에 동기화되었습니다.");
   }
 
   function bindAdmin(){
@@ -821,7 +953,9 @@ body.unlocked #adminGate{display:none!important;}
     if(changeBtn)changeBtn.onclick=changePassword;
     if(recoveryBtn)recoveryBtn.onclick=createRecoveryCode;
     if(resetBtn)resetBtn.onclick=resetPassword;
-    ensureDefaultPassword();
+
+    ensureLocalDefaultPassword();
+    initAdminFirebase();
   }
 
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAdmin);
