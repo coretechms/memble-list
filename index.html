@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
-<title>회원명부_Firebase등록_완성</title>
+<title>회원명부_최종</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f5f6f8;font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;color:#111;overflow:auto}body{padding:8px}.app{width:100%;min-width:0;max-width:100vw;margin:0 auto}.toolbar{position:relative;z-index:1;display:flex;gap:5px;align-items:center;flex-wrap:wrap;width:100%;padding:6px;margin-bottom:6px;background:rgba(255,255,255,.97);border:1px solid #cfd4dc;box-shadow:0 2px 8px rgba(0,0,0,.08)}.toolbar button,.toolbar input{height:32px;border:1px solid #999;border-radius:4px;background:#fff;font-family:inherit;font-size:12px}.toolbar button{padding:0 8px;cursor:pointer;background:#f4f4f4}.toolbar button.primary{background:#1737c9;color:#fff;border-color:#1737c9}.toolbar input{padding:0 8px;min-width:120px}.total-box{height:32px;display:inline-flex;align-items:center;padding:0 8px;border:1px solid #999;border-radius:4px;background:#ffff00;font-size:12px;font-weight:700;white-space:nowrap}.status{font-size:12px;color:#0b7a28;margin-left:1px;white-space:nowrap}.table-wrap{width:100%;max-width:100%;overflow:hidden;border:1px solid #222;background:#fff}.scale-stage{transform-origin:top left;will-change:transform}table.member-table{border-collapse:collapse;table-layout:auto;width:max-content;min-width:0;background:#fff;font-size:12px}.member-table col{min-width:45px}.member-table td,.member-table th{border:1px dotted #555;min-height:24px;height:26px;padding:3px .6em;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;outline:none;background-clip:padding-box;font-size:12px}.member-table th.header-cell{position:static;background:#d9d9d9!important;font-weight:700}.member-table td:focus,.member-table th:focus,.selected-cell{outline:2px solid #1737c9!important;outline-offset:-2px}tr.hidden-by-search{display:none!important}.search-label,.search-input-cell{background:#ffff00!important;font-weight:700!important}.hint{font-size:12px;color:#555;margin-top:6px}.found-row td{background:#fff5b8!important}.toolbar,.member-table th.header-cell{top:auto!important}
 @media(max-width:480px){body{padding:5px}.toolbar button{flex:1 1 calc(33.333% - 6px)}.toolbar input{flex:1 1 calc(50% - 6px)}}@media print{body{padding:0;background:#fff}.toolbar,.hint{display:none!important}.table-wrap{overflow:visible;border:none}.scale-stage{transform:none!important}.member-table th.header-cell{position:static}}
@@ -63,19 +63,101 @@
 .autocomplete-item.active,.autocomplete-item:hover{background:#eef2ff;color:#1737c9;font-weight:700;}
 @media print{.autocomplete-box{display:none!important}}
 
+/* 관리자 비밀번호 진입 화면 */
+#adminGate{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background:#f5f6f8;
+}
+.admin-card{
+  width:min(360px,94vw);
+  background:#fff;
+  border:1px solid #cfd4dc;
+  border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+  padding:18px;
+  text-align:center;
+}
+.admin-card h1{margin:0 0 14px;font-size:18px;}
+.admin-card input{
+  width:100%;
+  height:38px;
+  border:1px solid #999;
+  border-radius:5px;
+  padding:0 10px;
+  font-size:14px;
+  text-align:center;
+}
+.admin-card .admin-row{
+  display:flex;
+  gap:6px;
+  margin-top:8px;
+}
+.admin-card button,.admin-tools button{
+  height:32px;
+  border:1px solid #999;
+  border-radius:4px;
+  background:#f4f4f4;
+  font-family:inherit;
+  font-size:12px;
+  padding:0 8px;
+  cursor:pointer;
+}
+.admin-card button.primary{
+  background:#1737c9;
+  color:#fff;
+  border-color:#1737c9;
+  flex:1;
+}
+.admin-card .admin-msg{
+  min-height:18px;
+  margin-top:8px;
+  font-size:12px;
+  color:#c00;
+}
+.admin-tools{
+  display:inline-flex;
+  gap:5px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+body.locked .app{display:none!important;}
+body.unlocked #adminGate{display:none!important;}
+
 </style>
 </head>
-<body>
+<body class="locked">
+
+<div id="adminGate">
+  <div class="admin-card">
+    <h1>관리자 비밀번호</h1>
+    <input id="adminPasswordInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="비밀번호 입력">
+    <div class="admin-row">
+      <button type="button" class="primary" id="adminLoginBtn">확인</button>
+    </div>
+    <div class="admin-row">
+      <button type="button" id="adminResetPasswordBtn">비밀번호 초기화</button>
+    </div>
+    <div class="admin-msg" id="adminGateMsg"></div>
+  </div>
+</div>
+
 <div class="app">
   <div class="toolbar">
     <span class="total-box" id="totalBox">총회원수: <b id="totalCount">0</b></span>
+    <span class="admin-tools">
+      <button type="button" id="adminLogoutBtn">로그아웃</button>
+      <button type="button" id="adminChangePasswordBtn">비번변경</button>
+      <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
+    </span>
+
     <button type="button" id="resetBtn">초기화</button>
     <button type="button" id="dataBackupBtn">데이터백업</button>
     <button type="button" id="dataRestoreBtn">데이터복구</button>
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
-    <button type="button" id="firebaseConfigBtn">Firebase설정</button>
-    <button type="button" id="firebaseUploadBtn" class="primary">Firebase등록</button>
-    <button type="button" id="firebaseDownloadBtn">Firebase불러오기</button>
     <button type="button" id="addRowBtn">선택행 아래 추가</button>
     <button type="button" id="delRowBtn">선택행 삭제</button>
     <button type="button" id="addColBtn">선택칸 오른쪽 칸 추가</button>
@@ -87,11 +169,9 @@
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. 파일 내부에는 회원 데이터가 저장되지 않습니다. 데이터복구 버튼으로 JSON 백업 파일을 불러오세요. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다. Firebase설정 후 Firebase등록 버튼을 누르면 현재 회원명부가 Firebase Realtime Database에 등록됩니다.</div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. 파일 내부에는 회원 데이터가 저장되지 않습니다. 데이터복구 버튼으로 JSON 백업 파일을 불러오세요. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
 </div>
 <script id="initialData" type="application/json"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
 (function(){
   const STORAGE_KEY="memberList.htmlForm.v3.safe";
@@ -369,88 +449,6 @@
     };
     reader.readAsText(file,"utf-8");
   }
-
-  const firebaseConfig = {
-  apiKey: "AIzaSyA2a9PQsxUDdExsVWsXHlJoDCHmIPFu1Ec",
-  authDomain: "membel-list.firebaseapp.com",
-  projectId: "membel-list",
-  storageBucket: "membel-list.firebasestorage.app",
-  messagingSenderId: "628411800641",
-  appId: "1:628411800641:web:5d188f9f3c6c285f81bac0"
-};
-  function getFirebasePath(){return localStorage.getItem(FIREBASE_PATH_KEY)||DEFAULT_FIREBASE_PATH;}
-  function saveFirebaseSettings(config,path){
-    localStorage.setItem(FIREBASE_CONFIG_KEY,JSON.stringify(config));
-    localStorage.setItem(FIREBASE_PATH_KEY,String(path||DEFAULT_FIREBASE_PATH).replace(/^\/+|\/+$/g,""));
-  }
-  function inputFirebaseConfig(){
-    const current=getSavedFirebaseConfig();
-    const guide='Firebase 설정 JSON을 붙여넣으세요.\n\n예) {"apiKey":"...","authDomain":"...","databaseURL":"https://...firebaseio.com","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}';
-    const raw=prompt(guide,current?JSON.stringify(current,null,2):'');
-    if(raw===null)return;
-    let config;
-    try{config=JSON.parse(raw)}catch(e){alert('Firebase 설정 JSON 형식이 올바르지 않습니다.');return;}
-    if(!config.apiKey||!config.databaseURL||!config.projectId){alert('apiKey, databaseURL, projectId 값이 필요합니다.');return;}
-    const path=prompt('저장 경로를 입력하세요.',getFirebasePath())||DEFAULT_FIREBASE_PATH;
-    saveFirebaseSettings(config,path);
-    firebaseAppInstance=null;
-    setStatus('Firebase 설정 저장 완료');
-  }
-  function ensureFirebaseReady(){
-    if(!window.firebase)throw new Error('Firebase SDK를 불러오지 못했습니다. 인터넷 연결을 확인하세요.');
-    const config=getSavedFirebaseConfig();
-    if(!config)throw new Error('Firebase설정을 먼저 입력하세요.');
-    if(firebaseAppInstance)return firebaseAppInstance;
-    const appName='member-list-app';
-    const existing=firebase.apps.find(app=>app.name===appName);
-    firebaseAppInstance=existing||firebase.initializeApp(config,appName);
-    return firebaseAppInstance;
-  }
-  function firebasePayload(){
-    const data=collectData();
-    return {
-      type:'member-list-table-data',
-      version:'firebase-1.0',
-      savedAt:new Date().toISOString(),
-      totalCount:Number(document.getElementById('totalCount')?.textContent||0),
-      data
-    };
-  }
-  async function uploadToFirebase(){
-    try{
-      sortRowsByNameAsc();
-      refreshHeaderFiltersSoon();
-      saveToAllKeys(collectData());
-      ensureFirebaseReady();
-      const path=getFirebasePath();
-      await firebase.database().ref(path).set(firebasePayload());
-      setStatus('Firebase 등록 완료');
-      alert('Firebase 등록 완료\n경로: '+path);
-    }catch(e){
-      alert(e.message||'Firebase 등록 중 오류가 발생했습니다.');
-      setStatus('Firebase 등록 실패');
-    }
-  }
-  async function downloadFromFirebase(){
-    try{
-      ensureFirebaseReady();
-      const path=getFirebasePath();
-      const snap=await firebase.database().ref(path).get();
-      if(!snap.exists()){alert('Firebase 경로에 저장된 데이터가 없습니다.\n경로: '+path);return;}
-      const value=snap.val();
-      const raw=value&&value.data?value.data:value;
-      const data=normalizeData(raw);
-      if(!data){alert('Firebase 데이터 형식이 회원명부와 맞지 않습니다.');return;}
-      applyData(data);
-      setupHeaderFilters();
-      saveToAllKeys(collectData());
-      setStatus('Firebase 불러오기 완료');
-    }catch(e){
-      alert(e.message||'Firebase 불러오기 중 오류가 발생했습니다.');
-      setStatus('Firebase 불러오기 실패');
-    }
-  }
-
   function setCaretToEnd(el){
     try{
       el.focus();
@@ -540,7 +538,7 @@
     if(c)showAutocomplete(c);
   },true);
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
-  document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]); document.getElementById("firebaseConfigBtn").onclick=inputFirebaseConfig; document.getElementById("firebaseUploadBtn").onclick=uploadToFirebase; document.getElementById("firebaseDownloadBtn").onclick=downloadFromFirebase; document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
+  document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter").forEach(sel=>{sel.value="";sel.closest("th")?.classList.remove("filter-active")}); search()};
   document.addEventListener("click",e=>{if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();});
   tableWrap.addEventListener("scroll",hideAutocomplete);
@@ -549,5 +547,133 @@
   setStatus("백업 파일로 데이터복구 하세요");
 })();
 </script>
+
+<script>
+(function(){
+  const PASS_KEY="memberList.admin.passwordHash.v1";
+  const RECOVERY_KEY="memberList.admin.recoveryHash.v1";
+  const DEFAULT_PASSWORD="1234";
+  const $=(id)=>document.getElementById(id);
+
+  async function sha256(text){
+    if(window.crypto && crypto.subtle){
+      const data=new TextEncoder().encode(String(text));
+      const hash=await crypto.subtle.digest("SHA-256",data);
+      return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,"0")).join("");
+    }
+    let h=0,s=String(text);
+    for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}
+    return "fallback-"+String(h);
+  }
+
+  function makeRecoveryCode(){
+    const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const part=()=>Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
+    return [part(),part(),part(),part()].join("-");
+  }
+
+  async function ensureDefaultPassword(){
+    if(!localStorage.getItem(PASS_KEY)){
+      localStorage.setItem(PASS_KEY,await sha256(DEFAULT_PASSWORD));
+    }
+  }
+
+  async function unlockWithPassword(){
+    await ensureDefaultPassword();
+    const input=$("adminPasswordInput");
+    const msg=$("adminGateMsg");
+    const value=(input&&input.value||"").trim();
+    const saved=localStorage.getItem(PASS_KEY);
+    if(await sha256(value)===saved){
+      document.body.classList.remove("locked");
+      document.body.classList.add("unlocked");
+      if(input)input.value="";
+      if(msg)msg.textContent="";
+      setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
+    }else{
+      if(msg)msg.textContent="비밀번호가 맞지 않습니다.";
+      if(input){input.select();input.focus();}
+    }
+  }
+
+  function logout(){
+    document.body.classList.remove("unlocked");
+    document.body.classList.add("locked");
+    const input=$("adminPasswordInput");
+    if(input)setTimeout(()=>input.focus(),50);
+  }
+
+  async function changePassword(){
+    const oldPw=prompt("현재 비밀번호를 입력하세요.");
+    if(oldPw===null)return;
+    await ensureDefaultPassword();
+    if(await sha256(oldPw.trim())!==localStorage.getItem(PASS_KEY)){
+      alert("현재 비밀번호가 맞지 않습니다.");
+      return;
+    }
+    const next=prompt("새 비밀번호를 입력하세요.");
+    if(next===null)return;
+    if(!next.trim()){
+      alert("새 비밀번호가 비어 있습니다.");
+      return;
+    }
+    const again=prompt("새 비밀번호를 다시 입력하세요.");
+    if(again===null)return;
+    if(next.trim()!==again.trim()){
+      alert("새 비밀번호가 서로 다릅니다.");
+      return;
+    }
+    localStorage.setItem(PASS_KEY,await sha256(next.trim()));
+    alert("비밀번호가 변경되었습니다.");
+  }
+
+  async function createRecoveryCode(){
+    const code=makeRecoveryCode();
+    localStorage.setItem(RECOVERY_KEY,await sha256(code));
+    alert("복구코드가 생성되었습니다.\n\n"+code+"\n\n이 코드는 지금만 확인 가능합니다. 반드시 따로 보관하세요.");
+  }
+
+  async function resetPassword(){
+    const code=prompt("복구코드를 입력하세요.");
+    if(code===null)return;
+    const saved=localStorage.getItem(RECOVERY_KEY);
+    if(!saved){
+      alert("생성된 복구코드가 없습니다. 관리자 로그인 후 복구코드를 먼저 생성하세요.");
+      return;
+    }
+    if(await sha256(code.trim().toUpperCase())!==saved){
+      alert("복구코드가 맞지 않습니다.");
+      return;
+    }
+    localStorage.setItem(PASS_KEY,await sha256(DEFAULT_PASSWORD));
+    localStorage.removeItem(RECOVERY_KEY);
+    alert("비밀번호가 1234로 초기화되었습니다.");
+  }
+
+  function bindAdmin(){
+    const loginBtn=$("adminLoginBtn");
+    const input=$("adminPasswordInput");
+    const logoutBtn=$("adminLogoutBtn");
+    const changeBtn=$("adminChangePasswordBtn");
+    const recoveryBtn=$("adminRecoveryCodeBtn");
+    const resetBtn=$("adminResetPasswordBtn");
+
+    if(loginBtn)loginBtn.onclick=unlockWithPassword;
+    if(input){
+      input.addEventListener("keydown",(e)=>{if(e.key==="Enter")unlockWithPassword();});
+      setTimeout(()=>input.focus(),80);
+    }
+    if(logoutBtn)logoutBtn.onclick=logout;
+    if(changeBtn)changeBtn.onclick=changePassword;
+    if(recoveryBtn)recoveryBtn.onclick=createRecoveryCode;
+    if(resetBtn)resetBtn.onclick=resetPassword;
+    ensureDefaultPassword();
+  }
+
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAdmin);
+  else bindAdmin();
+})();
+</script>
+
 </body>
 </html>
