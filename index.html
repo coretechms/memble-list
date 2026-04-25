@@ -187,7 +187,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. bus-seat와 같은 Firebase DB의 busSeatApp/memberList 및 memberList/main 경로를 동시에 감시합니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. bus-seat와 같은 Firebase DB(bus-set-no1)의 busSeatApp 원본을 직접 실시간으로 읽습니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -210,15 +210,15 @@ body.unlocked #adminGate{display:none!important;}
   ];
 
   /* ===== Firebase Realtime Database 자동 동기화: bus-seat와 같은 DB 사용 ===== */
-  const firebaseConfig = {
-  apiKey: "AIzaSyA2a9PQsxUDdExsVWsXHlJoDCHmIPFu1Ec",
-  authDomain: "membel-list.firebaseapp.com",
-  databaseURL: "https://membel-list-default-rtdb.firebaseio.com",
-  projectId: "membel-list",
-  storageBucket: "membel-list.firebasestorage.app",
-  messagingSenderId: "628411800641",
-  appId: "1:628411800641:web:5d188f9f3c6c285f81bac0"
-};
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyBbN8CF35V00kAQzVCZoZoonXDGKTqPfZA",
+    authDomain: "bus-set-no1.firebaseapp.com",
+    databaseURL: "https://bus-set-no1-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    projectId: "bus-set-no1",
+    storageBucket: "bus-set-no1.firebasestorage.app",
+    messagingSenderId: "744201337161",
+    appId: "1:744201337161:web:a63c6118182a4ed8dd0298"
+  };
   const FIREBASE_ROOT_PATH = "busSeatApp";
   const FIREBASE_MEMBER_CHILD_PATH = "busSeatApp/memberList";
   const FIREBASE_LEGACY_PATH = "memberList/main";
@@ -438,7 +438,7 @@ body.unlocked #adminGate{display:none!important;}
       });
     }catch(error){
       console.error("Firebase init failed",error);
-      setRealtimeStatus("실시간 연결 실패",false);
+      setRealtimeStatus("실시간 연결 실패: "+(error&&error.message?error.message:"오류"),false);
     }
   }
 
