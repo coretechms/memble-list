@@ -171,21 +171,39 @@ body.unlocked #adminGate{display:none!important;}
 
 
 
-/* 모바일 버튼 50% 추가 축소 + 15배 확대 허용 */
-(max-width:480px){
-  body{padding:2px !important;}
-  .toolbar{gap:1px !important;padding:2px !important;margin-bottom:2px !important;align-items:center !important;}
-  .toolbar button,.toolbar input,.total-box,.realtime-box,.admin-card button,.admin-tools button{height:11px !important;min-height:11px !important;font-size:5px !important;line-height:9px !important;border-radius:2px !important;border-width:1px !important;}
-  .toolbar button,.admin-card button,.admin-tools button{flex:0 0 auto !important;width:auto !important;min-width:0 !important;padding:0 2px !important;}
-  .toolbar input{flex:0 1 37px !important;width:37px !important;min-width:32px !important;padding:0 2px !important;}
-  .total-box,.realtime-box{padding:0 2px !important;flex:0 0 auto !important;}
-  .status{font-size:5px !important;}
+/* 모바일 버튼 70% 축소 + 글자 자동 축소 + 15배 확대 허용 */
+@media(max-width:480px){
+  body{padding:1px !important;}
+  .toolbar{gap:1px !important;padding:1px !important;margin-bottom:1px !important;align-items:center !important;}
+  .toolbar button,.toolbar input,.total-box,.realtime-box,.admin-card button,.admin-tools button{
+    height:10px !important;
+    min-height:10px !important;
+    font-size:4px !important;
+    line-height:8px !important;
+    border-radius:1px !important;
+    border-width:1px !important;
+  }
+  .toolbar button,.admin-card button,.admin-tools button{
+    flex:0 0 auto !important;
+    width:auto !important;
+    min-width:0 !important;
+    padding:0 1px !important;
+    white-space:nowrap !important;
+  }
+  .toolbar input{
+    flex:0 1 30px !important;
+    width:30px !important;
+    min-width:28px !important;
+    padding:0 1px !important;
+  }
+  .total-box,.realtime-box{padding:0 1px !important;flex:0 0 auto !important;}
+  .status{font-size:4px !important;line-height:8px !important;}
   .admin-tools{gap:1px !important;}
-  .admin-card{padding:6px !important;}
-  .admin-card h1{font-size:8px !important;margin-bottom:4px !important;}
-  .admin-card input{height:15px !important;font-size:6px !important;padding:0 4px !important;}
-  .admin-card .admin-row{gap:2px !important;margin-top:3px !important;}
-  .hint{font-size:6px !important;margin-top:3px !important;}
+  .admin-card{padding:5px !important;}
+  .admin-card h1{font-size:7px !important;margin-bottom:3px !important;}
+  .admin-card input{height:13px !important;font-size:5px !important;padding:0 2px !important;}
+  .admin-card .admin-row{gap:1px !important;margin-top:2px !important;}
+  .hint{font-size:5px !important;margin-top:2px !important;}
 }
 
 </style>
@@ -209,7 +227,7 @@ body.unlocked #adminGate{display:none!important;}
 <div class="app">
   <div class="toolbar">
     <span class="total-box" id="totalBox">총회원수: <b id="totalCount">0</b></span>
-    <span class="realtime-box off" id="realtimeStatusBox">연결 준비중</span>
+    <span class="realtime-box off" id="realtimeStatusBox">실시간 연결 준비중</span>
     <span class="admin-tools">
       <button type="button" id="adminLogoutBtn">로그아웃</button>
       <button type="button" id="adminChangePasswordBtn">비번변경</button>
@@ -231,7 +249,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">ver1.0</div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. member-list 전용 Firebase(membel-list)의 memberList/main 경로로 실시간 저장/불러오기를 합니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -254,14 +272,15 @@ body.unlocked #adminGate{display:none!important;}
   ];
 
   /* ===== Firebase Realtime Database 자동 동기화: bus-seat와 같은 DB 사용 ===== */
-  const firebaseConfig = {
-  apiKey: "AIzaSyBRxAdYRyjMIcQvCQ2ja7YOkdFGNCkW1cE",
-  authDomain: "member-b458f.firebaseapp.com",
-  projectId: "member-b458f",
-  storageBucket: "member-b458f.firebasestorage.app",
-  messagingSenderId: "399411166551",
-  appId: "1:399411166551:web:3c693da51daaa042751212"
-};
+  const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyA2a9PQsxUDdExsVWsXHlJoDCHmIPFu1Ec",
+    authDomain: "membel-list.firebaseapp.com",
+    databaseURL: "https://membel-list-default-rtdb.firebaseio.com",
+    projectId: "membel-list",
+    storageBucket: "membel-list.firebasestorage.app",
+    messagingSenderId: "628411800641",
+    appId: "1:628411800641:web:5d188f9f3c6c285f81bac0"
+  };
   const FIREBASE_PATH = "memberList/main";
   const FIREBASE_PATHS = [FIREBASE_PATH];
   let firebaseApp = null;
@@ -340,9 +359,9 @@ body.unlocked #adminGate{display:none!important;}
 
       firebaseDb.ref(".info/connected").on("value",(snap)=>{
         if(snap.val()===true){
-          setRealtimeStatus("연결됨",true);
+          setRealtimeStatus("실시간 연결됨",true);
         }else{
-          setRealtimeStatus("연결대기",false);
+          setRealtimeStatus("실시간 연결 대기중",false);
         }
       });
 
@@ -849,7 +868,7 @@ body.unlocked #adminGate{display:none!important;}
       adminRef=adminDb.ref(ADMIN_SYNC_PATH);
       adminReady=true;
       adminDb.ref(".info/connected").on("value",snap=>{
-        if(snap.val()===true)setRealtimeBoxMsg("연결됨",true);
+        if(snap.val()===true)setRealtimeBoxMsg("실시간 연결됨",true);
       });
       adminRef.on("value",async snap=>{
         const payload=normalizeAdminPayload(snap.val());
