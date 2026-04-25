@@ -520,6 +520,8 @@ button,
   const statusText=document.getElementById("statusText");
   const autocompleteBox=document.getElementById("autocompleteBox");
   let selectedCell=null;
+  let isCellEditing=false;
+  let pendingRemoteData=null;
   let autocompleteCell=null;
   let autocompleteItems=[];
   let autocompleteIndex=-1;
@@ -607,6 +609,12 @@ button,
         const data=normalizeData(remoteData);
         if(!data){
           setRealtimeStatus("실시간 데이터 형식 오류",false);
+          return;
+        }
+
+        if(isCellEditing){
+          pendingRemoteData=data;
+          setRealtimeStatus("입력중: 원격 동기화 보류",true);
           return;
         }
 
@@ -735,7 +743,18 @@ button,
     return{cols,rows,updatedAt:new Date().toISOString()};
   }
   function saveToAllKeys(data){STORAGE_KEYS.forEach(k=>{try{localStorage.setItem(k,JSON.stringify(data))}catch(e){}})}
-  function autoSave(){clearTimeout(window.__autoSaveTimer);window.__autoSaveTimer=setTimeout(()=>{saveToAllKeys(collectData());setStatus("자동 저장됨");pushRealtimeNow("autosave")},350)}
+  function autoSave(){
+    clearTimeout(window.__autoSaveTimer);
+    window.__autoSaveTimer=setTimeout(()=>{
+      saveToAllKeys(collectData());
+      if(isCellEditing){
+        setStatus("입력중: 동기화 보류");
+        return;
+      }
+      setStatus("자동 저장됨");
+      pushRealtimeNow("autosave");
+    },350);
+  }
   function loadData(){const data=loadBestSaved(); if(!data){setStatus("저장 데이터 없음");return} applyData(data); setStatus("기존 데이터 복구 완료");}
   function resetData(){
     if(!confirm("현재 화면의 회원 데이터를 모두 초기화할까요? JSON 백업 파일은 삭제되지 않습니다."))return;
@@ -837,6 +856,20 @@ button,
   function updateTotalCount(){const nameCol=getHeaderIndexByText("이름",1); let count=0; rowsArray().forEach((row,idx)=>{if(idx>=1&&cellText(row.cells[nameCol]))count++}); const total=document.getElementById("totalCount"); if(total)total.textContent=String(count)}
   function search(){applyAllFilters();}
   function bindSearchCells(){const nameInput=document.getElementById("nameSearch"), nickInput=document.getElementById("nickSearch"); nameInput.oninput=search; nickInput.oninput=search}
+  function isTableCellElement(el){
+    return !!(el && el.closest && el.closest("#memberTable td,#memberTable th"));
+  }
+  function finishCellEditingSoon(){
+    setTimeout(()=>{
+      if(isTableCellElement(document.activeElement))return;
+      if(!isCellEditing)return;
+      isCellEditing=false;
+      pendingRemoteData=null;
+      saveToAllKeys(collectData());
+      setStatus("입력 완료: 동기화 재개");
+      pushRealtimeNow("edit-finished");
+    },180);
+  }
   function addRow(){const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="true";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function deleteRow(){if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); tr.remove(); selectedCell=null; updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function addCol(){const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="true";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
@@ -959,6 +992,17 @@ button,
     return true;
   }
 
+  table.addEventListener("focusin",e=>{
+    const c=e.target.closest&&e.target.closest("td,th");
+    if(!c || c.tagName.toLowerCase()==="th")return;
+    isCellEditing=true;
+    setStatus("입력중: 동기화 보류");
+  },true);
+  table.addEventListener("focusout",e=>{
+    const c=e.target.closest&&e.target.closest("td,th");
+    if(!c)return;
+    finishCellEditingSoon();
+  },true);
   table.addEventListener("click",e=>{const c=e.target.closest("td,th"); if(!c)return; if(selectedCell)selectedCell.classList.remove("selected-cell"); selectedCell=c; c.classList.add("selected-cell")});
   table.addEventListener("keydown",e=>{
     if(autocompleteBox.style.display!=="none"&&autocompleteItems.length){
