@@ -230,6 +230,40 @@ body.unlocked #adminGate{display:none!important;}
   }
 }
 
+
+
+/* 관리자 비밀번호 박스 내부 버튼만 50% 축소 + 1열 배열 */
+.admin-card .admin-row{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:4px !important;
+  margin-top:6px !important;
+}
+.admin-card .admin-row button{
+  width:100% !important;
+  height:27px !important;
+  min-height:27px !important;
+  font-size:10px !important;
+  line-height:25px !important;
+  padding:0 6px !important;
+  border-radius:4px !important;
+  white-space:nowrap !important;
+}
+.admin-card button.primary{flex:none !important;}
+(max-width:480px){
+  .admin-card .admin-row{gap:1px !important;margin-top:2px !important;}
+  .admin-card .admin-row button{
+    width:100% !important;
+    height:9px !important;
+    min-height:9px !important;
+    font-size:4px !important;
+    line-height:7px !important;
+    padding:0 1px !important;
+    border-radius:1px !important;
+    white-space:nowrap !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -273,7 +307,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">ver,1,5</div>
+  <div class="hint"></div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
