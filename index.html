@@ -187,7 +187,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. bus-seat와 같은 Firebase DB(bus-set-no1)의 busSeatApp 원본을 직접 실시간으로 읽습니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. member-list 전용 Firebase(membel-list)의 memberList/main 경로로 실시간 동기화됩니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -211,18 +211,16 @@ body.unlocked #adminGate{display:none!important;}
 
   /* ===== Firebase Realtime Database 자동 동기화: bus-seat와 같은 DB 사용 ===== */
   const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyBbN8CF35V00kAQzVCZoZoonXDGKTqPfZA",
-    authDomain: "bus-set-no1.firebaseapp.com",
-    databaseURL: "https://bus-set-no1-default-rtdb.asia-southeast1.firebasedatabase.app/",
-    projectId: "bus-set-no1",
-    storageBucket: "bus-set-no1.firebasestorage.app",
-    messagingSenderId: "744201337161",
-    appId: "1:744201337161:web:a63c6118182a4ed8dd0298"
+    apiKey: "AIzaSyA2a9PQsxUDdExsVWsXHlJoDCHmIPFu1Ec",
+    authDomain: "membel-list.firebaseapp.com",
+    databaseURL: "https://membel-list-default-rtdb.firebaseio.com",
+    projectId: "membel-list",
+    storageBucket: "membel-list.firebasestorage.app",
+    messagingSenderId: "628411800641",
+    appId: "1:628411800641:web:5d188f9f3c6c285f81bac0"
   };
-  const FIREBASE_ROOT_PATH = "busSeatApp";
-  const FIREBASE_MEMBER_CHILD_PATH = "busSeatApp/memberList";
-  const FIREBASE_LEGACY_PATH = "memberList/main";
-  const FIREBASE_PATHS = [FIREBASE_MEMBER_CHILD_PATH, FIREBASE_LEGACY_PATH];
+  const FIREBASE_PATH = "memberList/main";
+  const FIREBASE_PATHS = [FIREBASE_PATH];
   let firebaseApp = null;
   let firebaseDb = null;
   let firebaseRef = null;
@@ -396,45 +394,32 @@ body.unlocked #adminGate{display:none!important;}
         ? firebase.apps[0]
         : firebase.initializeApp(FIREBASE_CONFIG);
       firebaseDb = firebase.database(firebaseApp);
-      firebaseRef = firebaseDb.ref(FIREBASE_MEMBER_CHILD_PATH);
+      firebaseRef = firebaseDb.ref(FIREBASE_PATH);
       firebaseReady = true;
       setRealtimeStatus("실시간 연결중",true);
 
-      let latestRemoteUpdatedAt = 0;
-      const watchPaths=[FIREBASE_ROOT_PATH, FIREBASE_MEMBER_CHILD_PATH, FIREBASE_LEGACY_PATH];
+      firebaseRef.on("value",(snap)=>{
+        if(!snap.exists()){
+          setRealtimeStatus("실시간 연결됨 / 데이터 없음",true);
+          return;
+        }
 
-      watchPaths.forEach((path)=>{
-        firebaseDb.ref(path).on("value",(snap)=>{
-          if(!snap.exists()){
-            setRealtimeStatus("실시간 연결됨 / 데이터 없음: "+path,true);
-            return;
-          }
+        const value=snap.val();
+        const remoteData=value&&value.data?value.data:value;
+        const data=normalizeData(remoteData);
+        if(!data){
+          setRealtimeStatus("실시간 데이터 형식 오류",false);
+          return;
+        }
 
-          const extracted=extractMemberListDataFromSnapshotValue(snap.val(),path);
-          if(!extracted){
-            setRealtimeStatus("실시간 데이터 없음: "+path,true);
-            return;
-          }
-
-          const remoteUpdatedAt=Number(extracted.updatedAt||0);
-          if(remoteUpdatedAt && remoteUpdatedAt < latestRemoteUpdatedAt) return;
-          if(remoteUpdatedAt) latestRemoteUpdatedAt=remoteUpdatedAt;
-
-          const data=normalizeData(extracted.data);
-          if(!data){
-            setRealtimeStatus("실시간 데이터 형식 오류: "+extracted.source,false);
-            return;
-          }
-
-          applyingRemoteData=true;
-          applyData(data);
-          saveToAllKeys(collectData());
-          applyingRemoteData=false;
-          setRealtimeStatus("실시간 동기화 완료: "+extracted.source,true);
-        },(error)=>{
-          console.error("Firebase realtime read failed",path,error);
-          setRealtimeStatus("실시간 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
-        });
+        applyingRemoteData=true;
+        applyData(data);
+        saveToAllKeys(collectData());
+        applyingRemoteData=false;
+        setRealtimeStatus("실시간 동기화 완료",true);
+      },(error)=>{
+        console.error("Firebase realtime read failed",error);
+        setRealtimeStatus("실시간 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
       });
     }catch(error){
       console.error("Firebase init failed",error);
