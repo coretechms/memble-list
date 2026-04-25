@@ -187,7 +187,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. 회원명부 데이터는 membel-list의 memberList/main 경로로 실시간 저장/불러오기를 하고, 관리자 비밀번호는 bus-seat Firebase와 동기화됩니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. member-list 전용 Firebase(membel-list)의 memberList/main 경로로 실시간 저장/불러오기를 합니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -707,41 +707,7 @@ body.unlocked #adminGate{display:none!important;}
   const PASS_KEY="memberList.admin.passwordHash.v1";
   const RECOVERY_KEY="memberList.admin.recoveryHash.v1";
   const DEFAULT_PASSWORD="1234";
-  const BUS_SEAT_AUTH_APP_NAME="busSeatAuthApp";
-  const BUS_SEAT_AUTH_PATH="busSeatApp/adminAuth";
-  const BUS_SEAT_ROOT_PATH="busSeatApp";
-
-  // 회원명부 데이터는 membel-list Firebase를 사용하지만,
-  // 관리자 비밀번호는 bus-seat와 동일한 Firebase를 사용해서 동기화합니다.
-  const BUS_SEAT_FIREBASE_CONFIG = {
-    apiKey: "AIzaSyBbN8CF35V00kAQzVCZoZoonXDGKTqPfZA",
-    authDomain: "bus-set-no1.firebaseapp.com",
-    databaseURL: "https://bus-set-no1-default-rtdb.asia-southeast1.firebasedatabase.app/",
-    projectId: "bus-set-no1",
-    storageBucket: "bus-set-no1.firebasestorage.app",
-    messagingSenderId: "744201337161",
-    appId: "1:744201337161:web:a63c6118182a4ed8dd0298"
-  };
-
   const $=(id)=>document.getElementById(id);
-  let busSeatDb=null;
-  let busSeatAuthRef=null;
-  let remotePasswordHash="";
-  let remoteRecoveryHash="";
-  let busSeatAuthReady=false;
-
-  function setAdminMessage(msg,isOk=false){
-    const gateMsg=$("adminGateMsg");
-    if(gateMsg && document.body.classList.contains("locked")){
-      gateMsg.textContent=msg||"";
-      gateMsg.style.color=isOk?"#0b7a28":"#c00";
-    }
-    const box=document.getElementById("realtimeStatusBox");
-    if(box && msg){
-      box.textContent=msg;
-      box.classList.toggle("off",!isOk);
-    }
-  }
 
   async function sha256(text){
     if(window.crypto && crypto.subtle){
@@ -754,193 +720,32 @@ body.unlocked #adminGate{display:none!important;}
     return "fallback-"+String(h);
   }
 
-  async function defaultHash(){
-    return await sha256(DEFAULT_PASSWORD);
-  }
-
   function makeRecoveryCode(){
     const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const part=()=>Array.from({length:4},()=>chars[Math.floor(Math.random()*chars.length)]).join("");
     return [part(),part(),part(),part()].join("-");
   }
 
-  function getNamedFirebaseApp(){
-    if(!window.firebase) return null;
-    try{
-      return firebase.app(BUS_SEAT_AUTH_APP_NAME);
-    }catch(error){
-      return firebase.initializeApp(BUS_SEAT_FIREBASE_CONFIG,BUS_SEAT_AUTH_APP_NAME);
-    }
-  }
-
-  async function ensureLocalDefaultPassword(){
+  async function ensureDefaultPassword(){
     if(!localStorage.getItem(PASS_KEY)){
-      localStorage.setItem(PASS_KEY,await defaultHash());
+      localStorage.setItem(PASS_KEY,await sha256(DEFAULT_PASSWORD));
     }
-  }
-
-  async function initBusSeatPasswordSync(){
-    try{
-      if(!window.firebase){
-        await ensureLocalDefaultPassword();
-        setAdminMessage("Firebase SDK 로딩 실패 - 현재 기기 비밀번호 사용",false);
-        return;
-      }
-
-      const app=getNamedFirebaseApp();
-      if(!app){
-        await ensureLocalDefaultPassword();
-        setAdminMessage("bus-seat Firebase 앱 생성 실패",false);
-        return;
-      }
-
-      busSeatDb=firebase.database(app);
-      busSeatAuthRef=busSeatDb.ref(BUS_SEAT_AUTH_PATH);
-      busSeatAuthReady=true;
-
-      busSeatDb.ref(".info/connected").on("value",(snap)=>{
-        if(snap.val()===true) setAdminMessage("bus-seat 비밀번호 동기화 연결됨",true);
-        else setAdminMessage("bus-seat 비밀번호 동기화 대기중",false);
-      });
-
-      busSeatAuthRef.on("value",async (snap)=>{
-        let value=snap.val();
-
-        // 새 경로가 비어 있으면 예전 bus-seat 루트 해시를 먼저 확인합니다.
-        if(!value || !value.passwordHash){
-          try{
-            const rootSnap=await busSeatDb.ref(BUS_SEAT_ROOT_PATH).once("value");
-            const root=rootSnap.val()||{};
-            const fallbackHash=root?.adminAuth?.passwordHash || root?.adminPasswordHash || "";
-            const fallbackRecovery=root?.adminAuth?.recoveryCodeHash || root?.recoveryCodeHash || "";
-            if(fallbackHash){
-              value={passwordHash:fallbackHash,recoveryCodeHash:fallbackRecovery};
-              await saveHashesToBusSeat(fallbackHash,fallbackRecovery,false);
-            }
-          }catch(error){
-            console.warn("bus-seat root auth fallback read failed",error);
-          }
-        }
-
-        // 그래도 없으면 1234 기본 해시를 bus-seat 경로에 생성합니다.
-        if(!value || !value.passwordHash){
-          const hash=await defaultHash();
-          await saveHashesToBusSeat(hash,"",false);
-          remotePasswordHash=hash;
-          remoteRecoveryHash="";
-          localStorage.setItem(PASS_KEY,hash);
-          localStorage.removeItem(RECOVERY_KEY);
-          setAdminMessage("bus-seat 기본 비밀번호 1234 생성 완료",true);
-          return;
-        }
-
-        remotePasswordHash=value.passwordHash||"";
-        remoteRecoveryHash=value.recoveryCodeHash||"";
-
-        if(remotePasswordHash)localStorage.setItem(PASS_KEY,remotePasswordHash);
-        if(remoteRecoveryHash)localStorage.setItem(RECOVERY_KEY,remoteRecoveryHash);
-        else localStorage.removeItem(RECOVERY_KEY);
-
-        setAdminMessage("bus-seat 비밀번호 동기화 완료",true);
-      },(error)=>{
-        console.error("bus-seat password sync read failed",error);
-        ensureLocalDefaultPassword();
-        setAdminMessage("bus-seat 비밀번호 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
-      });
-    }catch(error){
-      console.error("bus-seat password sync init failed",error);
-      await ensureLocalDefaultPassword();
-      setAdminMessage("bus-seat 비밀번호 연결 실패: "+(error&&error.message?error.message:"오류"),false);
-    }
-  }
-
-  async function saveHashesToBusSeat(passwordHash,recoveryHash,showStatus=true){
-    localStorage.setItem(PASS_KEY,passwordHash);
-    if(recoveryHash)localStorage.setItem(RECOVERY_KEY,recoveryHash);
-    else localStorage.removeItem(RECOVERY_KEY);
-
-    remotePasswordHash=passwordHash;
-    remoteRecoveryHash=recoveryHash||"";
-
-    if(!busSeatAuthReady||!busSeatDb){
-      if(showStatus) setAdminMessage("bus-seat Firebase 미연결 - 현재 기기에만 저장",false);
-      return false;
-    }
-
-    const now=Date.now();
-    try{
-      const updates={};
-      updates[`${BUS_SEAT_AUTH_PATH}/passwordHash`]=passwordHash;
-      updates[`${BUS_SEAT_AUTH_PATH}/recoveryCodeHash`]=recoveryHash||"";
-      updates[`${BUS_SEAT_AUTH_PATH}/updatedAt`]=now;
-      updates[`${BUS_SEAT_AUTH_PATH}/updatedAtISO`]=new Date(now).toISOString();
-
-      // bus-seat 기존 파일들과도 호환되도록 루트 구형 필드도 같이 갱신합니다.
-      updates[`${BUS_SEAT_ROOT_PATH}/adminPasswordHash`]=passwordHash;
-      updates[`${BUS_SEAT_ROOT_PATH}/recoveryCodeHash`]=recoveryHash||"";
-      updates[`${BUS_SEAT_ROOT_PATH}/meta/updatedAt`]=now;
-
-      await busSeatDb.ref().update(updates);
-      if(showStatus) setAdminMessage("bus-seat 비밀번호 Firebase 동기화 완료",true);
-      return true;
-    }catch(error){
-      console.error("bus-seat password sync write failed",error);
-      if(showStatus) setAdminMessage("bus-seat 비밀번호 저장 실패: "+(error&&error.code?error.code:"오류"),false);
-      return false;
-    }
-  }
-
-  async function getCurrentPasswordHash(){
-    if(busSeatAuthReady&&busSeatDb){
-      try{
-        const snap=await busSeatDb.ref(BUS_SEAT_AUTH_PATH).once("value");
-        const value=snap.val();
-        if(value?.passwordHash){
-          remotePasswordHash=value.passwordHash;
-          localStorage.setItem(PASS_KEY,remotePasswordHash);
-          return remotePasswordHash;
-        }
-
-        const rootSnap=await busSeatDb.ref(BUS_SEAT_ROOT_PATH).once("value");
-        const root=rootSnap.val()||{};
-        const fallbackHash=root?.adminAuth?.passwordHash || root?.adminPasswordHash || "";
-        if(fallbackHash){
-          remotePasswordHash=fallbackHash;
-          localStorage.setItem(PASS_KEY,remotePasswordHash);
-          return remotePasswordHash;
-        }
-      }catch(error){
-        console.warn("bus-seat password remote get failed",error);
-      }
-    }
-
-    await ensureLocalDefaultPassword();
-    return remotePasswordHash || localStorage.getItem(PASS_KEY) || await defaultHash();
   }
 
   async function unlockWithPassword(){
+    await ensureDefaultPassword();
     const input=$("adminPasswordInput");
     const msg=$("adminGateMsg");
     const value=(input&&input.value||"").trim();
-    if(!value){
-      if(msg){msg.textContent="비밀번호를 입력하세요.";msg.style.color="#c00";}
-      return;
-    }
-
-    const saved=await getCurrentPasswordHash();
-    const typed=await sha256(value);
-
-    if(typed===saved){
+    const saved=localStorage.getItem(PASS_KEY);
+    if(await sha256(value)===saved){
       document.body.classList.remove("locked");
       document.body.classList.add("unlocked");
       if(input)input.value="";
       if(msg)msg.textContent="";
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
     }else{
-      if(msg){
-        msg.textContent="비밀번호가 맞지 않습니다.";
-        msg.style.color="#c00";
-      }
+      if(msg)msg.textContent="비밀번호가 맞지 않습니다.";
       if(input){input.select();input.focus();}
     }
   }
@@ -955,12 +760,11 @@ body.unlocked #adminGate{display:none!important;}
   async function changePassword(){
     const oldPw=prompt("현재 비밀번호를 입력하세요.");
     if(oldPw===null)return;
-    const currentHash=await getCurrentPasswordHash();
-    if(await sha256(oldPw.trim())!==currentHash){
+    await ensureDefaultPassword();
+    if(await sha256(oldPw.trim())!==localStorage.getItem(PASS_KEY)){
       alert("현재 비밀번호가 맞지 않습니다.");
       return;
     }
-
     const next=prompt("새 비밀번호를 입력하세요.");
     if(next===null)return;
     if(!next.trim()){
@@ -973,43 +777,31 @@ body.unlocked #adminGate{display:none!important;}
       alert("새 비밀번호가 서로 다릅니다.");
       return;
     }
-
-    const newHash=await sha256(next.trim());
-    const ok=await saveHashesToBusSeat(newHash,remoteRecoveryHash||localStorage.getItem(RECOVERY_KEY)||"");
-    alert(ok ? "비밀번호가 변경되고 bus-seat와 동기화되었습니다." : "비밀번호는 현재 기기에 저장되었지만 bus-seat 동기화에 실패했습니다.");
+    localStorage.setItem(PASS_KEY,await sha256(next.trim()));
+    alert("비밀번호가 변경되었습니다.");
   }
 
   async function createRecoveryCode(){
     const code=makeRecoveryCode();
-    const recoveryHash=await sha256(code);
-    const currentHash=await getCurrentPasswordHash();
-    const ok=await saveHashesToBusSeat(currentHash,recoveryHash);
-    alert((ok ? "복구코드가 생성되고 bus-seat와 동기화되었습니다." : "복구코드는 현재 기기에 저장되었지만 bus-seat 동기화에 실패했습니다.")+
-      "
-
-"+code+"
-
-이 코드는 지금만 확인 가능합니다. 반드시 따로 보관하세요.");
+    localStorage.setItem(RECOVERY_KEY,await sha256(code));
+    alert("복구코드가 생성되었습니다.\n\n"+code+"\n\n이 코드는 지금만 확인 가능합니다. 반드시 따로 보관하세요.");
   }
 
   async function resetPassword(){
     const code=prompt("복구코드를 입력하세요.");
     if(code===null)return;
-
-    const saved=remoteRecoveryHash||localStorage.getItem(RECOVERY_KEY)||"";
+    const saved=localStorage.getItem(RECOVERY_KEY);
     if(!saved){
       alert("생성된 복구코드가 없습니다. 관리자 로그인 후 복구코드를 먼저 생성하세요.");
       return;
     }
-
     if(await sha256(code.trim().toUpperCase())!==saved){
       alert("복구코드가 맞지 않습니다.");
       return;
     }
-
-    const hash=await defaultHash();
-    const ok=await saveHashesToBusSeat(hash,"");
-    alert(ok ? "비밀번호가 1234로 초기화되고 bus-seat와 동기화되었습니다." : "비밀번호가 현재 기기에서만 1234로 초기화되었습니다.");
+    localStorage.setItem(PASS_KEY,await sha256(DEFAULT_PASSWORD));
+    localStorage.removeItem(RECOVERY_KEY);
+    alert("비밀번호가 1234로 초기화되었습니다.");
   }
 
   function bindAdmin(){
@@ -1029,9 +821,7 @@ body.unlocked #adminGate{display:none!important;}
     if(changeBtn)changeBtn.onclick=changePassword;
     if(recoveryBtn)recoveryBtn.onclick=createRecoveryCode;
     if(resetBtn)resetBtn.onclick=resetPassword;
-
-    ensureLocalDefaultPassword();
-    initBusSeatPasswordSync();
+    ensureDefaultPassword();
   }
 
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAdmin);
