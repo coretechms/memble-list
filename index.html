@@ -171,56 +171,21 @@ body.unlocked #adminGate{display:none!important;}
 
 
 
-/* 모바일 버튼 최소화 + 15배 확대 허용 */
-@media(max-width:480px){
-  body{padding:3px !important;}
-  .toolbar{
-    gap:2px !important;
-    padding:3px !important;
-    margin-bottom:3px !important;
-    align-items:center !important;
-  }
-  .toolbar button,
-  .toolbar input,
-  .total-box,
-  .realtime-box{
-    height:22px !important;
-    min-height:22px !important;
-    font-size:10px !important;
-    line-height:20px !important;
-    border-radius:3px !important;
-  }
-  .toolbar button{
-    flex:0 0 auto !important;
-    width:auto !important;
-    min-width:0 !important;
-    padding:0 4px !important;
-  }
-  .toolbar input{
-    flex:0 1 74px !important;
-    width:74px !important;
-    min-width:64px !important;
-    padding:0 3px !important;
-  }
-  .total-box,
-  .realtime-box{
-    padding:0 4px !important;
-    flex:0 0 auto !important;
-  }
-  .status{font-size:10px !important;}
-  .admin-tools{gap:2px !important;}
-  .admin-card{padding:12px !important;}
-  .admin-card h1{font-size:15px !important;margin-bottom:8px !important;}
-  .admin-card input{height:30px !important;font-size:12px !important;}
-  .admin-card .admin-row{gap:4px !important;margin-top:5px !important;}
-  .admin-card button,.admin-tools button{
-    height:24px !important;
-    font-size:10px !important;
-    padding:0 5px !important;
-    border-radius:3px !important;
-  }
-  .table-wrap{max-height:calc(100vh - 80px) !important;}
-  .hint{font-size:10px !important;margin-top:3px !important;}
+/* 모바일 버튼 50% 추가 축소 + 15배 확대 허용 */
+(max-width:480px){
+  body{padding:2px !important;}
+  .toolbar{gap:1px !important;padding:2px !important;margin-bottom:2px !important;align-items:center !important;}
+  .toolbar button,.toolbar input,.total-box,.realtime-box,.admin-card button,.admin-tools button{height:11px !important;min-height:11px !important;font-size:5px !important;line-height:9px !important;border-radius:2px !important;border-width:1px !important;}
+  .toolbar button,.admin-card button,.admin-tools button{flex:0 0 auto !important;width:auto !important;min-width:0 !important;padding:0 2px !important;}
+  .toolbar input{flex:0 1 37px !important;width:37px !important;min-width:32px !important;padding:0 2px !important;}
+  .total-box,.realtime-box{padding:0 2px !important;flex:0 0 auto !important;}
+  .status{font-size:5px !important;}
+  .admin-tools{gap:1px !important;}
+  .admin-card{padding:6px !important;}
+  .admin-card h1{font-size:8px !important;margin-bottom:4px !important;}
+  .admin-card input{height:15px !important;font-size:6px !important;padding:0 4px !important;}
+  .admin-card .admin-row{gap:2px !important;margin-top:3px !important;}
+  .hint{font-size:6px !important;margin-top:3px !important;}
 }
 
 </style>
@@ -244,7 +209,7 @@ body.unlocked #adminGate{display:none!important;}
 <div class="app">
   <div class="toolbar">
     <span class="total-box" id="totalBox">총회원수: <b id="totalCount">0</b></span>
-    <span class="realtime-box off" id="realtimeStatusBox">실시간 연결 준비중</span>
+    <span class="realtime-box off" id="realtimeStatusBox">연결 준비중</span>
     <span class="admin-tools">
       <button type="button" id="adminLogoutBtn">로그아웃</button>
       <button type="button" id="adminChangePasswordBtn">비번변경</button>
@@ -266,7 +231,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. member-list 전용 Firebase(membel-list)의 memberList/main 경로로 실시간 저장/불러오기를 합니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
+  <div class="hint">ver1.0</div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -376,9 +341,9 @@ body.unlocked #adminGate{display:none!important;}
 
       firebaseDb.ref(".info/connected").on("value",(snap)=>{
         if(snap.val()===true){
-          setRealtimeStatus("실시간 연결됨",true);
+          setRealtimeStatus("연결됨",true);
         }else{
-          setRealtimeStatus("실시간 연결 대기중",false);
+          setRealtimeStatus("연결대기",false);
         }
       });
 
@@ -885,7 +850,7 @@ body.unlocked #adminGate{display:none!important;}
       adminRef=adminDb.ref(ADMIN_SYNC_PATH);
       adminReady=true;
       adminDb.ref(".info/connected").on("value",snap=>{
-        if(snap.val()===true)setRealtimeBoxMsg("실시간 연결됨",true);
+        if(snap.val()===true)setRealtimeBoxMsg("연결됨",true);
       });
       adminRef.on("value",async snap=>{
         const payload=normalizeAdminPayload(snap.val());
