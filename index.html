@@ -142,10 +142,7 @@ body.unlocked #adminGate{display:none!important;}
   white-space:nowrap;
   color:#0b7a28;
 }
-.realtime-box.off{
-  background:#fff5f5;
-  color:#b91c1c;
-}
+.realtime-box.off{background:#fff5f5;color:#b91c1c;}
 
 </style>
 </head>
@@ -190,7 +187,7 @@ body.unlocked #adminGate{display:none!important;}
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
-  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. 파일 내부에는 회원 데이터가 저장되지 않습니다. 데이터복구 버튼으로 JSON 백업 파일을 불러오세요. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
+  <div class="hint">이름 검색은 B열 “이 름”, 닉네임 검색은 L열 “닉네임” 기준입니다. 직책 제목행은 틀고정되며 각 제목의 필터로 원하는 값만 볼 수 있습니다. bus-seat와 같은 Firebase DB의 memberList/main 경로로 실시간 동기화됩니다. JSON 백업/복구도 가능합니다. 셀 입력 시 같은 열의 기존 글자를 자동완성 후보로 보여줍니다. 이름 정렬은 데이터백업 버튼을 클릭할 때만 가나다순 오름차순으로 실행됩니다.</div>
 </div>
 <script id="initialData" type="application/json"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
@@ -212,15 +209,15 @@ body.unlocked #adminGate{display:none!important;}
     "회원명부데이터"
   ];
 
-  /* ===== Firebase Realtime Database 자동 동기화 ===== */
+  /* ===== Firebase Realtime Database 자동 동기화: bus-seat와 같은 DB 사용 ===== */
   const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyA2a9PQsxUDdExsVWsXHlJoDCHmIPFu1Ec",
-    authDomain: "membel-list.firebaseapp.com",
-    databaseURL: "https://membel-list-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "membel-list",
-    storageBucket: "membel-list.firebasestorage.app",
-    messagingSenderId: "628411800641",
-    appId: "1:628411800641:web:5d188f9f3c6c285f81bac0"
+    apiKey: "AIzaSyBbN8CF35V00kAQzVCZoZoonXDGKTqPfZA",
+    authDomain: "bus-set-no1.firebaseapp.com",
+    databaseURL: "https://bus-set-no1-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    projectId: "bus-set-no1",
+    storageBucket: "bus-set-no1.firebasestorage.app",
+    messagingSenderId: "744201337161",
+    appId: "1:744201337161:web:a63c6118182a4ed8dd0298"
   };
   const FIREBASE_PATH = "memberList/main";
   let firebaseApp = null;
@@ -257,18 +254,19 @@ body.unlocked #adminGate{display:none!important;}
     box.textContent=msg;
     box.classList.toggle("off",!isOn);
   }
+
   function initFirebaseRealtime(){
     try{
       if(!window.firebase){
         setRealtimeStatus("Firebase SDK 로딩 실패",false);
         return;
       }
-      if(!firebaseApp){
-        firebaseApp=firebase.apps&&firebase.apps.length?firebase.apps[0]:firebase.initializeApp(FIREBASE_CONFIG);
-        firebaseDb=firebase.database(firebaseApp);
-        firebaseRef=firebaseDb.ref(FIREBASE_PATH);
-      }
-      firebaseReady=true;
+      firebaseApp = firebase.apps && firebase.apps.length
+        ? firebase.apps[0]
+        : firebase.initializeApp(FIREBASE_CONFIG);
+      firebaseDb = firebase.database(firebaseApp);
+      firebaseRef = firebaseDb.ref(FIREBASE_PATH);
+      firebaseReady = true;
       setRealtimeStatus("실시간 연결중",true);
 
       firebaseRef.on("value",(snap)=>{
@@ -290,13 +288,14 @@ body.unlocked #adminGate{display:none!important;}
         setRealtimeStatus("실시간 동기화 완료",true);
       },(error)=>{
         console.error("Firebase realtime read failed",error);
-        setRealtimeStatus("실시간 읽기 실패",false);
+        setRealtimeStatus("실시간 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
       });
     }catch(error){
       console.error("Firebase init failed",error);
       setRealtimeStatus("실시간 연결 실패",false);
     }
   }
+
   function pushRealtimeNow(reason="auto"){
     if(!firebaseReady||!firebaseRef||applyingRemoteData)return;
     clearTimeout(firebaseSaveTimer);
@@ -305,16 +304,19 @@ body.unlocked #adminGate{display:none!important;}
         const data=collectData();
         const payload={
           type:"member-list-table-data",
-          version:"realtime-1.0",
+          version:"realtime-1.1",
+          source:"member-list",
           reason,
-          updatedAt:new Date().toISOString(),
+          totalCount:Number(document.getElementById("totalCount")?.textContent||0),
+          updatedAt:Date.now(),
+          updatedAtISO:new Date().toISOString(),
           data
         };
         firebaseRef.set(payload).then(()=>{
           setRealtimeStatus("실시간 저장 완료",true);
         }).catch((error)=>{
           console.error("Firebase realtime write failed",error);
-          setRealtimeStatus("실시간 저장 실패",false);
+          setRealtimeStatus("실시간 저장 실패: "+(error&&error.code?error.code:"오류"),false);
         });
       }catch(error){
         console.error("Firebase realtime push failed",error);
