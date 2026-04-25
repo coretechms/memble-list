@@ -414,6 +414,66 @@ button,
   }
 }
 
+
+
+/* 데이터 페이지 확대 상태: 상하좌우 자유 드래그/스크롤 강화 */
+html, body{
+  width:auto !important;
+  min-width:100% !important;
+  height:auto !important;
+  min-height:100% !important;
+  overflow:auto !important;
+  overflow-x:auto !important;
+  overflow-y:auto !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+  overscroll-behavior:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+body.unlocked{
+  overflow:auto !important;
+  overflow-x:auto !important;
+  overflow-y:auto !important;
+}
+body.unlocked .app{
+  width:max-content !important;
+  min-width:100vw !important;
+  max-width:none !important;
+  overflow:visible !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+}
+body.unlocked .table-wrap{
+  width:100vw !important;
+  max-width:none !important;
+  max-height:none !important;
+  height:auto !important;
+  overflow:visible !important;
+  border:1px solid #222;
+  touch-action:pan-x pan-y pinch-zoom !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+body.unlocked .scale-stage{
+  width:max-content !important;
+  min-width:max-content !important;
+  overflow:visible !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+}
+body.unlocked .member-table{
+  width:max-content !important;
+  min-width:max-content !important;
+}
+@media(max-width:480px){
+  body.unlocked .toolbar{
+    position:relative !important;
+    top:auto !important;
+  }
+  body.unlocked .table-wrap{
+    width:max-content !important;
+    min-width:max-content !important;
+    max-height:none !important;
+    overflow:visible !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -827,7 +887,20 @@ button,
   function deleteCol(){if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function normalizePhoneText(v){let t=String(v||"").trim(); if(!t)return""; const digits=t.replace(/\D/g,""); if(digits.length===8)return"010 "+digits.slice(0,4)+" "+digits.slice(4); if(digits.length===10&&digits.startsWith("10"))return"0"+digits.slice(0,2)+" "+digits.slice(2,6)+" "+digits.slice(6); if(digits.length===11)return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7); return t}
   function getPhoneColumnIndexes(){return[5,6]}
-  function scaleWholeTable(){scaleStage.style.transform="none"; scaleStage.style.height="auto"; const wrapW=tableWrap.clientWidth||window.innerWidth; const tableW=table.scrollWidth||table.offsetWidth; const scale=Math.min(1,wrapW/tableW); scaleStage.style.zoom=String(scale); scaleStage.style.width=tableW+"px"; tableWrap.style.overflow="auto"; tableWrap.style.touchAction="pan-x pan-y pinch-zoom"; document.documentElement.style.touchAction="pan-x pan-y pinch-zoom"; document.body.style.touchAction="pan-x pan-y pinch-zoom";}
+  function scaleWholeTable(){
+    scaleStage.style.transform="none";
+    scaleStage.style.height="auto";
+    const tableW=table.scrollWidth||table.offsetWidth;
+    scaleStage.style.zoom="1";
+    scaleStage.style.width=tableW+"px";
+    tableWrap.style.overflow="visible";
+    tableWrap.style.maxHeight="none";
+    tableWrap.style.touchAction="pan-x pan-y pinch-zoom";
+    document.documentElement.style.overflow="auto";
+    document.body.style.overflow="auto";
+    document.documentElement.style.touchAction="pan-x pan-y pinch-zoom";
+    document.body.style.touchAction="pan-x pan-y pinch-zoom";
+  }
   function scheduleScaleWholeTable(){clearTimeout(window.__scaleTimer);window.__scaleTimer=setTimeout(scaleWholeTable,60)}
   function backupDataJson(){
     sortRowsByNameAsc();
