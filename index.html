@@ -403,6 +403,29 @@ button,
   }
 }
 
+
+/* 요청 수정: 데이터 화면 버튼만 40% 확대 */
+body.unlocked .toolbar button,
+body.unlocked .admin-tools button{
+  height:45px !important;
+  min-height:45px !important;
+  font-size:17px !important;
+  line-height:43px !important;
+  padding:0 11px !important;
+  border-width:0.5px !important;
+  white-space:nowrap !important;
+}
+@media(max-width:480px){
+  body.unlocked .toolbar button,
+  body.unlocked .admin-tools button{
+    height:14px !important;
+    min-height:14px !important;
+    font-size:6px !important;
+    line-height:12px !important;
+    padding:0 2px !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -1006,6 +1029,42 @@ button,
   let adminReady=false, adminRemoteLoaded=false;
   let adminPasswordHash="", adminRecoveryHash="";
   let adminWriteTimer=null;
+  const ADMIN_SESSION_KEY="memberList.admin.unlocked.session.v1";
+  let suppressBackLeave=false;
+
+  function setUnlockedState(isUnlocked){
+    document.body.classList.toggle("locked",!isUnlocked);
+    document.body.classList.toggle("unlocked",!!isUnlocked);
+    if(isUnlocked){
+      sessionStorage.setItem(ADMIN_SESSION_KEY,"1");
+      protectAdminBackNavigation();
+    }else{
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    }
+  }
+
+  function protectAdminBackNavigation(){
+    if(suppressBackLeave)return;
+    suppressBackLeave=true;
+    try{
+      history.replaceState({memberListAdmin:true},document.title,location.href);
+      history.pushState({memberListAdmin:true,guard:true},document.title,location.href);
+    }catch(e){}
+  }
+
+  window.addEventListener("popstate",()=>{
+    if(document.body.classList.contains("unlocked")){
+      try{history.pushState({memberListAdmin:true,guard:true},document.title,location.href);}catch(e){}
+      setGateMsg("");
+    }
+  });
+
+  window.addEventListener("pageshow",()=>{
+    if(sessionStorage.getItem(ADMIN_SESSION_KEY)==="1"){
+      setUnlockedState(true);
+      setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
+    }
+  });
 
   async function sha256(text){
     if(window.crypto && crypto.subtle){
@@ -1138,8 +1197,7 @@ button,
     const input=$("adminPasswordInput");
     const value=(input&&input.value||"").trim();
     if(await sha256(value)===adminPasswordHash){
-      document.body.classList.remove("locked");
-      document.body.classList.add("unlocked");
+      setUnlockedState(true);
       if(input)input.value="";
       setGateMsg("");
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
@@ -1149,8 +1207,7 @@ button,
     }
   }
   function logout(){
-    document.body.classList.remove("unlocked");
-    document.body.classList.add("locked");
+    setUnlockedState(false);
     const input=$("adminPasswordInput");
     if(input)setTimeout(()=>input.focus(),50);
   }
