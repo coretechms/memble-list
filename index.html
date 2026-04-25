@@ -430,6 +430,57 @@ button,
   }
 }
 
+
+/* 요청 수정: 닉네임/이름 검색칸 입력중 테두리 최박형 + 모바일 버튼과 같은 높이 */
+#nameSearch,
+#nickSearch{
+  border-width:0.5px !important;
+  border-style:solid !important;
+  border-color:#999 !important;
+  box-shadow:none !important;
+  outline:none !important;
+}
+#nameSearch:focus,
+#nickSearch:focus,
+#nameSearch:focus-visible,
+#nickSearch:focus-visible{
+  border-width:0.5px !important;
+  border-style:solid !important;
+  border-color:#1737c9 !important;
+  box-shadow:none !important;
+  outline:0.5px solid #1737c9 !important;
+  outline-offset:0 !important;
+}
+@media(max-width:480px){
+  body.unlocked #nameSearch,
+  body.unlocked #nickSearch{
+    height:12px !important;
+    min-height:12px !important;
+    line-height:10px !important;
+    font-size:5px !important;
+    padding:0 2px !important;
+    border-width:0.5px !important;
+    border-style:solid !important;
+    border-color:#999 !important;
+    border-radius:1px !important;
+    box-shadow:none !important;
+    outline:none !important;
+  }
+  body.unlocked #nameSearch:focus,
+  body.unlocked #nickSearch:focus,
+  body.unlocked #nameSearch:focus-visible,
+  body.unlocked #nickSearch:focus-visible{
+    height:12px !important;
+    min-height:12px !important;
+    border-width:0.5px !important;
+    border-style:solid !important;
+    border-color:#1737c9 !important;
+    box-shadow:none !important;
+    outline:0.5px solid #1737c9 !important;
+    outline-offset:0 !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
