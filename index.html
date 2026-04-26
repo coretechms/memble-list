@@ -481,6 +481,23 @@ button,
   }
 }
 
+
+/* 요청 수정: 데이터 화면 확대/축소에서 관리자 비밀번호 박스 제외 */
+#adminGate{
+  transform:none !important;
+  zoom:1 !important;
+  transform-origin:center center !important;
+}
+#adminGate .admin-card{
+  transform:none !important;
+  zoom:1 !important;
+}
+body.locked .table-wrap,
+body.locked .scale-stage{
+  transform:none !important;
+  zoom:1 !important;
+}
+
 </style>
 </head>
 <body class="locked">
@@ -927,7 +944,29 @@ button,
   function deleteCol(){if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function normalizePhoneText(v){let t=String(v||"").trim(); if(!t)return""; const digits=t.replace(/\D/g,""); if(digits.length===8)return"010 "+digits.slice(0,4)+" "+digits.slice(4); if(digits.length===10&&digits.startsWith("10"))return"0"+digits.slice(0,2)+" "+digits.slice(2,6)+" "+digits.slice(6); if(digits.length===11)return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7); return t}
   function getPhoneColumnIndexes(){return[5,6]}
-  function scaleWholeTable(){scaleStage.style.transform="none"; scaleStage.style.height="auto"; const wrapW=tableWrap.clientWidth||window.innerWidth; const tableW=table.scrollWidth||table.offsetWidth; const scale=Math.min(1,wrapW/tableW); scaleStage.style.zoom=String(scale); scaleStage.style.width=tableW+"px"; tableWrap.style.overflow="auto"; tableWrap.style.touchAction="pan-x pan-y pinch-zoom"; document.documentElement.style.touchAction="pan-x pan-y pinch-zoom"; document.body.style.touchAction="pan-x pan-y pinch-zoom";}
+  function scaleWholeTable(){
+    /* 관리자 비밀번호 화면에서는 데이터 표 확대/축소를 실행하지 않음 */
+    if(document.body.classList.contains("locked")){
+      if(scaleStage){
+        scaleStage.style.transform="none";
+        scaleStage.style.zoom="1";
+        scaleStage.style.width="";
+        scaleStage.style.height="auto";
+      }
+      return;
+    }
+    scaleStage.style.transform="none";
+    scaleStage.style.height="auto";
+    const wrapW=tableWrap.clientWidth||window.innerWidth;
+    const tableW=table.scrollWidth||table.offsetWidth;
+    const scale=Math.min(1,wrapW/tableW);
+    scaleStage.style.zoom=String(scale);
+    scaleStage.style.width=tableW+"px";
+    tableWrap.style.overflow="auto";
+    tableWrap.style.touchAction="pan-x pan-y pinch-zoom";
+    document.documentElement.style.touchAction="pan-x pan-y pinch-zoom";
+    document.body.style.touchAction="pan-x pan-y pinch-zoom";
+  }
   function scheduleScaleWholeTable(){clearTimeout(window.__scaleTimer);window.__scaleTimer=setTimeout(scaleWholeTable,60)}
   function backupDataJson(){
     sortRowsByNameAsc();
