@@ -1308,10 +1308,36 @@ body.unlocked .admin-tools button{
       if(input){input.select();input.focus();}
     }
   }
+  function resetViewToMinimumForLogin(){
+    try{
+      const viewport=document.querySelector('meta[name="viewport"]');
+      if(viewport){
+        viewport.setAttribute("content","width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=15, user-scalable=yes, viewport-fit=cover");
+      }
+      const stage=document.getElementById("scaleStage");
+      if(stage){
+        stage.style.transform="none";
+        stage.style.zoom="1";
+        stage.style.width="";
+        stage.style.height="auto";
+      }
+      const wrap=document.getElementById("tableWrap");
+      if(wrap){
+        wrap.scrollLeft=0;
+        wrap.scrollTop=0;
+      }
+      document.documentElement.scrollLeft=0;
+      document.documentElement.scrollTop=0;
+      document.body.scrollLeft=0;
+      document.body.scrollTop=0;
+      window.scrollTo(0,0);
+    }catch(e){}
+  }
   function logout(){
     setUnlockedState(false);
+    resetViewToMinimumForLogin();
     const input=$("adminPasswordInput");
-    if(input)setTimeout(()=>input.focus(),50);
+    if(input)setTimeout(()=>{resetViewToMinimumForLogin();input.focus();},50);
   }
   async function changePassword(){
     await ensureAdminReadyForLogin();
