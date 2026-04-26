@@ -517,6 +517,20 @@ body.unlocked .admin-tools button{
   }
 }
 
+
+/* 요청 수정: 모바일 데이터 화면 상단 버튼 메뉴 고정 */
+@media(max-width:480px){
+  body.unlocked .toolbar{
+    position:sticky !important;
+    top:0 !important;
+    z-index:1000 !important;
+    background:rgba(255,255,255,.98) !important;
+    box-shadow:0 2px 8px rgba(0,0,0,.12) !important;
+  }
+  body.unlocked .table-wrap{
+    max-height:calc(100vh - 24px) !important;
+  }
+}
 </style>
 </head>
 <body class="locked">
