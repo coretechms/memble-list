@@ -498,6 +498,25 @@ body.locked .scale-stage{
   zoom:1 !important;
 }
 
+
+/* 요청 수정: 데이터 화면 버튼 높이를 총회원수 박스 높이와 동일하게 고정 */
+body.unlocked .toolbar button,
+body.unlocked .admin-tools button{
+  height:32px !important;
+  min-height:32px !important;
+  line-height:30px !important;
+  box-sizing:border-box !important;
+}
+@media(max-width:480px){
+  body.unlocked .toolbar button,
+  body.unlocked .admin-tools button{
+    height:10px !important;
+    min-height:10px !important;
+    line-height:8px !important;
+    box-sizing:border-box !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
