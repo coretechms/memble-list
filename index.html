@@ -664,7 +664,7 @@ body.unlocked .admin-tools button{
 
       firebaseApp = firebase.apps && firebase.apps.length
         ? firebase.apps[0]
-        : firebase.initializeApp(FIREBASE_CONFIG);
+        : firebase.initializeApp(firebaseConfig);
       firebaseDb = firebase.database(firebaseApp);
       firebaseRef = firebaseDb.ref(FIREBASE_PATH);
       firebaseReady = true;
