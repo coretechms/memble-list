@@ -549,9 +549,9 @@ body.unlocked .admin-tools button{
     <button type="button" id="dataBackupBtn">데이터백업</button>
     <button type="button" id="dataRestoreBtn">데이터복구</button>
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
-    <button type="button" id="addRowBtn">행 밑추가</button>
+    <button type="button" id="addRowBtn">행 밑 추가</button>
     <button type="button" id="delRowBtn">행 삭제</button>
-    <button type="button" id="addColBtn">우측 칸추가</button>
+    <button type="button" id="addColBtn">우측 칸 추가</button>
     <button type="button" id="delColBtn">열 삭제</button>
     <input id="nickSearch" type="search" placeholder="닉네임 검색">
     <input id="nameSearch" type="search" placeholder="이름 검색">
@@ -834,13 +834,17 @@ body.unlocked .admin-tools button{
     clearTimeout(window.__autoSaveTimer);
     window.__autoSaveTimer=setTimeout(()=>{
       saveToAllKeys(collectData());
-      if(isCellEditing){
-        setStatus("입력중: 동기화 보류");
-        return;
-      }
-      setStatus("자동 저장됨");
-      pushRealtimeNow("autosave");
+      setStatus("입력 후 3초 뒤 실시간 동기화 대기");
     },350);
+
+    /* 칸에 글자를 입력하면 버튼을 누르지 않아도 마지막 입력 기준 3초 후 Firebase에 자동 동기화 */
+    clearTimeout(window.__realtimeInputSaveTimer);
+    window.__realtimeInputSaveTimer=setTimeout(()=>{
+      saveToAllKeys(collectData());
+      if(applyingRemoteData)return;
+      setStatus("3초 자동 실시간 동기화 실행");
+      pushRealtimeNow("autosave-3sec-input");
+    },3000);
   }
   function loadData(){const data=loadBestSaved(); if(!data){setStatus("저장 데이터 없음");return} applyData(data); setStatus("기존 데이터 복구 완료");}
   function resetData(){
