@@ -852,7 +852,7 @@ body.locked #tableWrap{
         saveToAllKeys(collectData());
         applyingRemoteData=false;
         pendingRemoteData=null;
-        setRealtimeStatus("다른 기기 변경 즉시 반영 완료",true);
+        setRealtimeStatus("실시간반영",true);
       },(error)=>{
         console.error("Firebase realtime read failed",error);
         setRealtimeStatus("실시간 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
