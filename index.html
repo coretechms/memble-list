@@ -517,20 +517,6 @@ body.unlocked .admin-tools button{
   }
 }
 
-
-/* 요청 수정: 모바일 데이터 화면 상단 버튼 메뉴 고정 */
-@media(max-width:480px){
-  body.unlocked .toolbar{
-    position:sticky !important;
-    top:0 !important;
-    z-index:1000 !important;
-    background:rgba(255,255,255,.98) !important;
-    box-shadow:0 2px 8px rgba(0,0,0,.12) !important;
-  }
-  body.unlocked .table-wrap{
-    max-height:calc(100vh - 24px) !important;
-  }
-}
 </style>
 </head>
 <body class="locked">
@@ -597,15 +583,15 @@ body.unlocked .admin-tools button{
   ];
 
   /* ===== Firebase Realtime Database 자동 동기화: bus-seat와 같은 DB 사용 ===== */
-  const FIREBASE_CONFIG = {
-    apiKey: "AIzaSyA2a9PQsxUDdExsVWsXHlJoDCHmIPFu1Ec",
-    authDomain: "membel-list.firebaseapp.com",
-    databaseURL: "https://membel-list-default-rtdb.firebaseio.com",
-    projectId: "membel-list",
-    storageBucket: "membel-list.firebasestorage.app",
-    messagingSenderId: "628411800641",
-    appId: "1:628411800641:web:5d188f9f3c6c285f81bac0"
-  };
+  const firebaseConfig = {
+  apiKey: "AIzaSyBRxAdYRyjMIcQvCQ2ja7YOkdFGNCkW1cE",
+  authDomain: "member-b458f.firebaseapp.com",
+  databaseURL: "https://member-b458f-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "member-b458f",
+  storageBucket: "member-b458f.firebasestorage.app",
+  messagingSenderId: "399411166551",
+  appId: "1:399411166551:web:3c693da51daaa042751212"
+};
   const FIREBASE_PATH = "memberList/main";
   const FIREBASE_PATHS = [FIREBASE_PATH];
   let firebaseApp = null;
