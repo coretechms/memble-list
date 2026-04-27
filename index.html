@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=15, user-scalable=yes, viewport-fit=cover">
-<title>회원명부_관리자비밀번호버튼70확대</title>
+<title>검암산악회원</title>
 <style>
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f5f6f8;font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;color:#111;overflow:auto}body{padding:8px}.app{width:100%;min-width:0;max-width:100vw;margin:0 auto}.toolbar{position:relative;z-index:1;display:flex;gap:5px;align-items:center;flex-wrap:wrap;width:100%;padding:6px;margin-bottom:6px;background:rgba(255,255,255,.97);border:1px solid #cfd4dc;box-shadow:0 2px 8px rgba(0,0,0,.08)}.toolbar button,.toolbar input{height:32px;border:1px solid #999;border-radius:4px;background:#fff;font-family:inherit;font-size:12px}.toolbar button{padding:0 8px;cursor:pointer;background:#f4f4f4}.toolbar button.primary{background:#1737c9;color:#fff;border-color:#1737c9}.toolbar input{padding:0 8px;min-width:120px}.total-box{height:32px;display:inline-flex;align-items:center;padding:0 8px;border:1px solid #999;border-radius:4px;background:#ffff00;font-size:12px;font-weight:700;white-space:nowrap}.status{font-size:12px;color:#0b7a28;margin-left:1px;white-space:nowrap}.table-wrap{width:100%;max-width:100%;overflow:hidden;border:1px solid #222;background:#fff}.scale-stage{transform-origin:top left;will-change:transform}table.member-table{border-collapse:collapse;table-layout:auto;width:max-content;min-width:0;background:#fff;font-size:12px}.member-table col{min-width:45px}.member-table td,.member-table th{border:1px dotted #555;min-height:24px;height:26px;padding:3px .6em;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;outline:none;background-clip:padding-box;font-size:12px}.member-table th.header-cell{position:static;background:#d9d9d9!important;font-weight:700}.member-table td:focus,.member-table th:focus,.selected-cell{outline:2px solid #1737c9!important;outline-offset:-2px}tr.hidden-by-search{display:none!important}.search-label,.search-input-cell{background:#ffff00!important;font-weight:700!important}.hint{font-size:12px;color:#555;margin-top:6px}.found-row td{background:#fff5b8!important}.toolbar,.member-table th.header-cell{top:auto!important}
 @media(max-width:480px){body{padding:5px}.toolbar button{flex:1 1 calc(33.333% - 6px)}.toolbar input{flex:1 1 calc(50% - 6px)}}@media print{body{padding:0;background:#fff}.toolbar,.hint{display:none!important}.table-wrap{overflow:visible;border:none}.scale-stage{transform:none!important}.member-table th.header-cell{position:static}}
@@ -569,6 +569,19 @@ body.locked #tableWrap{
   }
 }
 
+
+/* 요청 수정: 셀 입력은 1초 이상 길게 누른 경우에만 허용 */
+.member-table td{
+  -webkit-user-select:none;
+  user-select:none;
+  caret-color:transparent;
+}
+.member-table td.cell-editing{
+  -webkit-user-select:text;
+  user-select:text;
+  caret-color:auto;
+}
+
 </style>
 </head>
 <body class="locked">
@@ -601,7 +614,7 @@ body.locked #tableWrap{
     <button type="button" id="dataBackupBtn">데이터백업</button>
     <button type="button" id="dataRestoreBtn">데이터복구</button>
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
-    <button type="button" id="addRowBtn">행 밑추가</button>
+    <button type="button" id="addRowBtn">행 밑 추가</button>
     <button type="button" id="delRowBtn">행 삭제</button>
     <button type="button" id="addColBtn">우측 칸추가</button>
     <button type="button" id="delColBtn">열 삭제</button>
@@ -671,6 +684,50 @@ body.locked #tableWrap{
   const statusText=document.getElementById("statusText");
   const autocompleteBox=document.getElementById("autocompleteBox");
   let selectedCell=null;
+  function clearSelectedCellBorders(exceptCell=null){
+    table.querySelectorAll(".selected-cell").forEach(cell=>{
+      if(cell!==exceptCell) cell.classList.remove("selected-cell");
+    });
+  }
+  function setCurrentSelectedCell(cell){
+    clearSelectedCellBorders(cell);
+    selectedCell=cell||null;
+    if(cell) cell.classList.add("selected-cell");
+  }
+
+  /* 셀 입력 커서: 1초 이상 길게 누른 셀만 편집 가능 */
+  let longPressTimer=null;
+  let longPressStartX=0;
+  let longPressStartY=0;
+  const LONG_PRESS_EDIT_MS=1000;
+  const LONG_PRESS_MOVE_LIMIT=12;
+  function isEditableBodyCell(cell){
+    return !!(cell && cell.tagName && cell.tagName.toLowerCase()==="td" && cell.closest("#memberTable"));
+  }
+  function lockCellEditing(cell){
+    if(!cell || !isEditableBodyCell(cell))return;
+    cell.contentEditable="false";
+    cell.classList.remove("cell-editing");
+  }
+  function lockAllCellEditing(exceptCell=null){
+    table.querySelectorAll("td.cell-editing").forEach(cell=>{
+      if(cell!==exceptCell)lockCellEditing(cell);
+    });
+  }
+  function enableLongPressCellEditing(cell){
+    if(!isEditableBodyCell(cell))return;
+    lockAllCellEditing(cell);
+    cell.contentEditable="true";
+    cell.classList.add("cell-editing");
+    setCurrentSelectedCell(cell);
+    setCaretToEnd(cell);
+    isCellEditing=true;
+    setStatus("길게 누름: 입력 가능");
+  }
+  function cancelLongPressTimer(){
+    clearTimeout(longPressTimer);
+    longPressTimer=null;
+  }
   let isCellEditing=false;
   let pendingRemoteData=null;
   let autocompleteCell=null;
@@ -883,7 +940,7 @@ body.locked #tableWrap{
     const colgroup=document.createElement("colgroup");
     (data.cols||colWidths.map(w=>`width:${w}px`)).forEach(st=>{const c=document.createElement("col");c.setAttribute("style",st||"width:auto");colgroup.appendChild(c)});
     table.appendChild(colgroup); const tbody=document.createElement("tbody"); table.appendChild(tbody);
-    (data.rows||[]).forEach((row,rIdx)=>{const tr=document.createElement("tr"); row.forEach(cell=>{const el=document.createElement(rIdx===0?"th":(cell.tag||"td")); el.contentEditable=rIdx===0?"false":"true"; el.className=rIdx===0?"header-cell":(cell.className||""); el.setAttribute("style",cell.style||""); el.innerHTML=String(cell.html??cell.v??""); tr.appendChild(el)}); tbody.appendChild(tr)});
+    (data.rows||[]).forEach((row,rIdx)=>{const tr=document.createElement("tr"); row.forEach(cell=>{const el=document.createElement(rIdx===0?"th":(cell.tag||"td")); el.contentEditable="false"; el.className=rIdx===0?"header-cell":(cell.className||""); el.setAttribute("style",cell.style||""); el.innerHTML=String(cell.html??cell.v??""); tr.appendChild(el)}); tbody.appendChild(tr)});
     bindSearchCells(); setupHeaderFilters(); updateTotalCount(); scheduleScaleWholeTable();
   }
   function collectData(){
@@ -1031,9 +1088,9 @@ body.locked #tableWrap{
       pushRealtimeNow("edit-finished",0);
     },180);
   }
-  function addRow(){const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="true";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function addRow(){const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="false";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function deleteRow(){if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); tr.remove(); selectedCell=null; updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
-  function addCol(){const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="true";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function addCol(){const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="false";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function deleteCol(){if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function normalizePhoneText(v){let t=String(v||"").trim(); if(!t)return""; const digits=t.replace(/\D/g,""); if(digits.length===8)return"010 "+digits.slice(0,4)+" "+digits.slice(4); if(digits.length===10&&digits.startsWith("10"))return"0"+digits.slice(0,2)+" "+digits.slice(2,6)+" "+digits.slice(6); if(digits.length===11)return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7); return t}
   function getPhoneColumnIndexes(){return[5,6]}
@@ -1175,18 +1232,67 @@ body.locked #tableWrap{
     return true;
   }
 
+  table.addEventListener("pointerdown",e=>{
+    const c=e.target.closest&&e.target.closest("td,th");
+    if(!c)return;
+    setCurrentSelectedCell(c);
+    if(!isEditableBodyCell(c)){
+      cancelLongPressTimer();
+      return;
+    }
+    lockAllCellEditing(c);
+    c.contentEditable="false";
+    c.classList.remove("cell-editing");
+    longPressStartX=e.clientX||0;
+    longPressStartY=e.clientY||0;
+    clearTimeout(longPressTimer);
+    longPressTimer=setTimeout(()=>{
+      enableLongPressCellEditing(c);
+      longPressTimer=null;
+    },LONG_PRESS_EDIT_MS);
+  },true);
+  table.addEventListener("pointermove",e=>{
+    if(!longPressTimer)return;
+    const dx=Math.abs((e.clientX||0)-longPressStartX);
+    const dy=Math.abs((e.clientY||0)-longPressStartY);
+    if(dx>LONG_PRESS_MOVE_LIMIT || dy>LONG_PRESS_MOVE_LIMIT)cancelLongPressTimer();
+  },true);
+  table.addEventListener("pointerup",cancelLongPressTimer,true);
+  table.addEventListener("pointercancel",cancelLongPressTimer,true);
+  table.addEventListener("contextmenu",e=>{
+    const c=e.target.closest&&e.target.closest("#memberTable td");
+    if(c){e.preventDefault();}
+  },true);
+
   table.addEventListener("focusin",e=>{
     const c=e.target.closest&&e.target.closest("td,th");
-    if(!c || c.tagName.toLowerCase()==="th")return;
-    isCellEditing=true;
-    setStatus("입력중: 3초 후 자동 동기화");
+    if(!c)return;
+    setCurrentSelectedCell(c);
+    if(isEditableBodyCell(c) && c.isContentEditable){
+      isCellEditing=true;
+      setStatus("입력중: 3초 후 자동 동기화");
+    }
   },true);
   table.addEventListener("focusout",e=>{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c)return;
+    setTimeout(()=>{
+      const active=document.activeElement;
+      const activeCell=active&&active.closest&&active.closest("#memberTable td,#memberTable th");
+      if(activeCell){
+        setCurrentSelectedCell(activeCell);
+      }else{
+        clearSelectedCellBorders();
+      }
+      if(isEditableBodyCell(c))lockCellEditing(c);
+    },0);
     finishCellEditingSoon();
   },true);
-  table.addEventListener("click",e=>{const c=e.target.closest("td,th"); if(!c)return; if(selectedCell)selectedCell.classList.remove("selected-cell"); selectedCell=c; c.classList.add("selected-cell")});
+  table.addEventListener("click",e=>{
+    const c=e.target.closest&&e.target.closest("td,th");
+    if(!c)return;
+    setCurrentSelectedCell(c);
+  });
   table.addEventListener("keydown",e=>{
     if(autocompleteBox.style.display!=="none"&&autocompleteItems.length){
       if(e.key==="ArrowDown"){e.preventDefault();moveAutocomplete(1);return;}
