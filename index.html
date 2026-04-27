@@ -551,7 +551,7 @@ body.unlocked .admin-tools button{
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
     <button type="button" id="addRowBtn">행 밑 추가</button>
     <button type="button" id="delRowBtn">행 삭제</button>
-    <button type="button" id="addColBtn">우측 칸 추가</button>
+    <button type="button" id="addColBtn">우측 칸추가</button>
     <button type="button" id="delColBtn">열 삭제</button>
     <input id="nickSearch" type="search" placeholder="닉네임 검색">
     <input id="nameSearch" type="search" placeholder="이름 검색">
@@ -600,6 +600,18 @@ body.unlocked .admin-tools button{
   let firebaseReady = false;
   let applyingRemoteData = false;
   let firebaseSaveTimer = null;
+  const CLIENT_ID = (()=>{
+    try{
+      let id=sessionStorage.getItem("memberList.firebase.clientId");
+      if(!id){
+        id="client-"+Date.now()+"-"+Math.random().toString(36).slice(2);
+        sessionStorage.setItem("memberList.firebase.clientId",id);
+      }
+      return id;
+    }catch(e){
+      return "client-"+Date.now()+"-"+Math.random().toString(36).slice(2);
+    }
+  })();
 
   const table=document.getElementById("memberTable");
   const tableWrap=document.getElementById("tableWrap");
@@ -638,6 +650,8 @@ body.unlocked .admin-tools button{
       version:"membel-list-realtime-2.0",
       source:"member-list",
       reason,
+      updatedBy:CLIENT_ID,
+      clientId:CLIENT_ID,
       totalCount:Number(document.getElementById("totalCount")?.textContent||0),
       updatedAt:Date.now(),
       updatedAtISO:new Date().toISOString(),
@@ -699,9 +713,12 @@ body.unlocked .admin-tools button{
           return;
         }
 
-        if(isCellEditing){
-          pendingRemoteData=data;
-          setRealtimeStatus("입력중: 원격 동기화 보류",true);
+        /* 내가 방금 저장한 데이터가 다시 돌아온 경우에는 화면을 다시 그리지 않음.
+           다른 기기에서 저장된 데이터는 새로고침 없이 즉시 화면에 반영함. */
+        const remoteClientId=String((value&&(value.updatedBy||value.clientId))||"");
+        if(remoteClientId && remoteClientId===CLIENT_ID){
+          saveToAllKeys(data);
+          setRealtimeStatus("내 입력 Firebase 저장 확인",true);
           return;
         }
 
@@ -709,7 +726,8 @@ body.unlocked .admin-tools button{
         applyData(data);
         saveToAllKeys(collectData());
         applyingRemoteData=false;
-        setRealtimeStatus("실시간 동기화 완료",true);
+        pendingRemoteData=null;
+        setRealtimeStatus("다른 기기 변경 즉시 반영 완료",true);
       },(error)=>{
         console.error("Firebase realtime read failed",error);
         setRealtimeStatus("실시간 읽기 실패: "+(error&&error.code?error.code:"오류"),false);
@@ -720,7 +738,7 @@ body.unlocked .admin-tools button{
     }
   }
 
-  function pushRealtimeNow(reason="auto"){
+  function pushRealtimeNow(reason="auto",delayMs=0){
     if(!firebaseReady||!firebaseRef||applyingRemoteData)return;
     clearTimeout(firebaseSaveTimer);
     firebaseSaveTimer=setTimeout(()=>{
@@ -736,7 +754,7 @@ body.unlocked .admin-tools button{
         console.error("Firebase realtime push failed",error);
         setRealtimeStatus("실시간 저장 오류",false);
       }
-    },450);
+    },Number(delayMs)||0);
   }
 
   function setStatus(msg){statusText.textContent=msg;clearTimeout(window.__statusTimer);window.__statusTimer=setTimeout(()=>statusText.textContent="편집 가능",1800)}
@@ -834,16 +852,16 @@ body.unlocked .admin-tools button{
     clearTimeout(window.__autoSaveTimer);
     window.__autoSaveTimer=setTimeout(()=>{
       saveToAllKeys(collectData());
-      setStatus("입력 후 3초 뒤 실시간 동기화 대기");
-    },350);
+      setStatus("입력 감지: 3초 후 자동 동기화");
+    },200);
 
-    /* 칸에 글자를 입력하면 버튼을 누르지 않아도 마지막 입력 기준 3초 후 Firebase에 자동 동기화 */
+    /* 마지막 입력 후 3초가 지나면 데이터백업 버튼 없이 Firebase에 즉시 저장 */
     clearTimeout(window.__realtimeInputSaveTimer);
     window.__realtimeInputSaveTimer=setTimeout(()=>{
-      saveToAllKeys(collectData());
       if(applyingRemoteData)return;
+      saveToAllKeys(collectData());
       setStatus("3초 자동 실시간 동기화 실행");
-      pushRealtimeNow("autosave-3sec-input");
+      pushRealtimeNow("autosave-3sec-input",0);
     },3000);
   }
   function loadData(){const data=loadBestSaved(); if(!data){setStatus("저장 데이터 없음");return} applyData(data); setStatus("기존 데이터 복구 완료");}
@@ -957,8 +975,8 @@ body.unlocked .admin-tools button{
       isCellEditing=false;
       pendingRemoteData=null;
       saveToAllKeys(collectData());
-      setStatus("입력 완료: 동기화 재개");
-      pushRealtimeNow("edit-finished");
+      setStatus("입력 완료: 자동 동기화 예약됨");
+      pushRealtimeNow("edit-finished",0);
     },180);
   }
   function addRow(){const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="true";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
@@ -1109,7 +1127,7 @@ body.unlocked .admin-tools button{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c || c.tagName.toLowerCase()==="th")return;
     isCellEditing=true;
-    setStatus("입력중: 동기화 보류");
+    setStatus("입력중: 3초 후 자동 동기화");
   },true);
   table.addEventListener("focusout",e=>{
     const c=e.target.closest&&e.target.closest("td,th");
