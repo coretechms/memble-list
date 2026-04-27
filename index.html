@@ -219,7 +219,7 @@ body.unlocked #adminGate{display:none!important;}
 .admin-card button.primary{
   flex:1;
 }
-(max-width:480px){
+@media(max-width:480px){
   .admin-card button{
     height:17px !important;
     min-height:17px !important;
@@ -250,7 +250,7 @@ body.unlocked #adminGate{display:none!important;}
   white-space:nowrap !important;
 }
 .admin-card button.primary{flex:none !important;}
-(max-width:480px){
+@media(max-width:480px){
   .admin-card .admin-row{gap:1px !important;margin-top:2px !important;}
   .admin-card .admin-row button{
     width:100% !important;
@@ -517,6 +517,58 @@ body.unlocked .admin-tools button{
   }
 }
 
+
+
+/* 요청 수정 최종: 모바일 줌인/줌아웃에서 관리자 비밀번호 박스 고정 */
+#adminGate{
+  position:fixed !important;
+  inset:0 !important;
+  width:100vw !important;
+  height:100vh !important;
+  height:100dvh !important;
+  z-index:999999 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  overflow:auto !important;
+  padding:20px !important;
+  transform:none !important;
+  zoom:1 !important;
+  touch-action:manipulation !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+body.unlocked #adminGate{
+  display:none !important;
+}
+#adminGate .admin-card{
+  flex:0 0 auto !important;
+  transform:none !important;
+  zoom:1 !important;
+  transform-origin:center center !important;
+}
+body.locked{
+  overflow:hidden !important;
+  touch-action:manipulation !important;
+}
+body.locked .app{
+  display:none !important;
+}
+body.locked .table-wrap,
+body.locked .scale-stage,
+body.locked #scaleStage,
+body.locked #tableWrap{
+  transform:none !important;
+  zoom:1 !important;
+}
+@media(max-width:480px){
+  #adminGate{
+    padding:10px !important;
+  }
+  #adminGate .admin-card{
+    width:min(360px,94vw) !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -549,7 +601,7 @@ body.unlocked .admin-tools button{
     <button type="button" id="dataBackupBtn">데이터백업</button>
     <button type="button" id="dataRestoreBtn">데이터복구</button>
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
-    <button type="button" id="addRowBtn">행 밑 추가</button>
+    <button type="button" id="addRowBtn">행 밑추가</button>
     <button type="button" id="delRowBtn">행 삭제</button>
     <button type="button" id="addColBtn">우측 칸추가</button>
     <button type="button" id="delColBtn">열 삭제</button>
@@ -1170,7 +1222,15 @@ body.unlocked .admin-tools button{
   const DEFAULT_PASSWORD="1234";
   const SESSION_KEY="memberList.admin.sessionUnlocked.v1";
   const ADMIN_SYNC_PATH="admin/passwordSync";
+  const ZOOMABLE_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=15, user-scalable=yes, viewport-fit=cover";
+  const LOCKED_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
   const $=(id)=>document.getElementById(id);
+  function setViewportLockedForAdmin(isLocked){
+    try{
+      const viewport=document.querySelector('meta[name="viewport"]');
+      if(viewport) viewport.setAttribute("content", isLocked ? LOCKED_VIEWPORT : ZOOMABLE_VIEWPORT);
+    }catch(e){}
+  }
   let adminDb=null, adminRef=null;
   let adminReady=false, adminRemoteLoaded=false;
   let adminPasswordHash="", adminRecoveryHash="";
@@ -1198,6 +1258,7 @@ body.unlocked .admin-tools button{
     box.classList.toggle("off",!isOn);
   }
   function setUnlockedState(isUnlocked){
+    setViewportLockedForAdmin(!isUnlocked);
     document.body.classList.toggle("locked",!isUnlocked);
     document.body.classList.toggle("unlocked",!!isUnlocked);
     if(isUnlocked){
@@ -1205,6 +1266,7 @@ body.unlocked .admin-tools button{
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
     }else{
       localStorage.removeItem(SESSION_KEY);
+      setTimeout(()=>window.scrollTo(0,0),30);
     }
   }
   function restoreUnlockedSession(){
@@ -1334,7 +1396,7 @@ body.unlocked .admin-tools button{
     try{
       const viewport=document.querySelector('meta[name="viewport"]');
       if(viewport){
-        viewport.setAttribute("content","width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=15, user-scalable=yes, viewport-fit=cover");
+        viewport.setAttribute("content",LOCKED_VIEWPORT);
       }
       const stage=document.getElementById("scaleStage");
       if(stage){
@@ -1395,6 +1457,7 @@ body.unlocked .admin-tools button{
     alert("비밀번호가 1234로 초기화되었고 Firebase에 실시간 동기화되었습니다.");
   }
   function bindAdmin(){
+    setViewportLockedForAdmin(!localStorage.getItem(SESSION_KEY));
     const loginBtn=$("adminLoginBtn");
     const input=$("adminPasswordInput");
     const logoutBtn=$("adminLogoutBtn");
