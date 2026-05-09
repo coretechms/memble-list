@@ -626,6 +626,7 @@ body.locked #tableWrap{
       <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
     </span>
 
+    <button type="button" id="sortBtn">정렬</button>
     <button type="button" id="resetBtn">초기화</button>
     <button type="button" id="dataBackupBtn">자료백업</button>
     <button type="button" id="dataRestoreBtn">자료복구</button>
@@ -1380,7 +1381,7 @@ body.locked #tableWrap{
     if(c)showAutocomplete(c);
   },true);
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
-  document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
+  document.getElementById("sortBtn").onclick=()=>{sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter").forEach(sel=>{sel.value="";sel.closest("th")?.classList.remove("filter-active")}); search()};
   document.addEventListener("click",e=>{if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();});
   tableWrap.addEventListener("scroll",hideAutocomplete);
