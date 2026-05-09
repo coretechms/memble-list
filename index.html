@@ -598,6 +598,56 @@ body.locked #tableWrap{
   caret-color:auto;
 }
 
+
+
+/* 요청 수정: 데이터 박스 내부 스크롤을 마지막 줄까지 유지 */
+html, body{
+  height:100% !important;
+}
+body.unlocked{
+  height:100vh !important;
+  height:100dvh !important;
+  overflow:hidden !important;
+  overscroll-behavior:none !important;
+}
+body.unlocked .app{
+  height:calc(100vh - 16px) !important;
+  height:calc(100dvh - 16px) !important;
+  max-height:calc(100vh - 16px) !important;
+  max-height:calc(100dvh - 16px) !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  max-width:none !important;
+}
+body.unlocked .toolbar{
+  flex:0 0 auto !important;
+}
+body.unlocked .table-wrap{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  height:auto !important;
+  max-height:none !important;
+  overflow:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+}
+@media(max-width:480px){
+  body.unlocked{
+    height:100dvh !important;
+    overflow:hidden !important;
+  }
+  body.unlocked .app{
+    height:calc(100dvh - 2px) !important;
+    max-height:calc(100dvh - 2px) !important;
+  }
+  body.unlocked .table-wrap{
+    max-height:none !important;
+    overscroll-behavior:contain !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -698,6 +748,22 @@ body.locked #tableWrap{
   const table=document.getElementById("memberTable");
   const tableWrap=document.getElementById("tableWrap");
   const scaleStage=document.getElementById("scaleStage");
+
+  /* 모바일 스크롤 체인 방지: 데이터 박스 안에서 마지막 행까지 스크롤 유지 */
+  let tableTouchStartY=0;
+  tableWrap.addEventListener("touchstart",(e)=>{
+    if(e.touches&&e.touches.length===1) tableTouchStartY=e.touches[0].clientY||0;
+  },{passive:true});
+  tableWrap.addEventListener("touchmove",(e)=>{
+    if(!(e.touches&&e.touches.length===1))return;
+    const y=e.touches[0].clientY||0;
+    const dy=y-tableTouchStartY;
+    const atTop=tableWrap.scrollTop<=0;
+    const atBottom=Math.ceil(tableWrap.scrollTop+tableWrap.clientHeight)>=tableWrap.scrollHeight;
+    if((atTop&&dy>0)||(atBottom&&dy<0)){
+      e.preventDefault();
+    }
+  },{passive:false});
   const statusText=document.getElementById("statusText");
   const autocompleteBox=document.getElementById("autocompleteBox");
   let selectedCell=null;
