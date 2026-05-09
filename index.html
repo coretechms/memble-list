@@ -598,56 +598,6 @@ body.locked #tableWrap{
   caret-color:auto;
 }
 
-
-
-/* 요청 수정: 데이터 박스 내부 스크롤을 마지막 줄까지 유지 */
-html, body{
-  height:100% !important;
-}
-body.unlocked{
-  height:100vh !important;
-  height:100dvh !important;
-  overflow:hidden !important;
-  overscroll-behavior:none !important;
-}
-body.unlocked .app{
-  height:calc(100vh - 16px) !important;
-  height:calc(100dvh - 16px) !important;
-  max-height:calc(100vh - 16px) !important;
-  max-height:calc(100dvh - 16px) !important;
-  display:flex !important;
-  flex-direction:column !important;
-  overflow:hidden !important;
-  max-width:none !important;
-}
-body.unlocked .toolbar{
-  flex:0 0 auto !important;
-}
-body.unlocked .table-wrap{
-  flex:1 1 auto !important;
-  min-height:0 !important;
-  height:auto !important;
-  max-height:none !important;
-  overflow:auto !important;
-  -webkit-overflow-scrolling:touch !important;
-  overscroll-behavior:contain !important;
-  touch-action:pan-x pan-y pinch-zoom !important;
-}
-@media(max-width:480px){
-  body.unlocked{
-    height:100dvh !important;
-    overflow:hidden !important;
-  }
-  body.unlocked .app{
-    height:calc(100dvh - 2px) !important;
-    max-height:calc(100dvh - 2px) !important;
-  }
-  body.unlocked .table-wrap{
-    max-height:none !important;
-    overscroll-behavior:contain !important;
-  }
-}
-
 </style>
 </head>
 <body class="locked">
@@ -679,7 +629,6 @@ body.unlocked .table-wrap{
     <button type="button" id="resetBtn">초기화</button>
     <button type="button" id="dataBackupBtn">자료백업</button>
     <button type="button" id="dataRestoreBtn">자료복구</button>
-    <button type="button" id="sortNameBtn">정렬</button>
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
     <button type="button" id="addRowBtn">행밑추가</button>
     <button type="button" id="delRowBtn">행삭제</button>
@@ -748,22 +697,6 @@ body.unlocked .table-wrap{
   const table=document.getElementById("memberTable");
   const tableWrap=document.getElementById("tableWrap");
   const scaleStage=document.getElementById("scaleStage");
-
-  /* 모바일 스크롤 체인 방지: 데이터 박스 안에서 마지막 행까지 스크롤 유지 */
-  let tableTouchStartY=0;
-  tableWrap.addEventListener("touchstart",(e)=>{
-    if(e.touches&&e.touches.length===1) tableTouchStartY=e.touches[0].clientY||0;
-  },{passive:true});
-  tableWrap.addEventListener("touchmove",(e)=>{
-    if(!(e.touches&&e.touches.length===1))return;
-    const y=e.touches[0].clientY||0;
-    const dy=y-tableTouchStartY;
-    const atTop=tableWrap.scrollTop<=0;
-    const atBottom=Math.ceil(tableWrap.scrollTop+tableWrap.clientHeight)>=tableWrap.scrollHeight;
-    if((atTop&&dy>0)||(atBottom&&dy<0)){
-      e.preventDefault();
-    }
-  },{passive:false});
   const statusText=document.getElementById("statusText");
   const autocompleteBox=document.getElementById("autocompleteBox");
   let selectedCell=null;
@@ -784,10 +717,8 @@ body.unlocked .table-wrap{
   let suppressNextTouchClickUntil=0;
   let longPressStartX=0;
   let longPressStartY=0;
-  let touchMovedAsScroll=false;
   const CELL_TOUCH_DELAY_MS=300;
   const LONG_PRESS_EDIT_MS=500;
-  const TOUCH_SCROLL_MOVE_LIMIT=8;
   const LONG_PRESS_MOVE_LIMIT=12;
   function isEditableBodyCell(cell){
     return !!(cell && cell.tagName && cell.tagName.toLowerCase()==="td" && cell.closest("#memberTable"));
@@ -1117,14 +1048,6 @@ body.unlocked .table-wrap{
     updateTotalCount();
     scheduleScaleWholeTable();
   }
-  function sortRowsByNameButton(){
-    sortRowsByNameAsc();
-    setupHeaderFilters();
-    search();
-    saveToAllKeys(collectData());
-    pushRealtimeNow("name-sort-button",0);
-    setStatus("이름 ㄱㄴㄷ 순 정렬 완료");
-  }
   function scheduleAutoSort(){
     clearTimeout(window.__autoSortTimer);
     window.__autoSortTimer=setTimeout(()=>{
@@ -1349,9 +1272,6 @@ body.unlocked .table-wrap{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c)return;
     const isTouchPointer=(e.pointerType==="touch"||e.pointerType==="pen");
-    touchMovedAsScroll=false;
-    longPressStartX=e.clientX||0;
-    longPressStartY=e.clientY||0;
     scheduleCellTouchSelection(c,!isTouchPointer);
     if(isTouchPointer) suppressNextTouchClickUntil=Date.now()+CELL_TOUCH_DELAY_MS+120;
     if(!isEditableBodyCell(c)){
@@ -1361,9 +1281,10 @@ body.unlocked .table-wrap{
     lockAllCellEditing(c);
     c.contentEditable="false";
     c.classList.remove("cell-editing");
+    longPressStartX=e.clientX||0;
+    longPressStartY=e.clientY||0;
     clearTimeout(longPressTimer);
     longPressTimer=setTimeout(()=>{
-      if(touchMovedAsScroll)return;
       cancelTouchSelectTimer();
       enableLongPressCellEditing(c);
       longPressTimer=null;
@@ -1373,32 +1294,13 @@ body.unlocked .table-wrap{
     if(!longPressTimer&&!touchSelectTimer)return;
     const dx=Math.abs((e.clientX||0)-longPressStartX);
     const dy=Math.abs((e.clientY||0)-longPressStartY);
-    const isTouchPointer=(e.pointerType==="touch"||e.pointerType==="pen");
-    if(isTouchPointer && (dx>TOUCH_SCROLL_MOVE_LIMIT || dy>TOUCH_SCROLL_MOVE_LIMIT)){
-      touchMovedAsScroll=true;
-      suppressNextTouchClickUntil=Date.now()+650;
-      cancelLongPressTimer();
-      cancelTouchSelectTimer();
-      return;
-    }
     if(dx>LONG_PRESS_MOVE_LIMIT || dy>LONG_PRESS_MOVE_LIMIT){
       cancelLongPressTimer();
       cancelTouchSelectTimer();
     }
   },true);
-  table.addEventListener("pointerup",e=>{
-    if(touchMovedAsScroll){
-      suppressNextTouchClickUntil=Date.now()+650;
-      cancelTouchSelectTimer();
-    }
-    cancelLongPressTimer();
-    touchMovedAsScroll=false;
-  },true);
-  table.addEventListener("pointercancel",()=>{
-    touchMovedAsScroll=false;
-    cancelLongPressTimer();
-    cancelTouchSelectTimer();
-  },true);
+  table.addEventListener("pointerup",cancelLongPressTimer,true);
+  table.addEventListener("pointercancel",()=>{cancelLongPressTimer();cancelTouchSelectTimer();},true);
   table.addEventListener("contextmenu",e=>{
     const c=e.target.closest&&e.target.closest("#memberTable td");
     if(c){e.preventDefault();}
@@ -1431,11 +1333,7 @@ body.unlocked .table-wrap{
   table.addEventListener("click",e=>{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c)return;
-    if(Date.now()<suppressNextTouchClickUntil){
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
+    if(Date.now()<suppressNextTouchClickUntil)return;
     setCurrentSelectedCell(c);
   });
   table.addEventListener("keydown",e=>{
@@ -1455,7 +1353,7 @@ body.unlocked .table-wrap{
     if(c)showAutocomplete(c);
   },true);
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
-  document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("sortNameBtn").onclick=sortRowsByNameButton; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
+  document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter").forEach(sel=>{sel.value="";sel.closest("th")?.classList.remove("filter-active")}); search()};
   document.addEventListener("click",e=>{if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();});
   tableWrap.addEventListener("scroll",hideAutocomplete);
