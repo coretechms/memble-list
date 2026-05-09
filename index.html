@@ -629,6 +629,7 @@ body.locked #tableWrap{
     <button type="button" id="resetBtn">초기화</button>
     <button type="button" id="dataBackupBtn">자료백업</button>
     <button type="button" id="dataRestoreBtn">자료복구</button>
+    <button type="button" id="sortNameBtn">정렬</button>
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
     <button type="button" id="addRowBtn">행밑추가</button>
     <button type="button" id="delRowBtn">행삭제</button>
@@ -711,11 +712,16 @@ body.locked #tableWrap{
     if(cell) cell.classList.add("selected-cell");
   }
 
-  /* 셀 입력 커서: 1초 이상 길게 누른 셀만 편집 가능 */
+  /* 셀 터치: 0.3초 후 선택 / 0.5초 이상 길게 누르면 편집 가능 */
   let longPressTimer=null;
+  let touchSelectTimer=null;
+  let suppressNextTouchClickUntil=0;
   let longPressStartX=0;
   let longPressStartY=0;
-  const LONG_PRESS_EDIT_MS=1000;
+  let touchMovedAsScroll=false;
+  const CELL_TOUCH_DELAY_MS=300;
+  const LONG_PRESS_EDIT_MS=500;
+  const TOUCH_SCROLL_MOVE_LIMIT=8;
   const LONG_PRESS_MOVE_LIMIT=12;
   function isEditableBodyCell(cell){
     return !!(cell && cell.tagName && cell.tagName.toLowerCase()==="td" && cell.closest("#memberTable"));
@@ -739,6 +745,23 @@ body.locked #tableWrap{
     setCaretToEnd(cell);
     isCellEditing=true;
     setStatus("길게 누름: 입력 가능");
+  }
+  function scheduleCellTouchSelection(cell,immediate=false){
+    clearTimeout(touchSelectTimer);
+    touchSelectTimer=null;
+    if(!cell)return;
+    if(immediate){
+      setCurrentSelectedCell(cell);
+      return;
+    }
+    touchSelectTimer=setTimeout(()=>{
+      setCurrentSelectedCell(cell);
+      touchSelectTimer=null;
+    },CELL_TOUCH_DELAY_MS);
+  }
+  function cancelTouchSelectTimer(){
+    clearTimeout(touchSelectTimer);
+    touchSelectTimer=null;
   }
   function cancelLongPressTimer(){
     clearTimeout(longPressTimer);
@@ -1028,6 +1051,14 @@ body.locked #tableWrap{
     updateTotalCount();
     scheduleScaleWholeTable();
   }
+  function sortRowsByNameButton(){
+    sortRowsByNameAsc();
+    setupHeaderFilters();
+    search();
+    saveToAllKeys(collectData());
+    pushRealtimeNow("name-sort-button",0);
+    setStatus("이름 ㄱㄴㄷ 순 정렬 완료");
+  }
   function scheduleAutoSort(){
     clearTimeout(window.__autoSortTimer);
     window.__autoSortTimer=setTimeout(()=>{
@@ -1251,7 +1282,12 @@ body.locked #tableWrap{
   table.addEventListener("pointerdown",e=>{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c)return;
-    setCurrentSelectedCell(c);
+    const isTouchPointer=(e.pointerType==="touch"||e.pointerType==="pen");
+    touchMovedAsScroll=false;
+    longPressStartX=e.clientX||0;
+    longPressStartY=e.clientY||0;
+    scheduleCellTouchSelection(c,!isTouchPointer);
+    if(isTouchPointer) suppressNextTouchClickUntil=Date.now()+CELL_TOUCH_DELAY_MS+120;
     if(!isEditableBodyCell(c)){
       cancelLongPressTimer();
       return;
@@ -1259,22 +1295,44 @@ body.locked #tableWrap{
     lockAllCellEditing(c);
     c.contentEditable="false";
     c.classList.remove("cell-editing");
-    longPressStartX=e.clientX||0;
-    longPressStartY=e.clientY||0;
     clearTimeout(longPressTimer);
     longPressTimer=setTimeout(()=>{
+      if(touchMovedAsScroll)return;
+      cancelTouchSelectTimer();
       enableLongPressCellEditing(c);
       longPressTimer=null;
     },LONG_PRESS_EDIT_MS);
   },true);
   table.addEventListener("pointermove",e=>{
-    if(!longPressTimer)return;
+    if(!longPressTimer&&!touchSelectTimer)return;
     const dx=Math.abs((e.clientX||0)-longPressStartX);
     const dy=Math.abs((e.clientY||0)-longPressStartY);
-    if(dx>LONG_PRESS_MOVE_LIMIT || dy>LONG_PRESS_MOVE_LIMIT)cancelLongPressTimer();
+    const isTouchPointer=(e.pointerType==="touch"||e.pointerType==="pen");
+    if(isTouchPointer && (dx>TOUCH_SCROLL_MOVE_LIMIT || dy>TOUCH_SCROLL_MOVE_LIMIT)){
+      touchMovedAsScroll=true;
+      suppressNextTouchClickUntil=Date.now()+650;
+      cancelLongPressTimer();
+      cancelTouchSelectTimer();
+      return;
+    }
+    if(dx>LONG_PRESS_MOVE_LIMIT || dy>LONG_PRESS_MOVE_LIMIT){
+      cancelLongPressTimer();
+      cancelTouchSelectTimer();
+    }
   },true);
-  table.addEventListener("pointerup",cancelLongPressTimer,true);
-  table.addEventListener("pointercancel",cancelLongPressTimer,true);
+  table.addEventListener("pointerup",e=>{
+    if(touchMovedAsScroll){
+      suppressNextTouchClickUntil=Date.now()+650;
+      cancelTouchSelectTimer();
+    }
+    cancelLongPressTimer();
+    touchMovedAsScroll=false;
+  },true);
+  table.addEventListener("pointercancel",()=>{
+    touchMovedAsScroll=false;
+    cancelLongPressTimer();
+    cancelTouchSelectTimer();
+  },true);
   table.addEventListener("contextmenu",e=>{
     const c=e.target.closest&&e.target.closest("#memberTable td");
     if(c){e.preventDefault();}
@@ -1307,6 +1365,11 @@ body.locked #tableWrap{
   table.addEventListener("click",e=>{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c)return;
+    if(Date.now()<suppressNextTouchClickUntil){
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     setCurrentSelectedCell(c);
   });
   table.addEventListener("keydown",e=>{
@@ -1326,7 +1389,7 @@ body.locked #tableWrap{
     if(c)showAutocomplete(c);
   },true);
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
-  document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
+  document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("sortNameBtn").onclick=sortRowsByNameButton; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter").forEach(sel=>{sel.value="";sel.closest("th")?.classList.remove("filter-active")}); search()};
   document.addEventListener("click",e=>{if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();});
   tableWrap.addEventListener("scroll",hideAutocomplete);
