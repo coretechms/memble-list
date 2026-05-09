@@ -717,8 +717,10 @@ body.locked #tableWrap{
   let suppressNextTouchClickUntil=0;
   let longPressStartX=0;
   let longPressStartY=0;
+  let touchMovedAsScroll=false;
   const CELL_TOUCH_DELAY_MS=300;
   const LONG_PRESS_EDIT_MS=500;
+  const TOUCH_SCROLL_MOVE_LIMIT=8;
   const LONG_PRESS_MOVE_LIMIT=12;
   function isEditableBodyCell(cell){
     return !!(cell && cell.tagName && cell.tagName.toLowerCase()==="td" && cell.closest("#memberTable"));
@@ -1272,6 +1274,9 @@ body.locked #tableWrap{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c)return;
     const isTouchPointer=(e.pointerType==="touch"||e.pointerType==="pen");
+    touchMovedAsScroll=false;
+    longPressStartX=e.clientX||0;
+    longPressStartY=e.clientY||0;
     scheduleCellTouchSelection(c,!isTouchPointer);
     if(isTouchPointer) suppressNextTouchClickUntil=Date.now()+CELL_TOUCH_DELAY_MS+120;
     if(!isEditableBodyCell(c)){
@@ -1281,10 +1286,9 @@ body.locked #tableWrap{
     lockAllCellEditing(c);
     c.contentEditable="false";
     c.classList.remove("cell-editing");
-    longPressStartX=e.clientX||0;
-    longPressStartY=e.clientY||0;
     clearTimeout(longPressTimer);
     longPressTimer=setTimeout(()=>{
+      if(touchMovedAsScroll)return;
       cancelTouchSelectTimer();
       enableLongPressCellEditing(c);
       longPressTimer=null;
@@ -1294,13 +1298,32 @@ body.locked #tableWrap{
     if(!longPressTimer&&!touchSelectTimer)return;
     const dx=Math.abs((e.clientX||0)-longPressStartX);
     const dy=Math.abs((e.clientY||0)-longPressStartY);
+    const isTouchPointer=(e.pointerType==="touch"||e.pointerType==="pen");
+    if(isTouchPointer && (dx>TOUCH_SCROLL_MOVE_LIMIT || dy>TOUCH_SCROLL_MOVE_LIMIT)){
+      touchMovedAsScroll=true;
+      suppressNextTouchClickUntil=Date.now()+650;
+      cancelLongPressTimer();
+      cancelTouchSelectTimer();
+      return;
+    }
     if(dx>LONG_PRESS_MOVE_LIMIT || dy>LONG_PRESS_MOVE_LIMIT){
       cancelLongPressTimer();
       cancelTouchSelectTimer();
     }
   },true);
-  table.addEventListener("pointerup",cancelLongPressTimer,true);
-  table.addEventListener("pointercancel",()=>{cancelLongPressTimer();cancelTouchSelectTimer();},true);
+  table.addEventListener("pointerup",e=>{
+    if(touchMovedAsScroll){
+      suppressNextTouchClickUntil=Date.now()+650;
+      cancelTouchSelectTimer();
+    }
+    cancelLongPressTimer();
+    touchMovedAsScroll=false;
+  },true);
+  table.addEventListener("pointercancel",()=>{
+    touchMovedAsScroll=false;
+    cancelLongPressTimer();
+    cancelTouchSelectTimer();
+  },true);
   table.addEventListener("contextmenu",e=>{
     const c=e.target.closest&&e.target.closest("#memberTable td");
     if(c){e.preventDefault();}
@@ -1333,7 +1356,11 @@ body.locked #tableWrap{
   table.addEventListener("click",e=>{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c)return;
-    if(Date.now()<suppressNextTouchClickUntil)return;
+    if(Date.now()<suppressNextTouchClickUntil){
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     setCurrentSelectedCell(c);
   });
   table.addEventListener("keydown",e=>{
