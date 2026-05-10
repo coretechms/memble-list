@@ -633,7 +633,7 @@ body.locked #tableWrap{
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
     <button type="button" id="addRowBtn">행밑추가</button>
     <button type="button" id="delRowBtn">행삭제</button>
-    <button type="button" id="addColBtn">칸->추가</button>
+    <button type="button" id="addColBtn">열추가</button>
     <button type="button" id="delColBtn">열삭제</button>
     <input id="nameSearch" type="search" placeholder="이름검색">
     <input id="nickSearch" type="search" placeholder="닉네임검색">
@@ -866,7 +866,7 @@ body.locked #tableWrap{
         const remoteClientId=String((value&&(value.updatedBy||value.clientId))||"");
         if(remoteClientId && remoteClientId===CLIENT_ID){
           saveToAllKeys(data);
-          setRealtimeStatus("Firebase저장확인",true);
+          setRealtimeStatus("Firebase저장",true);
           return;
         }
 
