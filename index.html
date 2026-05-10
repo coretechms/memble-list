@@ -628,15 +628,15 @@ body.locked #tableWrap{
 
     <button type="button" id="sortBtn">정렬</button>
     <button type="button" id="resetBtn">초기화</button>
-    <button type="button" id="dataBackupBtn">자료백업</button>
-    <button type="button" id="dataRestoreBtn">자료복구</button>
+    <button type="button" id="dataBackupBtn">백업</button>
+    <button type="button" id="dataRestoreBtn">복구</button>
     <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
     <button type="button" id="addRowBtn">행밑추가</button>
     <button type="button" id="delRowBtn">행삭제</button>
-    <button type="button" id="addColBtn">칸우측추가</button>
+    <button type="button" id="addColBtn">칸->추가</button>
     <button type="button" id="delColBtn">열삭제</button>
     <input id="nameSearch" type="search" placeholder="이름검색">
-    <input id="nickSearch" type="search" placeholder="닉네임 검색">
+    <input id="nickSearch" type="search" placeholder="닉네임검색">
     <button type="button" id="clearSearchBtn">검색해제</button>
     <span class="status" id="statusText">편집가능</span>
   </div>
@@ -866,7 +866,7 @@ body.locked #tableWrap{
         const remoteClientId=String((value&&(value.updatedBy||value.clientId))||"");
         if(remoteClientId && remoteClientId===CLIENT_ID){
           saveToAllKeys(data);
-          setRealtimeStatus("내 입력 Firebase 저장 확인",true);
+          setRealtimeStatus("Firebase저장확인",true);
           return;
         }
 
@@ -1522,7 +1522,7 @@ body.locked #tableWrap{
       adminRef=adminDb.ref(ADMIN_SYNC_PATH);
       adminReady=true;
       adminDb.ref(".info/connected").on("value",snap=>{
-        if(snap.val()===true)setRealtimeBoxMsg("실시간 연결됨",true);
+        if(snap.val()===true)setRealtimeBoxMsg("연결됨",true);
       });
       adminRef.on("value",async snap=>{
         const payload=normalizeAdminPayload(snap.val());
