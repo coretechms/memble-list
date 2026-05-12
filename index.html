@@ -736,6 +736,117 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   }
 }
 
+
+
+/* 요청 수정: 읽기전용 로그인 버튼 중앙 정렬 */
+#adminGate .admin-card .admin-row:has(#readOnlyLoginBtn){
+  display:flex !important;
+  width:100% !important;
+  justify-content:center !important;
+  align-items:center !important;
+}
+#adminGate .admin-card .admin-row:has(#readOnlyLoginBtn) #readOnlyLoginBtn{
+  width:70% !important;
+  max-width:260px !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+}
+@media(max-width:480px){
+  #adminGate .admin-card .admin-row:has(#readOnlyLoginBtn){
+    display:flex !important;
+    width:100% !important;
+    justify-content:center !important;
+  }
+  #adminGate .admin-card .admin-row:has(#readOnlyLoginBtn) #readOnlyLoginBtn{
+    width:70% !important;
+    max-width:220px !important;
+  }
+}
+
+
+
+/* 요청 수정: 읽기전용 로그인 버튼 폭을 글자 크기에 맞게 축소 */
+#adminGate .admin-card .admin-row:has(#readOnlyLoginBtn){
+  display:flex !important;
+  width:100% !important;
+  justify-content:center !important;
+  align-items:center !important;
+}
+#adminGate .admin-card .admin-row:has(#readOnlyLoginBtn) #readOnlyLoginBtn{
+  flex:0 0 auto !important;
+  width:auto !important;
+  min-width:0 !important;
+  max-width:none !important;
+  padding-left:16px !important;
+  padding-right:16px !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+  white-space:nowrap !important;
+}
+@media(max-width:480px){
+  #adminGate .admin-card .admin-row:has(#readOnlyLoginBtn) #readOnlyLoginBtn{
+    width:auto !important;
+    min-width:0 !important;
+    max-width:none !important;
+    padding-left:5px !important;
+    padding-right:5px !important;
+    white-space:nowrap !important;
+  }
+}
+
+
+
+/* 요청 수정: 비밀번호 초기화 버튼도 가운데 정렬 + 글자 크기에 맞게 자동 폭 */
+#adminGate .admin-card .admin-row:has(#adminResetPasswordBtn){
+  display:flex !important;
+  width:100% !important;
+  justify-content:center !important;
+  align-items:center !important;
+}
+#adminGate .admin-card .admin-row:has(#adminResetPasswordBtn) #adminResetPasswordBtn{
+  flex:0 0 auto !important;
+  width:auto !important;
+  min-width:0 !important;
+  max-width:none !important;
+  padding-left:16px !important;
+  padding-right:16px !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+  white-space:nowrap !important;
+}
+@media(max-width:480px){
+  #adminGate .admin-card .admin-row:has(#adminResetPasswordBtn) #adminResetPasswordBtn{
+    width:auto !important;
+    min-width:0 !important;
+    max-width:none !important;
+    padding-left:5px !important;
+    padding-right:5px !important;
+    white-space:nowrap !important;
+  }
+}
+
+
+
+/* 요청 수정: 비밀번호 입력 칸 넓이 40% 축소(기존 100% → 60%) + 중앙 정렬 */
+#adminGate .admin-card input#adminPasswordInput{
+  width:60% !important;
+  max-width:60% !important;
+  min-width:0 !important;
+  display:block !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+}
+@media(max-width:480px){
+  #adminGate .admin-card input#adminPasswordInput{
+    width:60% !important;
+    max-width:60% !important;
+    min-width:0 !important;
+    display:block !important;
+    margin-left:auto !important;
+    margin-right:auto !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
