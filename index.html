@@ -626,6 +626,66 @@ body.locked #tableWrap{
   .style-tools button{min-width:10px !important;}
 }
 
+
+/* 읽기전용 모드: 보기/검색만 허용 */
+body.readonly-mode .style-tools,
+body.readonly-mode #sortBtn,
+body.readonly-mode #resetBtn,
+body.readonly-mode #dataBackupBtn,
+body.readonly-mode #dataRestoreBtn,
+body.readonly-mode #addRowBtn,
+body.readonly-mode #delRowBtn,
+body.readonly-mode #addColBtn,
+body.readonly-mode #delColBtn,
+body.readonly-mode #adminChangePasswordBtn,
+body.readonly-mode #readOnlyChangePasswordBtn,
+body.readonly-mode #adminRecoveryCodeBtn{
+  display:none !important;
+}
+body.readonly-mode .member-table td,
+body.readonly-mode .member-table th{
+  caret-color:transparent !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+}
+body.readonly-mode #statusText{
+  color:#b45309 !important;
+  font-weight:700 !important;
+}
+
+
+/* 요청 수정: 기본/관리자/편집 버튼 그룹 분리 */
+#realtimeStatusBox,
+#statusText{
+  display:none !important;
+}
+.toolbar-group{
+  display:inline-flex;
+  gap:5px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.toolbar-group.is-hidden{
+  display:none !important;
+}
+.toolbar-toggle-btn{
+  background:#1737c9 !important;
+  color:#fff !important;
+  border-color:#1737c9 !important;
+  font-weight:700 !important;
+}
+#editToggleBtn{
+  background:#0b7a28 !important;
+  color:#fff !important;
+  border-color:#0b7a28 !important;
+}
+.utility-hidden{
+  display:none !important;
+}
+@media(max-width:480px){
+  .toolbar-group{gap:1px !important;}
+}
+
 </style>
 </head>
 <body class="locked">
@@ -635,7 +695,10 @@ body.locked #tableWrap{
     <h1>관리자 비밀번호</h1>
     <input id="adminPasswordInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="비밀번호 입력">
     <div class="admin-row">
-      <button type="button" class="primary" id="adminLoginBtn">확인</button>
+      <button type="button" class="primary" id="adminLoginBtn">관리자 로그인</button>
+    </div>
+    <div class="admin-row">
+      <button type="button" id="readOnlyLoginBtn">읽기전용 로그인</button>
     </div>
     <div class="admin-row">
       <button type="button" id="adminResetPasswordBtn">비밀번호 초기화</button>
@@ -645,38 +708,46 @@ body.locked #tableWrap{
 </div>
 
 <div class="app">
-  <div class="toolbar">
+  <div class="toolbar" id="mainToolbar">
     <span class="total-box" id="totalBox">총회원수: <b id="totalCount">0</b></span>
     <span class="realtime-box off" id="realtimeStatusBox">실시간 연결 준비중</span>
-    <span class="admin-tools">
-      <button type="button" id="adminLogoutBtn">로그아웃</button>
-      <button type="button" id="adminChangePasswordBtn">비번변경</button>
-      <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
-    </span>
-    <button type="button" id="sortBtn">정렬</button>
-    <button type="button" id="resetBtn">초기화</button>
-    <button type="button" id="dataBackupBtn">자료백업</button>
-    <button type="button" id="dataRestoreBtn">자료복구</button>
-    <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
-    <button type="button" id="addRowBtn">행밑추가</button>
-    <button type="button" id="delRowBtn">행삭제</button>
-    <button type="button" id="addColBtn">열추가</button>
-    <button type="button" id="delColBtn">열삭제</button>
+    <button type="button" id="adminLogoutBtn">로그아웃</button>
     <input id="nameSearch" type="search" placeholder="이름검색">
     <input id="nickSearch" type="search" placeholder="닉네임검색">
-    <button type="button" id="clearSearchBtn">검색해제</button>
-    <span class="status" id="statusText">편집가능</span>
-    <span class="style-tools" id="cellStyleTools">
-      <button type="button" id="cellBoldBtn" class="style-btn-bold" title="선택 칸 글자 굵게">굵게</button>
-      <button type="button" id="cellTextBlackBtn" class="style-btn-text-black" title="선택 칸 글자색 검정">검정</button>
-      <button type="button" id="cellTextRedBtn" class="style-btn-text-red" title="선택 칸 글자색 빨강">글자</button>
-      <button type="button" id="cellTextBlueBtn" class="style-btn-text-blue" title="선택 칸 글자색 파랑">글자</button>
-      <button type="button" id="cellBgWhiteBtn" class="style-btn-bg-white" title="선택 칸 배경 흰색">배경</button>
-      <button type="button" id="cellBgYellowBtn" class="style-btn-bg-yellow" title="선택 칸 배경 노랑">배경</button>
-      <button type="button" id="cellBgSkyBtn" class="style-btn-bg-sky" title="선택 칸 배경 하늘">배경</button>
-      <button type="button" id="cellBgRedBtn" class="style-btn-bg-red" title="선택 칸 배경 빨강">배경</button>
-      <button type="button" id="cellStyleClearBtn" class="style-btn-clear" title="선택 칸 서식 해제">해제</button>
+    <button type="button" id="adminToggleBtn" class="toolbar-toggle-btn">관리자</button>
+    <button type="button" id="editToggleBtn" class="toolbar-toggle-btn">편집</button>
+
+    <span class="toolbar-group is-hidden" id="adminButtonGroup">
+      <button type="button" id="adminChangePasswordBtn">비번변경</button>
+      <button type="button" id="readOnlyChangePasswordBtn">읽기비번변경</button>
+      <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
+      <button type="button" id="resetBtn">초기화</button>
+      <button type="button" id="dataBackupBtn">자료백업</button>
+      <button type="button" id="dataRestoreBtn">자료복구</button>
     </span>
+
+    <span class="toolbar-group is-hidden" id="editButtonGroup">
+      <button type="button" id="addRowBtn">행밑추가</button>
+      <button type="button" id="delRowBtn">행삭제</button>
+      <button type="button" id="addColBtn">열추가</button>
+      <button type="button" id="delColBtn">열삭제</button>
+      <span class="style-tools" id="cellStyleTools">
+        <button type="button" id="cellBoldBtn" class="style-btn-bold" title="선택 칸 글자 굵게">굵게</button>
+        <button type="button" id="cellTextBlackBtn" class="style-btn-text-black" title="선택 칸 글자색 검정">검정</button>
+        <button type="button" id="cellTextRedBtn" class="style-btn-text-red" title="선택 칸 글자색 빨강">글자</button>
+        <button type="button" id="cellTextBlueBtn" class="style-btn-text-blue" title="선택 칸 글자색 파랑">글자</button>
+        <button type="button" id="cellBgWhiteBtn" class="style-btn-bg-white" title="선택 칸 배경 흰색">배경</button>
+        <button type="button" id="cellBgYellowBtn" class="style-btn-bg-yellow" title="선택 칸 배경 노랑">배경</button>
+        <button type="button" id="cellBgSkyBtn" class="style-btn-bg-sky" title="선택 칸 배경 하늘">배경</button>
+        <button type="button" id="cellBgRedBtn" class="style-btn-bg-red" title="선택 칸 배경 빨강">배경</button>
+        <button type="button" id="cellStyleClearBtn" class="style-btn-clear" title="선택 칸 서식 해제">해제</button>
+      </span>
+    </span>
+
+    <button type="button" id="sortBtn" class="utility-hidden">정렬</button>
+    <button type="button" id="clearSearchBtn" class="utility-hidden">검색해제</button>
+    <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
+    <span class="status" id="statusText">편집가능</span>
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
@@ -740,6 +811,14 @@ body.locked #tableWrap{
   const autocompleteBox=document.getElementById("autocompleteBox");
   let selectedCell=null;
   const selectedCells = new Set();
+  function isReadOnlyMode(){
+    return document.body.classList.contains("readonly-mode");
+  }
+  function blockReadOnlyAction(){
+    if(!isReadOnlyMode()) return false;
+    setStatus("읽기전용 모드: 편집할 수 없습니다");
+    return true;
+  }
   function clearSelectedCellBorders(exceptCell=null){
     table.querySelectorAll(".selected-cell").forEach(cell=>{
       if(cell!==exceptCell) cell.classList.remove("selected-cell");
@@ -780,6 +859,7 @@ body.locked #tableWrap{
   }
 
   function applySelectedCellStyle(action){
+    if(blockReadOnlyAction()) return;
     const targetCells = getSelectedCellsForStyle();
     if(!targetCells.length){
       alert("먼저 서식을 바꿀 칸을 클릭하세요. Ctrl 키를 누른 상태로 여러 칸을 클릭하면 복수 선택됩니다.");
@@ -831,6 +911,37 @@ body.locked #tableWrap{
     bind("cellStyleClearBtn","clear");
   }
 
+  function bindToolbarToggleButton(){
+    const adminBtn=document.getElementById("adminToggleBtn");
+    const editBtn=document.getElementById("editToggleBtn");
+    const adminGroup=document.getElementById("adminButtonGroup");
+    const editGroup=document.getElementById("editButtonGroup");
+    const refresh=()=>{
+      if(adminBtn && adminGroup){
+        adminBtn.textContent=adminGroup.classList.contains("is-hidden") ? "관리자" : "관리자닫기";
+      }
+      if(editBtn && editGroup){
+        editBtn.textContent=editGroup.classList.contains("is-hidden") ? "편집" : "편집닫기";
+      }
+      try{ setTimeout(()=>window.dispatchEvent(new Event("resize")),60); }catch(e){}
+    };
+    if(adminBtn && adminGroup){
+      adminGroup.classList.add("is-hidden");
+      adminBtn.onclick=()=>{
+        adminGroup.classList.toggle("is-hidden");
+        refresh();
+      };
+    }
+    if(editBtn && editGroup){
+      editGroup.classList.add("is-hidden");
+      editBtn.onclick=()=>{
+        editGroup.classList.toggle("is-hidden");
+        refresh();
+      };
+    }
+    refresh();
+  }
+
   /* 셀 터치: 0.3초 후 선택 / 0.5초 이상 길게 누르면 편집 가능 */
   let longPressTimer=null;
   let touchSelectTimer=null;
@@ -856,6 +967,7 @@ body.locked #tableWrap{
     });
   }
   function enableLongPressCellEditing(cell){
+    if(blockReadOnlyAction())return;
     if(!isEditableBodyCell(cell))return;
     lockAllCellEditing(cell);
     cell.contentEditable="true";
@@ -1024,7 +1136,7 @@ body.locked #tableWrap{
     },Number(delayMs)||0);
   }
 
-  function setStatus(msg){statusText.textContent=msg;clearTimeout(window.__statusTimer);window.__statusTimer=setTimeout(()=>statusText.textContent="편집 가능",1800)}
+  function setStatus(msg){statusText.textContent=msg;clearTimeout(window.__statusTimer);window.__statusTimer=setTimeout(()=>statusText.textContent=(document.body.classList.contains("readonly-mode")?"읽기전용":"편집 가능"),1800)}
   function rowsArray(){return Array.from(table.tBodies[0]?.rows||[])}
   function cellText(cell){return String(cell?.innerText||"").trim()}
   function normalize(v){return String(v||"").trim().toLowerCase().replace(/\s+/g,"")}
@@ -1132,7 +1244,7 @@ body.locked #tableWrap{
     },3000);
   }
   function loadData(){const data=loadBestSaved(); if(!data){setStatus("저장 데이터 없음");return} applyData(data); setStatus("기존 데이터 복구 완료");}
-  function resetData(){
+  function resetData(){if(blockReadOnlyAction())return;
     if(!confirm("현재 화면의 회원 데이터를 모두 초기화할까요? JSON 백업 파일은 삭제되지 않습니다."))return;
     applyData(defaultData());
     selectedCell=null;
@@ -1248,10 +1360,10 @@ body.locked #tableWrap{
       pushRealtimeNow("edit-finished",0);
     },180);
   }
-  function addRow(){const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="false";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
-  function deleteRow(){if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); tr.remove(); selectedCell=null; selectedCells.clear(); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
-  function addCol(){const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="false";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
-  function deleteCol(){if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; selectedCells.clear(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function addRow(){if(blockReadOnlyAction())return;const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="false";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function deleteRow(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); tr.remove(); selectedCell=null; selectedCells.clear(); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function addCol(){if(blockReadOnlyAction())return;const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="false";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function deleteCol(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; selectedCells.clear(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function normalizePhoneText(v){let t=String(v||"").trim(); if(!t)return""; const digits=t.replace(/\D/g,""); if(digits.length===8)return"010 "+digits.slice(0,4)+" "+digits.slice(4); if(digits.length===10&&digits.startsWith("10"))return"0"+digits.slice(0,2)+" "+digits.slice(2,6)+" "+digits.slice(6); if(digits.length===11)return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7); return t}
   function getPhoneColumnIndexes(){return[5,6]}
   function scaleWholeTable(){
@@ -1278,7 +1390,7 @@ body.locked #tableWrap{
     document.body.style.touchAction="pan-x pan-y pinch-zoom";
   }
   function scheduleScaleWholeTable(){clearTimeout(window.__scaleTimer);window.__scaleTimer=setTimeout(scaleWholeTable,60)}
-  function backupDataJson(){
+  function backupDataJson(){if(blockReadOnlyAction())return;
     sortRowsByNameAsc();
     const data=collectData();
     saveToAllKeys(data);
@@ -1301,6 +1413,7 @@ body.locked #tableWrap{
     setStatus("가나다순 정렬 후 데이터 백업 완료");
   }
   function restoreDataJsonFile(file){
+    if(blockReadOnlyAction())return;
     if(!file)return;
     const reader=new FileReader();
     reader.onload=()=>{
@@ -1508,6 +1621,7 @@ body.locked #tableWrap{
     }
   },true);
   table.addEventListener("input",e=>{
+    if(blockReadOnlyAction()) return;
     const c=e.target.closest&&e.target.closest("td,th");
     updateTotalCount();
     refreshHeaderFiltersSoon();
@@ -1515,10 +1629,11 @@ body.locked #tableWrap{
     scheduleScaleWholeTable();
     if(c)showAutocomplete(c);
   },true);
-  table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
-  document.getElementById("sortBtn").onclick=()=>{sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
+  table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(!isReadOnlyMode() && getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
+  document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter").forEach(sel=>{sel.value="";sel.closest("th")?.classList.remove("filter-active")}); search()};
   bindCellStyleButtons();
+  bindToolbarToggleButton();
   document.addEventListener("click",e=>{if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();});
   tableWrap.addEventListener("scroll",hideAutocomplete);
   window.addEventListener("resize",()=>{hideAutocomplete();scheduleScaleWholeTable();}); window.addEventListener("orientationchange",()=>setTimeout(scaleWholeTable,300));
@@ -1532,21 +1647,26 @@ body.locked #tableWrap{
 (function(){
   const PASS_KEY="memberList.admin.passwordHash.v1";
   const RECOVERY_KEY="memberList.admin.recoveryHash.v1";
+  const READONLY_KEY="memberList.readonly.passwordHash.v1";
   const DEFAULT_PASSWORD="1234";
+  const DEFAULT_READONLY_PASSWORD="0000";
   const SESSION_KEY="memberList.admin.sessionUnlocked.v1";
+  const SESSION_MODE_KEY="memberList.admin.sessionMode.v1";
   const ADMIN_SYNC_PATH="admin/passwordSync";
   const ZOOMABLE_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=15, user-scalable=yes, viewport-fit=cover";
   const LOCKED_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
   const $=(id)=>document.getElementById(id);
+
   function setViewportLockedForAdmin(isLocked){
     try{
       const viewport=document.querySelector('meta[name="viewport"]');
       if(viewport) viewport.setAttribute("content", isLocked ? LOCKED_VIEWPORT : ZOOMABLE_VIEWPORT);
     }catch(e){}
   }
+
   let adminDb=null, adminRef=null;
   let adminReady=false, adminRemoteLoaded=false;
-  let adminPasswordHash="", adminRecoveryHash="";
+  let adminPasswordHash="", adminRecoveryHash="", readOnlyPasswordHash="";
   let adminWriteTimer=null;
 
   async function sha256(text){
@@ -1570,21 +1690,41 @@ body.locked #tableWrap{
     box.textContent=msg;
     box.classList.toggle("off",!isOn);
   }
-  function setUnlockedState(isUnlocked){
+
+  function applyModeButtons(mode){
+    const readOnly=mode==="readonly";
+    const status=$("statusText");
+    if(status) status.textContent=readOnly ? "읽기전용" : "편집 가능";
+    document.querySelectorAll("#memberTable td,#memberTable th").forEach(cell=>{
+      cell.contentEditable="false";
+      cell.classList.remove("cell-editing");
+    });
+  }
+
+  function setUnlockedState(isUnlocked,mode="edit"){
+    const isReadOnly=!!isUnlocked && mode==="readonly";
     setViewportLockedForAdmin(!isUnlocked);
     document.body.classList.toggle("locked",!isUnlocked);
     document.body.classList.toggle("unlocked",!!isUnlocked);
+    document.body.classList.toggle("readonly-mode",isReadOnly);
+    document.body.classList.toggle("edit-mode",!!isUnlocked && !isReadOnly);
     if(isUnlocked){
       localStorage.setItem(SESSION_KEY,"1");
+      localStorage.setItem(SESSION_MODE_KEY,isReadOnly?"readonly":"edit");
+      applyModeButtons(isReadOnly?"readonly":"edit");
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
     }else{
       localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_MODE_KEY);
+      document.body.classList.remove("readonly-mode","edit-mode");
       setTimeout(()=>window.scrollTo(0,0),30);
     }
   }
+
   function restoreUnlockedSession(){
     if(localStorage.getItem(SESSION_KEY)==="1"){
-      setUnlockedState(true);
+      const mode=localStorage.getItem(SESSION_MODE_KEY)||"edit";
+      setUnlockedState(true,mode);
     }
   }
   function makeRecoveryCode(){
@@ -1594,33 +1734,40 @@ body.locked #tableWrap{
   }
   function normalizeAdminPayload(value){
     if(!value)return null;
-    if(typeof value==="string")return {passwordHash:value,recoveryHash:""};
+    if(typeof value==="string")return {passwordHash:value,recoveryHash:"",readOnlyHash:""};
     if(typeof value!=="object")return null;
     const passwordHash=String(value.passwordHash||value.passHash||value.adminPasswordHash||value.hash||"");
     const recoveryHash=String(value.recoveryHash||value.adminRecoveryHash||value.recoveryCodeHash||"");
+    const readOnlyHash=String(value.readOnlyHash||value.readonlyHash||value.viewerHash||value.readOnlyPasswordHash||"");
     if(!passwordHash)return null;
-    return {passwordHash,recoveryHash};
+    return {passwordHash,recoveryHash,readOnlyHash};
   }
   async function getDefaultHash(){return await sha256(DEFAULT_PASSWORD);}
+  async function getDefaultReadOnlyHash(){return await sha256(DEFAULT_READONLY_PASSWORD);}
   async function loadLocalAdminCache(){
     let pass=localStorage.getItem(PASS_KEY)||"";
     if(!pass){pass=await getDefaultHash();localStorage.setItem(PASS_KEY,pass);}
     adminPasswordHash=pass;
     adminRecoveryHash=localStorage.getItem(RECOVERY_KEY)||"";
+    let readOnly=localStorage.getItem(READONLY_KEY)||"";
+    if(!readOnly){readOnly=await getDefaultReadOnlyHash();localStorage.setItem(READONLY_KEY,readOnly);}
+    readOnlyPasswordHash=readOnly;
   }
   function saveLocalAdminCache(){
     if(adminPasswordHash)localStorage.setItem(PASS_KEY,adminPasswordHash);
     if(adminRecoveryHash)localStorage.setItem(RECOVERY_KEY,adminRecoveryHash);
     else localStorage.removeItem(RECOVERY_KEY);
+    if(readOnlyPasswordHash)localStorage.setItem(READONLY_KEY,readOnlyPasswordHash);
   }
   function buildAdminPayload(reason){
     return {
       type:"admin-password-sync",
-      version:"bus-seat-compatible-1.0",
+      version:"member-list-readonly-1.0",
       source:"member-list",
       reason:reason||"update",
       passwordHash:adminPasswordHash,
       recoveryHash:adminRecoveryHash||"",
+      readOnlyHash:readOnlyPasswordHash||"",
       updatedAt:Date.now(),
       updatedAtISO:new Date().toISOString()
     };
@@ -1631,10 +1778,10 @@ body.locked #tableWrap{
     clearTimeout(adminWriteTimer);
     adminWriteTimer=setTimeout(()=>{
       adminRef.set(buildAdminPayload(reason)).then(()=>{
-        setRealtimeBoxMsg("관리자 비밀번호 동기화 완료",true);
+        setRealtimeBoxMsg("동기화 완료",true);
       }).catch((error)=>{
         console.error("Admin password sync write failed",error);
-        setRealtimeBoxMsg("관리자 비밀번호 동기화 실패",false);
+        setRealtimeBoxMsg("동기화 실패",false);
       });
     },120);
   }
@@ -1643,7 +1790,7 @@ body.locked #tableWrap{
     await loadLocalAdminCache();
     adminRef.set(buildAdminPayload("initial-create")).catch((error)=>{
       console.error("Admin password initial create failed",error);
-      setRealtimeBoxMsg("관리자 비밀번호 초기 생성 실패",false);
+      setRealtimeBoxMsg("비밀번호 초기 생성 실패",false);
     });
   }
   async function initAdminFirebaseSync(){
@@ -1651,7 +1798,7 @@ body.locked #tableWrap{
     try{
       if(!window.firebase || !firebase.apps || !firebase.apps.length){
         adminRemoteLoaded=true;
-        setGateMsg("Firebase 연결 전입니다. 임시로 이 기기 저장 비밀번호를 사용합니다.","#b45309");
+        setGateMsg("Firebase 연결 전입니다. 이 기기 저장 비밀번호를 사용합니다.","#b45309");
         return;
       }
       adminDb=firebase.database(firebase.apps[0]);
@@ -1665,68 +1812,71 @@ body.locked #tableWrap{
         if(!payload){
           adminRemoteLoaded=true;
           await seedAdminSyncIfEmpty();
-          setGateMsg("관리자 비밀번호 동기화 초기화 완료","#0b7a28");
+          setGateMsg("비밀번호 초기화 완료","#0b7a28");
           setTimeout(()=>setGateMsg(""),1200);
           return;
         }
         adminPasswordHash=payload.passwordHash;
         adminRecoveryHash=payload.recoveryHash||"";
+        readOnlyPasswordHash=payload.readOnlyHash||readOnlyPasswordHash||await getDefaultReadOnlyHash();
         saveLocalAdminCache();
         adminRemoteLoaded=true;
         setGateMsg("");
       },error=>{
         console.error("Admin password sync read failed",error);
         adminRemoteLoaded=true;
-        setGateMsg("관리자 비밀번호 동기화 읽기 실패. 이 기기 저장값으로 로그인합니다.","#b45309");
+        setGateMsg("비밀번호 동기화 읽기 실패. 이 기기 저장값으로 로그인합니다.","#b45309");
       });
     }catch(error){
       console.error("Admin password sync init failed",error);
       adminRemoteLoaded=true;
-      setGateMsg("관리자 비밀번호 동기화 연결 실패. 이 기기 저장값으로 로그인합니다.","#b45309");
+      setGateMsg("비밀번호 동기화 연결 실패. 이 기기 저장값으로 로그인합니다.","#b45309");
     }
   }
   async function ensureAdminReadyForLogin(){
     if(!adminRemoteLoaded){
-      setGateMsg("관리자 비밀번호 동기화 확인중입니다. 잠시 후 다시 눌러주세요.","#b45309");
+      setGateMsg("비밀번호 동기화 확인중입니다. 잠시 후 다시 눌러주세요.","#b45309");
       await new Promise(resolve=>setTimeout(resolve,350));
     }
     if(!adminPasswordHash){adminPasswordHash=await getDefaultHash();writeAdminSync("default-created");}
+    if(!readOnlyPasswordHash){readOnlyPasswordHash=await getDefaultReadOnlyHash();writeAdminSync("readonly-default-created");}
   }
   async function unlockWithPassword(){
     await ensureAdminReadyForLogin();
     const input=$("adminPasswordInput");
     const value=(input&&input.value||"").trim();
     if(await sha256(value)===adminPasswordHash){
-      setUnlockedState(true);
+      setUnlockedState(true,"edit");
       if(input)input.value="";
       setGateMsg("");
     }else{
-      setGateMsg("비밀번호가 맞지 않습니다.");
+      setGateMsg("관리자 비밀번호가 맞지 않습니다.");
+      if(input){input.select();input.focus();}
+    }
+  }
+  async function unlockReadOnlyWithPassword(){
+    await ensureAdminReadyForLogin();
+    const input=$("adminPasswordInput");
+    const value=(input&&input.value||"").trim();
+    if(await sha256(value)===readOnlyPasswordHash){
+      setUnlockedState(true,"readonly");
+      if(input)input.value="";
+      setGateMsg("");
+    }else{
+      setGateMsg("읽기전용 비밀번호가 맞지 않습니다.");
       if(input){input.select();input.focus();}
     }
   }
   function resetViewToMinimumForLogin(){
     try{
       const viewport=document.querySelector('meta[name="viewport"]');
-      if(viewport){
-        viewport.setAttribute("content",LOCKED_VIEWPORT);
-      }
+      if(viewport) viewport.setAttribute("content",LOCKED_VIEWPORT);
       const stage=document.getElementById("scaleStage");
-      if(stage){
-        stage.style.transform="none";
-        stage.style.zoom="1";
-        stage.style.width="";
-        stage.style.height="auto";
-      }
+      if(stage){stage.style.transform="none";stage.style.zoom="1";stage.style.width="";stage.style.height="auto";}
       const wrap=document.getElementById("tableWrap");
-      if(wrap){
-        wrap.scrollLeft=0;
-        wrap.scrollTop=0;
-      }
-      document.documentElement.scrollLeft=0;
-      document.documentElement.scrollTop=0;
-      document.body.scrollLeft=0;
-      document.body.scrollTop=0;
+      if(wrap){wrap.scrollLeft=0;wrap.scrollTop=0;}
+      document.documentElement.scrollLeft=0; document.documentElement.scrollTop=0;
+      document.body.scrollLeft=0; document.body.scrollTop=0;
       window.scrollTo(0,0);
     }catch(e){}
   }
@@ -1738,18 +1888,33 @@ body.locked #tableWrap{
   }
   async function changePassword(){
     await ensureAdminReadyForLogin();
-    const oldPw=prompt("현재 비밀번호를 입력하세요.");
+    const oldPw=prompt("현재 관리자 비밀번호를 입력하세요.");
     if(oldPw===null)return;
-    if(await sha256(oldPw.trim())!==adminPasswordHash){alert("현재 비밀번호가 맞지 않습니다.");return;}
-    const next=prompt("새 비밀번호를 입력하세요.");
+    if(await sha256(oldPw.trim())!==adminPasswordHash){alert("현재 관리자 비밀번호가 맞지 않습니다.");return;}
+    const next=prompt("새 관리자 비밀번호를 입력하세요.");
     if(next===null)return;
     if(!next.trim()){alert("새 비밀번호가 비어 있습니다.");return;}
-    const again=prompt("새 비밀번호를 다시 입력하세요.");
+    const again=prompt("새 관리자 비밀번호를 다시 입력하세요.");
     if(again===null)return;
     if(next.trim()!==again.trim()){alert("새 비밀번호가 서로 다릅니다.");return;}
     adminPasswordHash=await sha256(next.trim());
-    writeAdminSync("password-change");
-    alert("비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
+    writeAdminSync("admin-password-change");
+    alert("관리자 비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
+  }
+  async function changeReadOnlyPassword(){
+    await ensureAdminReadyForLogin();
+    const adminPw=prompt("관리자 비밀번호를 입력하세요.");
+    if(adminPw===null)return;
+    if(await sha256(adminPw.trim())!==adminPasswordHash){alert("관리자 비밀번호가 맞지 않습니다.");return;}
+    const next=prompt("새 읽기전용 비밀번호를 입력하세요.");
+    if(next===null)return;
+    if(!next.trim()){alert("새 읽기전용 비밀번호가 비어 있습니다.");return;}
+    const again=prompt("새 읽기전용 비밀번호를 다시 입력하세요.");
+    if(again===null)return;
+    if(next.trim()!==again.trim()){alert("읽기전용 비밀번호가 서로 다릅니다.");return;}
+    readOnlyPasswordHash=await sha256(next.trim());
+    writeAdminSync("readonly-password-change");
+    alert("읽기전용 비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
   }
   async function createRecoveryCode(){
     await ensureAdminReadyForLogin();
@@ -1767,20 +1932,28 @@ body.locked #tableWrap{
     adminPasswordHash=await sha256(DEFAULT_PASSWORD);
     adminRecoveryHash="";
     writeAdminSync("password-reset");
-    alert("비밀번호가 1234로 초기화되었고 Firebase에 실시간 동기화되었습니다.");
+    alert("관리자 비밀번호가 1234로 초기화되었고 Firebase에 실시간 동기화되었습니다.\n읽기전용 기본 비밀번호는 0000입니다.");
   }
   function bindAdmin(){
     setViewportLockedForAdmin(!localStorage.getItem(SESSION_KEY));
     const loginBtn=$("adminLoginBtn");
+    const readOnlyLoginBtn=$("readOnlyLoginBtn");
     const input=$("adminPasswordInput");
     const logoutBtn=$("adminLogoutBtn");
     const changeBtn=$("adminChangePasswordBtn");
+    const readOnlyChangeBtn=$("readOnlyChangePasswordBtn");
     const recoveryBtn=$("adminRecoveryCodeBtn");
     const resetBtn=$("adminResetPasswordBtn");
     if(loginBtn)loginBtn.onclick=unlockWithPassword;
-    if(input){input.addEventListener("keydown",(e)=>{if(e.key==="Enter")unlockWithPassword();});setTimeout(()=>input.focus(),80);}
+    if(readOnlyLoginBtn)readOnlyLoginBtn.onclick=unlockReadOnlyWithPassword;
+    if(input){
+      input.placeholder="관리자/읽기전용";
+      input.addEventListener("keydown",(e)=>{if(e.key==="Enter")unlockWithPassword();});
+      setTimeout(()=>input.focus(),80);
+    }
     if(logoutBtn)logoutBtn.onclick=logout;
     if(changeBtn)changeBtn.onclick=changePassword;
+    if(readOnlyChangeBtn)readOnlyChangeBtn.onclick=changeReadOnlyPassword;
     if(recoveryBtn)recoveryBtn.onclick=createRecoveryCode;
     if(resetBtn)resetBtn.onclick=resetPassword;
     initAdminFirebaseSync();
