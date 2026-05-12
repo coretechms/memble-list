@@ -693,6 +693,13 @@ body.readonly-mode #statusText{
   display:none !important;
 }
 
+
+/* 요청 수정: 읽기전용 모드에서는 주민번호 열 숨김 */
+body.readonly-mode #memberTable col:nth-child(5),
+body.readonly-mode #memberTable tr > *:nth-child(5){
+  display:none !important;
+}
+
 </style>
 </head>
 <body class="locked">
