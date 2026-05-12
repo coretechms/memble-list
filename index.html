@@ -598,6 +598,34 @@ body.locked #tableWrap{
   caret-color:auto;
 }
 
+
+
+/* 클릭한 칸 서식 버튼 */
+.style-tools{
+  display:inline-flex;
+  gap:5px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+.style-tools button{
+  min-width:42px;
+  font-weight:700;
+  border:0.5px solid #777 !important;
+}
+.style-tools .style-btn-bold{background:#f4f4f4 !important;color:#111 !important;}
+.style-tools .style-btn-text-black{background:#ffffff !important;color:#111 !important;border-color:#111 !important;}
+.style-tools .style-btn-text-red{background:#c51616 !important;color:#ffffff !important;border-color:#c51616 !important;}
+.style-tools .style-btn-text-blue{background:#1737c9 !important;color:#ffffff !important;border-color:#1737c9 !important;}
+.style-tools .style-btn-bg-white{background:#ffffff !important;color:#111 !important;border-color:#999 !important;}
+.style-tools .style-btn-bg-yellow{background:#fff200 !important;color:#111 !important;border-color:#c9b800 !important;}
+.style-tools .style-btn-bg-sky{background:#eaf6ff !important;color:#111 !important;border-color:#83b7dc !important;}
+.style-tools .style-btn-bg-red{background:#c51616 !important;color:#ffffff !important;border-color:#c51616 !important;}
+.style-tools .style-btn-clear{background:#666 !important;color:#ffffff !important;border-color:#666 !important;}
+@media(max-width:480px){
+  .style-tools{gap:1px !important;}
+  .style-tools button{min-width:10px !important;}
+}
+
 </style>
 </head>
 <body class="locked">
@@ -638,6 +666,17 @@ body.locked #tableWrap{
     <input id="nickSearch" type="search" placeholder="닉네임검색">
     <button type="button" id="clearSearchBtn">검색해제</button>
     <span class="status" id="statusText">편집가능</span>
+    <span class="style-tools" id="cellStyleTools">
+      <button type="button" id="cellBoldBtn" class="style-btn-bold" title="선택 칸 글자 굵게">굵게</button>
+      <button type="button" id="cellTextBlackBtn" class="style-btn-text-black" title="선택 칸 글자색 검정">검정</button>
+      <button type="button" id="cellTextRedBtn" class="style-btn-text-red" title="선택 칸 글자색 빨강">글자</button>
+      <button type="button" id="cellTextBlueBtn" class="style-btn-text-blue" title="선택 칸 글자색 파랑">글자</button>
+      <button type="button" id="cellBgWhiteBtn" class="style-btn-bg-white" title="선택 칸 배경 흰색">배경</button>
+      <button type="button" id="cellBgYellowBtn" class="style-btn-bg-yellow" title="선택 칸 배경 노랑">배경</button>
+      <button type="button" id="cellBgSkyBtn" class="style-btn-bg-sky" title="선택 칸 배경 하늘">배경</button>
+      <button type="button" id="cellBgRedBtn" class="style-btn-bg-red" title="선택 칸 배경 빨강">배경</button>
+      <button type="button" id="cellStyleClearBtn" class="style-btn-clear" title="선택 칸 서식 해제">해제</button>
+    </span>
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
@@ -700,15 +739,96 @@ body.locked #tableWrap{
   const statusText=document.getElementById("statusText");
   const autocompleteBox=document.getElementById("autocompleteBox");
   let selectedCell=null;
+  const selectedCells = new Set();
   function clearSelectedCellBorders(exceptCell=null){
     table.querySelectorAll(".selected-cell").forEach(cell=>{
       if(cell!==exceptCell) cell.classList.remove("selected-cell");
     });
+    selectedCells.clear();
+    if(exceptCell) selectedCells.add(exceptCell);
   }
   function setCurrentSelectedCell(cell){
     clearSelectedCellBorders(cell);
     selectedCell=cell||null;
     if(cell) cell.classList.add("selected-cell");
+  }
+  function toggleMultiSelectedCell(cell){
+    if(!cell)return;
+    if(selectedCells.has(cell)){
+      selectedCells.delete(cell);
+      cell.classList.remove("selected-cell");
+      if(selectedCell===cell) selectedCell=Array.from(selectedCells).pop()||null;
+    }else{
+      selectedCells.add(cell);
+      selectedCell=cell;
+      cell.classList.add("selected-cell");
+    }
+  }
+  function getSelectedCellsForStyle(){
+    const cells = Array.from(selectedCells).filter(cell=>cell && cell.isConnected);
+    if(cells.length) return cells;
+    return selectedCell && selectedCell.isConnected ? [selectedCell] : [];
+  }
+
+
+  function getCleanClassNameForSave(cell, rIdx){
+    const classes = String(cell.className || "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .filter(cls => !["selected-cell", "cell-editing", "found-row", "hidden-by-search", "filter-active"].includes(cls));
+    return rIdx === 0 ? "header-cell" : classes.join(" ");
+  }
+
+  function applySelectedCellStyle(action){
+    const targetCells = getSelectedCellsForStyle();
+    if(!targetCells.length){
+      alert("먼저 서식을 바꿀 칸을 클릭하세요. Ctrl 키를 누른 상태로 여러 칸을 클릭하면 복수 선택됩니다.");
+      return;
+    }
+    targetCells.forEach(cell=>{
+      if(action === "bold"){
+        const current = String(cell.style.fontWeight || "");
+        cell.style.fontWeight = (current === "700" || current === "bold") ? "400" : "700";
+      }else if(action === "text-black"){
+        cell.style.color = "#111111";
+      }else if(action === "text-red"){
+        cell.style.color = "#c51616";
+      }else if(action === "text-blue"){
+        cell.style.color = "#1737c9";
+      }else if(action === "bg-white"){
+        cell.style.backgroundColor = "#ffffff";
+      }else if(action === "bg-yellow"){
+        cell.style.backgroundColor = "#fff200";
+      }else if(action === "bg-sky"){
+        cell.style.backgroundColor = "#eaf6ff";
+      }else if(action === "bg-red"){
+        cell.style.backgroundColor = "#c51616";
+      }else if(action === "clear"){
+        cell.style.removeProperty("font-weight");
+        cell.style.removeProperty("color");
+        cell.style.removeProperty("background-color");
+      }
+    });
+
+    saveToAllKeys(collectData());
+    if(!applyingRemoteData) pushRealtimeNow("cell-style-change", 0);
+
+  }
+
+  function bindCellStyleButtons(){
+    const bind=(id,action)=>{
+      const btn=document.getElementById(id);
+      if(btn) btn.onclick=()=>applySelectedCellStyle(action);
+    };
+    bind("cellBoldBtn","bold");
+    bind("cellTextBlackBtn","text-black");
+    bind("cellTextRedBtn","text-red");
+    bind("cellTextBlueBtn","text-blue");
+    bind("cellBgWhiteBtn","bg-white");
+    bind("cellBgYellowBtn","bg-yellow");
+    bind("cellBgSkyBtn","bg-sky");
+    bind("cellBgRedBtn","bg-red");
+    bind("cellStyleClearBtn","clear");
   }
 
   /* 셀 터치: 0.3초 후 선택 / 0.5초 이상 길게 누르면 편집 가능 */
@@ -865,7 +985,7 @@ body.locked #tableWrap{
         const remoteClientId=String((value&&(value.updatedBy||value.clientId))||"");
         if(remoteClientId && remoteClientId===CLIENT_ID){
           saveToAllKeys(data);
-          setRealtimeStatus("Firebase저장",true);
+          setRealtimeStatus("저장 완료",true);
           return;
         }
 
@@ -892,14 +1012,14 @@ body.locked #tableWrap{
       try{
         const payload=buildFirebasePayload(reason);
         firebaseRef.set(payload).then(()=>{
-          setRealtimeStatus("실시간 저장 완료",true);
+          setRealtimeStatus("저장 완료",true);
         }).catch((error)=>{
           console.error("Firebase realtime write failed",error);
-          setRealtimeStatus("실시간 저장 실패: "+(error&&error.code?error.code:"오류"),false);
+          setRealtimeStatus("저장 실패: "+(error&&error.code?error.code:"오류"),false);
         });
       }catch(error){
         console.error("Firebase realtime push failed",error);
-        setRealtimeStatus("실시간 저장 오류",false);
+        setRealtimeStatus("저장 오류",false);
       }
     },Number(delayMs)||0);
   }
@@ -985,7 +1105,7 @@ body.locked #tableWrap{
     const cols=Array.from(table.querySelectorAll("col")).map(c=>c.getAttribute("style")||"");
     const rows=rowsArray().map((tr,rIdx)=>Array.from(tr.cells).map(cell=>{
       let html=cell.innerHTML;
-      let className=cell.className;
+      let className=getCleanClassNameForSave(cell,rIdx);
       if(rIdx===0){
         html=cell.dataset.headerTitle||cell.querySelector(".header-title")?.innerText||cell.innerText||"";
         className="header-cell";
@@ -999,7 +1119,7 @@ body.locked #tableWrap{
     clearTimeout(window.__autoSaveTimer);
     window.__autoSaveTimer=setTimeout(()=>{
       saveToAllKeys(collectData());
-      setStatus("입력 감지: 3초 후 자동 동기화");
+
     },200);
 
     /* 마지막 입력 후 3초가 지나면 데이터백업 버튼 없이 Firebase에 즉시 저장 */
@@ -1007,7 +1127,7 @@ body.locked #tableWrap{
     window.__realtimeInputSaveTimer=setTimeout(()=>{
       if(applyingRemoteData)return;
       saveToAllKeys(collectData());
-      setStatus("3초 자동 실시간 동기화 실행");
+
       pushRealtimeNow("autosave-3sec-input",0);
     },3000);
   }
@@ -1016,6 +1136,8 @@ body.locked #tableWrap{
     if(!confirm("현재 화면의 회원 데이터를 모두 초기화할까요? JSON 백업 파일은 삭제되지 않습니다."))return;
     applyData(defaultData());
     selectedCell=null;
+    selectedCells.clear();
+    clearSelectedCellBorders();
     document.getElementById("nameSearch").value="";
     document.getElementById("nickSearch").value="";
     STORAGE_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
@@ -1122,14 +1244,14 @@ body.locked #tableWrap{
       isCellEditing=false;
       pendingRemoteData=null;
       saveToAllKeys(collectData());
-      setStatus("입력 완료: 자동 동기화 예약됨");
+
       pushRealtimeNow("edit-finished",0);
     },180);
   }
   function addRow(){const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="false";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
-  function deleteRow(){if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); tr.remove(); selectedCell=null; updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function deleteRow(){if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); tr.remove(); selectedCell=null; selectedCells.clear(); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function addCol(){const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="false";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
-  function deleteCol(){if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function deleteCol(){if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; selectedCells.clear(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function normalizePhoneText(v){let t=String(v||"").trim(); if(!t)return""; const digits=t.replace(/\D/g,""); if(digits.length===8)return"010 "+digits.slice(0,4)+" "+digits.slice(4); if(digits.length===10&&digits.startsWith("10"))return"0"+digits.slice(0,2)+" "+digits.slice(2,6)+" "+digits.slice(6); if(digits.length===11)return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7); return t}
   function getPhoneColumnIndexes(){return[5,6]}
   function scaleWholeTable(){
@@ -1274,6 +1396,15 @@ body.locked #tableWrap{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c)return;
     const isTouchPointer=(e.pointerType==="touch"||e.pointerType==="pen");
+    if(!isTouchPointer && (e.ctrlKey || e.metaKey)){
+      e.preventDefault();
+      e.stopPropagation();
+      cancelLongPressTimer();
+      cancelTouchSelectTimer();
+      toggleMultiSelectedCell(c);
+
+      return;
+    }
     touchMovedAsScroll=false;
     longPressStartX=e.clientX||0;
     longPressStartY=e.clientY||0;
@@ -1335,7 +1466,7 @@ body.locked #tableWrap{
     setCurrentSelectedCell(c);
     if(isEditableBodyCell(c) && c.isContentEditable){
       isCellEditing=true;
-      setStatus("입력중: 3초 후 자동 동기화");
+
     }
   },true);
   table.addEventListener("focusout",e=>{
@@ -1356,6 +1487,11 @@ body.locked #tableWrap{
   table.addEventListener("click",e=>{
     const c=e.target.closest&&e.target.closest("td,th");
     if(!c)return;
+    if(e.ctrlKey || e.metaKey){
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if(Date.now()<suppressNextTouchClickUntil){
       e.preventDefault();
       e.stopPropagation();
@@ -1382,11 +1518,12 @@ body.locked #tableWrap{
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
   document.getElementById("sortBtn").onclick=()=>{sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>document.getElementById("dataRestoreFile").click(); document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter").forEach(sel=>{sel.value="";sel.closest("th")?.classList.remove("filter-active")}); search()};
+  bindCellStyleButtons();
   document.addEventListener("click",e=>{if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();});
   tableWrap.addEventListener("scroll",hideAutocomplete);
   window.addEventListener("resize",()=>{hideAutocomplete();scheduleScaleWholeTable();}); window.addEventListener("orientationchange",()=>setTimeout(scaleWholeTable,300));
   applyData(loadBestSaved()||defaultData());
-  setStatus("실시간 동기화 준비");
+
   initFirebaseRealtime();
 })();
 </script>
