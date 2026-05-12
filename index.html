@@ -654,36 +654,43 @@ body.readonly-mode #statusText{
 }
 
 
-/* 요청 수정: 기본/관리자/편집 버튼 그룹 분리 */
-#realtimeStatusBox,
-#statusText{
-  display:none !important;
-}
-.toolbar-group{
-  display:inline-flex;
-  gap:5px;
-  flex-wrap:wrap;
-  align-items:center;
-}
-.toolbar-group.is-hidden{
-  display:none !important;
-}
-.toolbar-toggle-btn{
+
+/* 버튼 그룹 묶음: 기본 버튼만 상시 표시, 관리자/편집은 토글로 펼침 */
+.grouped-toolbar .group-toggle-btn{
   background:#1737c9 !important;
   color:#fff !important;
   border-color:#1737c9 !important;
   font-weight:700 !important;
 }
-#editToggleBtn{
+.grouped-toolbar .group-toggle-btn.is-open{
   background:#0b7a28 !important;
-  color:#fff !important;
   border-color:#0b7a28 !important;
 }
-.utility-hidden{
+.button-group-panel{
+  display:inline-flex;
+  gap:5px;
+  flex-wrap:wrap;
+  align-items:center;
+  padding:3px 5px;
+  border:1px solid #cfd4dc;
+  border-radius:4px;
+  background:#fff;
+}
+.button-group-panel[hidden]{
   display:none !important;
 }
+.button-group-panel .style-tools{
+  display:inline-flex;
+}
 @media(max-width:480px){
-  .toolbar-group{gap:1px !important;}
+  .button-group-panel{gap:1px !important;padding:1px !important;border-radius:1px !important;}
+}
+
+
+/* 요청 수정: 실시간반영/편집가능 상태 표시는 화면에서 숨김 */
+#realtimeStatusBox,
+#statusText{
+  display:none !important;
 }
 
 </style>
@@ -708,25 +715,29 @@ body.readonly-mode #statusText{
 </div>
 
 <div class="app">
-  <div class="toolbar" id="mainToolbar">
+  <div class="toolbar grouped-toolbar">
     <span class="total-box" id="totalBox">총회원수: <b id="totalCount">0</b></span>
     <span class="realtime-box off" id="realtimeStatusBox">실시간 연결 준비중</span>
     <button type="button" id="adminLogoutBtn">로그아웃</button>
     <input id="nameSearch" type="search" placeholder="이름검색">
     <input id="nickSearch" type="search" placeholder="닉네임검색">
-    <button type="button" id="adminToggleBtn" class="toolbar-toggle-btn">관리자</button>
-    <button type="button" id="editToggleBtn" class="toolbar-toggle-btn">편집</button>
+    <button type="button" id="clearSearchBtn">검색해제</button>
+    <button type="button" id="adminGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="adminButtonGroup">관리자</button>
+    <button type="button" id="editGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="editButtonGroup">편집</button>
+    <span class="status" id="statusText">편집가능</span>
 
-    <span class="toolbar-group is-hidden" id="adminButtonGroup">
+    <span class="button-group-panel admin-button-group" id="adminButtonGroup" hidden>
       <button type="button" id="adminChangePasswordBtn">비번변경</button>
       <button type="button" id="readOnlyChangePasswordBtn">읽기비번변경</button>
       <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
       <button type="button" id="resetBtn">초기화</button>
       <button type="button" id="dataBackupBtn">자료백업</button>
       <button type="button" id="dataRestoreBtn">자료복구</button>
+      <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
     </span>
 
-    <span class="toolbar-group is-hidden" id="editButtonGroup">
+    <span class="button-group-panel edit-button-group" id="editButtonGroup" hidden>
+      <button type="button" id="sortBtn">정렬</button>
       <button type="button" id="addRowBtn">행밑추가</button>
       <button type="button" id="delRowBtn">행삭제</button>
       <button type="button" id="addColBtn">열추가</button>
@@ -734,20 +745,15 @@ body.readonly-mode #statusText{
       <span class="style-tools" id="cellStyleTools">
         <button type="button" id="cellBoldBtn" class="style-btn-bold" title="선택 칸 글자 굵게">굵게</button>
         <button type="button" id="cellTextBlackBtn" class="style-btn-text-black" title="선택 칸 글자색 검정">검정</button>
-        <button type="button" id="cellTextRedBtn" class="style-btn-text-red" title="선택 칸 글자색 빨강">글자</button>
-        <button type="button" id="cellTextBlueBtn" class="style-btn-text-blue" title="선택 칸 글자색 파랑">글자</button>
-        <button type="button" id="cellBgWhiteBtn" class="style-btn-bg-white" title="선택 칸 배경 흰색">배경</button>
-        <button type="button" id="cellBgYellowBtn" class="style-btn-bg-yellow" title="선택 칸 배경 노랑">배경</button>
-        <button type="button" id="cellBgSkyBtn" class="style-btn-bg-sky" title="선택 칸 배경 하늘">배경</button>
-        <button type="button" id="cellBgRedBtn" class="style-btn-bg-red" title="선택 칸 배경 빨강">배경</button>
-        <button type="button" id="cellStyleClearBtn" class="style-btn-clear" title="선택 칸 서식 해제">해제</button>
+        <button type="button" id="cellTextRedBtn" class="style-btn-text-red" title="선택 칸 글자색 빨강">글자빨강</button>
+        <button type="button" id="cellTextBlueBtn" class="style-btn-text-blue" title="선택 칸 글자색 파랑">글자파랑</button>
+        <button type="button" id="cellBgWhiteBtn" class="style-btn-bg-white" title="선택 칸 배경 흰색">배경흰색</button>
+        <button type="button" id="cellBgYellowBtn" class="style-btn-bg-yellow" title="선택 칸 배경 노랑">배경노랑</button>
+        <button type="button" id="cellBgSkyBtn" class="style-btn-bg-sky" title="선택 칸 배경 하늘">배경하늘</button>
+        <button type="button" id="cellBgRedBtn" class="style-btn-bg-red" title="선택 칸 배경 빨강">배경빨강</button>
+        <button type="button" id="cellStyleClearBtn" class="style-btn-clear" title="선택 칸 서식 해제">서식해제</button>
       </span>
     </span>
-
-    <button type="button" id="sortBtn" class="utility-hidden">정렬</button>
-    <button type="button" id="clearSearchBtn" class="utility-hidden">검색해제</button>
-    <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
-    <span class="status" id="statusText">편집가능</span>
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
@@ -909,37 +915,6 @@ body.readonly-mode #statusText{
     bind("cellBgSkyBtn","bg-sky");
     bind("cellBgRedBtn","bg-red");
     bind("cellStyleClearBtn","clear");
-  }
-
-  function bindToolbarToggleButton(){
-    const adminBtn=document.getElementById("adminToggleBtn");
-    const editBtn=document.getElementById("editToggleBtn");
-    const adminGroup=document.getElementById("adminButtonGroup");
-    const editGroup=document.getElementById("editButtonGroup");
-    const refresh=()=>{
-      if(adminBtn && adminGroup){
-        adminBtn.textContent=adminGroup.classList.contains("is-hidden") ? "관리자" : "관리자닫기";
-      }
-      if(editBtn && editGroup){
-        editBtn.textContent=editGroup.classList.contains("is-hidden") ? "편집" : "편집닫기";
-      }
-      try{ setTimeout(()=>window.dispatchEvent(new Event("resize")),60); }catch(e){}
-    };
-    if(adminBtn && adminGroup){
-      adminGroup.classList.add("is-hidden");
-      adminBtn.onclick=()=>{
-        adminGroup.classList.toggle("is-hidden");
-        refresh();
-      };
-    }
-    if(editBtn && editGroup){
-      editGroup.classList.add("is-hidden");
-      editBtn.onclick=()=>{
-        editGroup.classList.toggle("is-hidden");
-        refresh();
-      };
-    }
-    refresh();
   }
 
   /* 셀 터치: 0.3초 후 선택 / 0.5초 이상 길게 누르면 편집 가능 */
@@ -1633,13 +1608,39 @@ body.readonly-mode #statusText{
   document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter").forEach(sel=>{sel.value="";sel.closest("th")?.classList.remove("filter-active")}); search()};
   bindCellStyleButtons();
-  bindToolbarToggleButton();
   document.addEventListener("click",e=>{if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();});
   tableWrap.addEventListener("scroll",hideAutocomplete);
   window.addEventListener("resize",()=>{hideAutocomplete();scheduleScaleWholeTable();}); window.addEventListener("orientationchange",()=>setTimeout(scaleWholeTable,300));
   applyData(loadBestSaved()||defaultData());
 
   initFirebaseRealtime();
+
+  function bindToolbarButtonGroups(){
+    const groups = [
+      { button: document.getElementById("adminGroupToggleBtn"), panel: document.getElementById("adminButtonGroup") },
+      { button: document.getElementById("editGroupToggleBtn"), panel: document.getElementById("editButtonGroup") }
+    ];
+    groups.forEach(({button, panel})=>{
+      if(!button || !panel) return;
+      button.addEventListener("click", ()=>{
+        const willOpen = panel.hasAttribute("hidden");
+        groups.forEach(({button: otherButton, panel: otherPanel})=>{
+          if(!otherButton || !otherPanel) return;
+          otherPanel.setAttribute("hidden", "");
+          otherButton.classList.remove("is-open");
+          otherButton.setAttribute("aria-expanded", "false");
+        });
+        if(willOpen){
+          panel.removeAttribute("hidden");
+          button.classList.add("is-open");
+          button.setAttribute("aria-expanded", "true");
+        }
+      });
+    });
+  }
+
+  bindToolbarButtonGroups();
+
 })();
 </script>
 
@@ -1709,8 +1710,10 @@ body.readonly-mode #statusText{
     document.body.classList.toggle("readonly-mode",isReadOnly);
     document.body.classList.toggle("edit-mode",!!isUnlocked && !isReadOnly);
     if(isUnlocked){
-      localStorage.setItem(SESSION_KEY,"1");
-      localStorage.setItem(SESSION_MODE_KEY,isReadOnly?"readonly":"edit");
+      /* 보안 수정: 로그인 상태를 저장하지 않습니다.
+         화면을 나가거나 앱을 닫은 뒤 다시 열면 반드시 비밀번호를 입력해야 합니다. */
+      localStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(SESSION_MODE_KEY);
       applyModeButtons(isReadOnly?"readonly":"edit");
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
     }else{
@@ -1721,11 +1724,15 @@ body.readonly-mode #statusText{
     }
   }
 
+  function forcePasswordGate(){
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_MODE_KEY);
+    setUnlockedState(false);
+  }
+
   function restoreUnlockedSession(){
-    if(localStorage.getItem(SESSION_KEY)==="1"){
-      const mode=localStorage.getItem(SESSION_MODE_KEY)||"edit";
-      setUnlockedState(true,mode);
-    }
+    /* 이전 버전에서 남아 있는 로그인 기록은 즉시 삭제합니다. */
+    forcePasswordGate();
   }
   function makeRecoveryCode(){
     const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -1850,7 +1857,7 @@ body.readonly-mode #statusText{
       if(input)input.value="";
       setGateMsg("");
     }else{
-      setGateMsg("관리자 비밀번호가 맞지 않습니다.");
+      setGateMsg("관리자가 아닌 경우. 읽기전용으로 로그인하세요.");
       if(input){input.select();input.focus();}
     }
   }
@@ -1935,7 +1942,11 @@ body.readonly-mode #statusText{
     alert("관리자 비밀번호가 1234로 초기화되었고 Firebase에 실시간 동기화되었습니다.\n읽기전용 기본 비밀번호는 0000입니다.");
   }
   function bindAdmin(){
-    setViewportLockedForAdmin(!localStorage.getItem(SESSION_KEY));
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_MODE_KEY);
+    setViewportLockedForAdmin(true);
+    document.body.classList.add("locked");
+    document.body.classList.remove("unlocked","readonly-mode","edit-mode");
     const loginBtn=$("adminLoginBtn");
     const readOnlyLoginBtn=$("readOnlyLoginBtn");
     const input=$("adminPasswordInput");
@@ -1956,6 +1967,14 @@ body.readonly-mode #statusText{
     if(readOnlyChangeBtn)readOnlyChangeBtn.onclick=changeReadOnlyPassword;
     if(recoveryBtn)recoveryBtn.onclick=createRecoveryCode;
     if(resetBtn)resetBtn.onclick=resetPassword;
+
+    /* 화면 이탈/앱 종료/뒤로가기 복귀 대비: 다음 진입 때는 무조건 비밀번호 입력 */
+    window.addEventListener("pagehide",forcePasswordGate);
+    window.addEventListener("beforeunload",forcePasswordGate);
+    document.addEventListener("visibilitychange",()=>{
+      if(document.visibilityState==="hidden") forcePasswordGate();
+    });
+
     initAdminFirebaseSync();
     restoreUnlockedSession();
   }
