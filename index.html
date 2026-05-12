@@ -1041,6 +1041,24 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   .multi-filter-option input{width:12px !important;height:12px !important;margin-right:3px !important;}
 }
 
+
+/* 요청 수정: 필터 상단은 전체해제만 표시 + 체크 후 필터창 유지 */
+.multi-filter-action-row{
+  display:flex !important;
+  position:sticky !important;
+  top:0 !important;
+  z-index:2 !important;
+  background:#fff !important;
+  padding-bottom:4px !important;
+}
+.multi-filter-action-row .filter-select-all{
+  display:none !important;
+}
+.multi-filter-action-row .filter-clear-all{
+  flex:1 1 100% !important;
+  width:100% !important;
+}
+
 </style>
 </head>
 <body class="locked">
@@ -1667,7 +1685,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
         const checked=selectedSet.has(rawVal)?"checked":"";
         return `<label class="multi-filter-option"><input type="checkbox" class="column-filter-check" data-col="${idx}" value="${escapeHtml(rawVal)}" ${checked}> <span>${label}</span></label>`;
       }).join("") || '<div class="multi-filter-option">선택 항목 없음</div>';
-      th.innerHTML=`<div class="header-filter-wrap"><div class="header-title">${escapeHtml(title)}</div><button type="button" class="column-filter-toggle" data-col="${idx}" title="${escapeHtml(title)} 필터 복수 선택">${activeText}</button><div class="multi-filter-panel" data-col="${idx}" hidden><div class="multi-filter-action-row"><button type="button" class="filter-select-all">전체선택</button><button type="button" class="filter-clear-all">해제</button></div>${optionsHtml}</div></div>`;
+      th.innerHTML=`<div class="header-filter-wrap"><div class="header-title">${escapeHtml(title)}</div><button type="button" class="column-filter-toggle" data-col="${idx}" title="${escapeHtml(title)} 필터 복수 선택">${activeText}</button><div class="multi-filter-panel" data-col="${idx}" hidden><div class="multi-filter-action-row"><button type="button" class="filter-clear-all">전체해제</button></div>${optionsHtml}</div></div>`;
       th.classList.toggle("filter-active",selectedValues.length>0);
     });
     table.querySelectorAll(".column-filter-toggle").forEach(btn=>{
@@ -1696,15 +1714,20 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
         check.onclick=e=>e.stopPropagation();
         check.onmousedown=e=>e.stopPropagation();
         check.ontouchstart=e=>e.stopPropagation();
-        check.onchange=()=>{
+        check.onchange=(e)=>{
+          if(e) e.stopPropagation();
           const th=check.closest("th");
+          const currentPanel=check.closest(".multi-filter-panel");
           const selectedCount=getSelectedFilterValuesFromHeader(th).length;
           const toggle=th.querySelector(".column-filter-toggle");
           if(toggle) toggle.textContent=selectedCount ? `선택 ${selectedCount}` : "전체";
           th.classList.toggle("filter-active",selectedCount>0);
           applyAllFilters();
-          const currentPanel=check.closest(".multi-filter-panel");
-          if(currentPanel) currentPanel.hidden=false;
+          /* 항목을 선택해도 필터창을 닫지 않고 계속 유지 */
+          if(currentPanel){
+            currentPanel.hidden=false;
+            requestAnimationFrame(()=>{currentPanel.hidden=false;});
+          }
         };
       });
       const selectAll=panel.querySelector(".filter-select-all");
@@ -1718,13 +1741,16 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
         th.classList.toggle("filter-active",selectedCount>0);
         applyAllFilters();
       };
-      if(clearAll) clearAll.onclick=()=>{
+      if(clearAll) clearAll.onclick=(e)=>{
+        if(e) e.stopPropagation();
         panel.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=false;});
         const th=panel.closest("th");
         const toggle=th.querySelector(".column-filter-toggle");
         if(toggle) toggle.textContent="전체";
         th.classList.remove("filter-active");
         applyAllFilters();
+        panel.hidden=false;
+        requestAnimationFrame(()=>{panel.hidden=false;});
       };
     });
   }
@@ -2068,7 +2094,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   }
   document.addEventListener("click",handleOutsideFilterClose);
   document.addEventListener("touchstart",handleOutsideFilterClose,{passive:true});
-  tableWrap.addEventListener("scroll",()=>{hideAutocomplete();closeAllColumnFilterPanels();});
+  tableWrap.addEventListener("scroll",()=>{hideAutocomplete();});
   window.addEventListener("resize",()=>{hideAutocomplete();scheduleScaleWholeTable();}); window.addEventListener("orientationchange",()=>setTimeout(scaleWholeTable,300));
   applyData(loadBestSaved()||defaultData());
 
