@@ -1006,6 +1006,41 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   .multi-filter-option{font-size:6px;gap:2px;padding:2px 1px;}
 }
 
+
+/* 요청 수정: 필터 글자 확대 + 체크 후 필터창 유지 */
+.column-filter-toggle{
+  font-size:13px !important;
+  font-weight:700 !important;
+}
+.multi-filter-panel{
+  font-size:14px !important;
+  min-width:180px !important;
+  max-height:280px !important;
+}
+.multi-filter-action-row button{
+  height:26px !important;
+  font-size:12px !important;
+  font-weight:700 !important;
+}
+.multi-filter-option{
+  font-size:14px !important;
+  line-height:1.45 !important;
+  padding:5px 4px !important;
+  cursor:pointer !important;
+}
+.multi-filter-option input{
+  width:16px !important;
+  height:16px !important;
+  margin-right:4px !important;
+}
+@media(max-width:480px){
+  .column-filter-toggle{font-size:7px !important;height:14px !important;line-height:12px !important;}
+  .multi-filter-panel{font-size:8px !important;min-width:120px !important;max-height:200px !important;padding:5px !important;}
+  .multi-filter-action-row button{height:18px !important;font-size:7px !important;}
+  .multi-filter-option{font-size:8px !important;line-height:1.45 !important;padding:4px 2px !important;}
+  .multi-filter-option input{width:12px !important;height:12px !important;margin-right:3px !important;}
+}
+
 </style>
 </head>
 <body class="locked">
@@ -1649,7 +1684,18 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     table.querySelectorAll(".multi-filter-panel").forEach(panel=>{
       panel.onmousedown=e=>e.stopPropagation();
       panel.onclick=e=>e.stopPropagation();
+      panel.ontouchstart=e=>e.stopPropagation();
+      panel.onpointerdown=e=>e.stopPropagation();
+      panel.querySelectorAll(".multi-filter-option").forEach(label=>{
+        label.onmousedown=e=>e.stopPropagation();
+        label.onclick=e=>e.stopPropagation();
+        label.ontouchstart=e=>e.stopPropagation();
+        label.onpointerdown=e=>e.stopPropagation();
+      });
       panel.querySelectorAll(".column-filter-check").forEach(check=>{
+        check.onclick=e=>e.stopPropagation();
+        check.onmousedown=e=>e.stopPropagation();
+        check.ontouchstart=e=>e.stopPropagation();
         check.onchange=()=>{
           const th=check.closest("th");
           const selectedCount=getSelectedFilterValuesFromHeader(th).length;
@@ -1657,6 +1703,8 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
           if(toggle) toggle.textContent=selectedCount ? `선택 ${selectedCount}` : "전체";
           th.classList.toggle("filter-active",selectedCount>0);
           applyAllFilters();
+          const currentPanel=check.closest(".multi-filter-panel");
+          if(currentPanel) currentPanel.hidden=false;
         };
       });
       const selectAll=panel.querySelector(".filter-select-all");
@@ -2013,7 +2061,13 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=false;});table.querySelectorAll("th.header-cell").forEach(th=>{th.classList.remove("filter-active");const btn=th.querySelector(".column-filter-toggle");if(btn)btn.textContent="전체";});closeAllColumnFilterPanels(); search()};
   bindCellStyleButtons();
-  document.addEventListener("click",e=>{if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();if(!e.target.closest(".header-filter-wrap"))closeAllColumnFilterPanels();});
+  function handleOutsideFilterClose(e){
+    if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();
+    if(e.target.closest(".header-filter-wrap") || e.target.closest(".multi-filter-panel")) return;
+    closeAllColumnFilterPanels();
+  }
+  document.addEventListener("click",handleOutsideFilterClose);
+  document.addEventListener("touchstart",handleOutsideFilterClose,{passive:true});
   tableWrap.addEventListener("scroll",()=>{hideAutocomplete();closeAllColumnFilterPanels();});
   window.addEventListener("resize",()=>{hideAutocomplete();scheduleScaleWholeTable();}); window.addEventListener("orientationchange",()=>setTimeout(scaleWholeTable,300));
   applyData(loadBestSaved()||defaultData());
