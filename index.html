@@ -639,7 +639,8 @@ body.readonly-mode #addColBtn,
 body.readonly-mode #delColBtn,
 body.readonly-mode #adminChangePasswordBtn,
 body.readonly-mode #readOnlyChangePasswordBtn,
-body.readonly-mode #adminRecoveryCodeBtn{
+body.readonly-mode #adminRecoveryCodeBtn,
+body.readonly-mode #systemAdminChangePasswordBtn{
   display:none !important;
 }
 body.readonly-mode .member-table td,
@@ -1096,6 +1097,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
       <button type="button" id="adminChangePasswordBtn">비번변경</button>
       <button type="button" id="readOnlyChangePasswordBtn">읽기비번변경</button>
       <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
+      <button type="button" id="systemAdminChangePasswordBtn">시스템관리자 비번변경</button>
       <button type="button" id="resetBtn">초기화</button>
       <button type="button" id="dataBackupBtn">자료백업</button>
       <button type="button" id="dataRestoreBtn">자료복구</button>
@@ -2108,6 +2110,14 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     groups.forEach(({button, panel})=>{
       if(!button || !panel) return;
       button.addEventListener("click", ()=>{
+        if(button.id === "adminGroupToggleBtn" && panel.hasAttribute("hidden")){
+          if(typeof window.openAdminGroupWithPassword === "function"){
+            window.openAdminGroupWithPassword();
+          }else{
+            window.dispatchEvent(new CustomEvent("request-admin-group-open"));
+          }
+          return;
+        }
         const willOpen = panel.hasAttribute("hidden");
         groups.forEach(({button: otherButton, panel: otherPanel})=>{
           if(!otherButton || !otherPanel) return;
@@ -2134,6 +2144,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   const PASS_KEY="memberList.admin.passwordHash.v1";
   const RECOVERY_KEY="memberList.admin.recoveryHash.v1";
   const READONLY_KEY="memberList.readonly.passwordHash.v1";
+  const SYSTEM_ADMIN_KEY="memberList.systemAdmin.passwordHash.v1";
   const DEFAULT_PASSWORD="1234";
   const DEFAULT_READONLY_PASSWORD="0000";
   const SESSION_KEY="memberList.admin.sessionUnlocked.v1";
@@ -2152,7 +2163,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
   let adminDb=null, adminRef=null;
   let adminReady=false, adminRemoteLoaded=false;
-  let adminPasswordHash="", adminRecoveryHash="", readOnlyPasswordHash="";
+  let adminPasswordHash="", adminRecoveryHash="", readOnlyPasswordHash="", systemAdminPasswordHash="";
   let adminWriteTimer=null;
 
   async function sha256(text){
@@ -2231,8 +2242,9 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     const passwordHash=String(value.passwordHash||value.passHash||value.adminPasswordHash||value.hash||"");
     const recoveryHash=String(value.recoveryHash||value.adminRecoveryHash||value.recoveryCodeHash||"");
     const readOnlyHash=String(value.readOnlyHash||value.readonlyHash||value.viewerHash||value.readOnlyPasswordHash||"");
+    const systemAdminHash=String(value.systemAdminHash||value.systemPasswordHash||value.systemAdminPasswordHash||"");
     if(!passwordHash)return null;
-    return {passwordHash,recoveryHash,readOnlyHash};
+    return {passwordHash,recoveryHash,readOnlyHash,systemAdminHash};
   }
   async function getDefaultHash(){return await sha256(DEFAULT_PASSWORD);}
   async function getDefaultReadOnlyHash(){return await sha256(DEFAULT_READONLY_PASSWORD);}
@@ -2244,12 +2256,16 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     let readOnly=localStorage.getItem(READONLY_KEY)||"";
     if(!readOnly){readOnly=await getDefaultReadOnlyHash();localStorage.setItem(READONLY_KEY,readOnly);}
     readOnlyPasswordHash=readOnly;
+    let systemAdmin=localStorage.getItem(SYSTEM_ADMIN_KEY)||"";
+    if(!systemAdmin){systemAdmin=await getDefaultHash();localStorage.setItem(SYSTEM_ADMIN_KEY,systemAdmin);}
+    systemAdminPasswordHash=systemAdmin;
   }
   function saveLocalAdminCache(){
     if(adminPasswordHash)localStorage.setItem(PASS_KEY,adminPasswordHash);
     if(adminRecoveryHash)localStorage.setItem(RECOVERY_KEY,adminRecoveryHash);
     else localStorage.removeItem(RECOVERY_KEY);
     if(readOnlyPasswordHash)localStorage.setItem(READONLY_KEY,readOnlyPasswordHash);
+    if(systemAdminPasswordHash)localStorage.setItem(SYSTEM_ADMIN_KEY,systemAdminPasswordHash);
   }
   function buildAdminPayload(reason){
     return {
@@ -2260,6 +2276,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
       passwordHash:adminPasswordHash,
       recoveryHash:adminRecoveryHash||"",
       readOnlyHash:readOnlyPasswordHash||"",
+      systemAdminHash:systemAdminPasswordHash||adminPasswordHash||"",
       updatedAt:Date.now(),
       updatedAtISO:new Date().toISOString()
     };
@@ -2311,6 +2328,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
         adminPasswordHash=payload.passwordHash;
         adminRecoveryHash=payload.recoveryHash||"";
         readOnlyPasswordHash=payload.readOnlyHash||readOnlyPasswordHash||await getDefaultReadOnlyHash();
+        systemAdminPasswordHash=payload.systemAdminHash||systemAdminPasswordHash||await getDefaultHash();
         saveLocalAdminCache();
         adminRemoteLoaded=true;
         setGateMsg("");
@@ -2332,6 +2350,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     }
     if(!adminPasswordHash){adminPasswordHash=await getDefaultHash();writeAdminSync("default-created");}
     if(!readOnlyPasswordHash){readOnlyPasswordHash=await getDefaultReadOnlyHash();writeAdminSync("readonly-default-created");}
+    if(!systemAdminPasswordHash){systemAdminPasswordHash=await getDefaultHash();writeAdminSync("system-admin-default-created");}
   }
   async function unlockWithPassword(){
     await ensureAdminReadyForLogin();
@@ -2426,6 +2445,45 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     writeAdminSync("password-reset");
     alert("관리자 비밀번호가 1234로 초기화되었고 Firebase에 실시간 동기화되었습니다.\n읽기전용 기본 비밀번호는 0000입니다.");
   }
+  function closeAllToolbarGroups(){
+    ["adminButtonGroup","editButtonGroup"].forEach(id=>{const panel=$(id); if(panel)panel.setAttribute("hidden","");});
+    ["adminGroupToggleBtn","editGroupToggleBtn"].forEach(id=>{const btn=$(id); if(btn){btn.classList.remove("is-open");btn.setAttribute("aria-expanded","false");}});
+  }
+
+  async function openAdminGroupWithPassword(){
+    await ensureAdminReadyForLogin();
+    const pw=prompt("시스템관리자 비밀번호를 입력하세요.");
+    if(pw===null)return;
+    if(await sha256(pw.trim())!==systemAdminPasswordHash){
+      alert("시스템관리자 비밀번호가 맞지 않습니다.");
+      return;
+    }
+    closeAllToolbarGroups();
+    const panel=$("adminButtonGroup");
+    const btn=$("adminGroupToggleBtn");
+    if(panel)panel.removeAttribute("hidden");
+    if(btn){btn.classList.add("is-open");btn.setAttribute("aria-expanded","true");}
+  }
+
+  async function changeSystemAdminPassword(){
+    await ensureAdminReadyForLogin();
+    const oldPw=prompt("현재 시스템관리자 비밀번호를 입력하세요.");
+    if(oldPw===null)return;
+    if(await sha256(oldPw.trim())!==systemAdminPasswordHash){alert("현재 시스템관리자 비밀번호가 맞지 않습니다.");return;}
+    const next=prompt("새 시스템관리자 비밀번호를 입력하세요.");
+    if(next===null)return;
+    if(!next.trim()){alert("새 시스템관리자 비밀번호가 비어 있습니다.");return;}
+    const again=prompt("새 시스템관리자 비밀번호를 다시 입력하세요.");
+    if(again===null)return;
+    if(next.trim()!==again.trim()){alert("시스템관리자 비밀번호가 서로 다릅니다.");return;}
+    systemAdminPasswordHash=await sha256(next.trim());
+    writeAdminSync("system-admin-password-change");
+    alert("시스템관리자 비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
+  }
+
+  window.openAdminGroupWithPassword=openAdminGroupWithPassword;
+  window.addEventListener("request-admin-group-open",openAdminGroupWithPassword);
+
   function bindAdmin(){
     localStorage.removeItem(SESSION_KEY);
     localStorage.removeItem(SESSION_MODE_KEY);
@@ -2439,6 +2497,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     const changeBtn=$("adminChangePasswordBtn");
     const readOnlyChangeBtn=$("readOnlyChangePasswordBtn");
     const recoveryBtn=$("adminRecoveryCodeBtn");
+    const systemChangeBtn=$("systemAdminChangePasswordBtn");
     const resetBtn=$("adminResetPasswordBtn");
     if(loginBtn)loginBtn.onclick=unlockWithPassword;
     if(readOnlyLoginBtn)readOnlyLoginBtn.onclick=unlockReadOnlyWithPassword;
@@ -2451,6 +2510,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     if(changeBtn)changeBtn.onclick=changePassword;
     if(readOnlyChangeBtn)readOnlyChangeBtn.onclick=changeReadOnlyPassword;
     if(recoveryBtn)recoveryBtn.onclick=createRecoveryCode;
+    if(systemChangeBtn)systemChangeBtn.onclick=changeSystemAdminPassword;
     if(resetBtn)resetBtn.onclick=resetPassword;
 
     /* 화면 이탈/앱 종료/뒤로가기 복귀 대비: 다음 진입 때는 무조건 비밀번호 입력 */
