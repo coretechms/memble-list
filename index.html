@@ -1068,6 +1068,85 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   text-decoration:underline;
 }
 
+
+/* 전화번호 3초 길게누름: 전화/카카오톡 선택 */
+.phone-link{
+  cursor:pointer;
+  color:#1737c9;
+  text-decoration:underline;
+  font-weight:700;
+}
+.phone-action-overlay{
+  position:fixed;
+  inset:0;
+  z-index:9999999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.28);
+  padding:18px;
+}
+.phone-action-dialog{
+  width:min(340px,92vw);
+  background:#fff;
+  border:1px solid #cfd4dc;
+  border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.22);
+  padding:16px;
+  text-align:center;
+  font-family:inherit;
+}
+.phone-action-title{
+  font-size:16px;
+  font-weight:700;
+  margin-bottom:8px;
+  color:#111;
+}
+.phone-action-number{
+  font-size:14px;
+  color:#1737c9;
+  font-weight:700;
+  margin-bottom:14px;
+  word-break:break-all;
+}
+.phone-action-buttons{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:8px;
+}
+.phone-action-buttons button{
+  width:100%;
+  height:38px;
+  border-radius:10px;
+  border:1px solid #999;
+  background:#f4f4f4;
+  color:#111;
+  font-size:14px;
+  font-weight:700;
+  font-family:inherit;
+  cursor:pointer;
+}
+.phone-action-buttons .phone-call-btn{
+  background:#1737c9;
+  border-color:#1737c9;
+  color:#fff;
+}
+.phone-action-buttons .phone-kakao-btn{
+  background:#fee500;
+  border-color:#d6c300;
+  color:#111;
+}
+.phone-action-buttons .phone-cancel-btn{
+  background:#fff;
+  color:#555;
+}
+@media(max-width:480px){
+  .phone-action-dialog{padding:12px;border-radius:12px;}
+  .phone-action-title{font-size:13px;}
+  .phone-action-number{font-size:12px;}
+  .phone-action-buttons button{height:32px;font-size:12px;border-radius:8px;}
+}
+
 </style>
 </head>
 <body class="locked">
@@ -2537,14 +2616,106 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 </script>
 
 
+
+
+
 <script>
 document.addEventListener("DOMContentLoaded",()=>{
-  const PHONE_COLS=[5,6];
+  const PHONE_COLS=[5,6]; // 연락처 / 비상연락처 열
+  const KAKAO_SEARCH_COLS=[14,15,16]; // 연관검색 칸 등에 카카오톡 링크가 있으면 사용
+  const LONG_PRESS_MS=3000;
   let phonePressTimer=null;
-  let pressedLink=null;
+  let pressStartX=0;
+  let pressStartY=0;
+  let moved=false;
 
   function cleanPhone(text){
-    return String(text||'').replace(/[^0-9]/g,'');
+    return String(text||"").replace(/[^0-9]/g,"");
+  }
+
+  function isKakaoLink(text){
+    const value=String(text||"").trim();
+    return /^(https?:\/\/)?(open\.kakao\.com|pf\.kakao\.com|talk\.kakao\.com)|^kakaotalk:\/\//i.test(value);
+  }
+
+  function normalizeKakaoLink(text){
+    const value=String(text||"").trim();
+    if(!value) return "";
+    if(/^kakaotalk:\/\//i.test(value)) return value;
+    if(/^https?:\/\//i.test(value)) return value;
+    if(/^(open\.kakao\.com|pf\.kakao\.com|talk\.kakao\.com)/i.test(value)) return "https://" + value;
+    return "";
+  }
+
+  function findKakaoLinkFromRow(row){
+    if(!row) return "";
+    // 행 전체에서 카카오톡/오픈채팅 URL 우선 검색
+    const rowText=String(row.innerText||"");
+    const urlMatch=rowText.match(/(?:https?:\/\/)?(?:open\.kakao\.com|pf\.kakao\.com|talk\.kakao\.com)[^\s<>"']*/i);
+    if(urlMatch) return normalizeKakaoLink(urlMatch[0]);
+
+    // 지정 연관검색 열에서도 확인
+    for(const col of KAKAO_SEARCH_COLS){
+      const cell=row.cells[col];
+      if(!cell) continue;
+      const text=String(cell.innerText||"").trim();
+      if(isKakaoLink(text)) return normalizeKakaoLink(text);
+    }
+    return "";
+  }
+
+  function openKakao(phone, kakaoLink){
+    // 카카오톡 링크/오픈채팅 링크가 있으면 그것을 우선 실행
+    if(kakaoLink){
+      window.location.href=kakaoLink;
+      return;
+    }
+
+    // 전화번호만으로 특정 채팅방을 바로 여는 것은 브라우저 보안상 불안정하므로
+    // 카카오톡 앱 실행을 시도하고, 실패 시 카카오톡 안내 페이지로 이동
+    const now=Date.now();
+    window.location.href="kakaotalk://launch";
+    setTimeout(()=>{
+      if(Date.now()-now<1800){
+        window.location.href="https://www.kakaocorp.com/page/service/service/KakaoTalk";
+      }
+    },1200);
+  }
+
+  function showPhoneActionDialog({phone, displayText, kakaoLink}){
+    const old=document.getElementById("phoneActionOverlay");
+    if(old) old.remove();
+
+    const overlay=document.createElement("div");
+    overlay.className="phone-action-overlay";
+    overlay.id="phoneActionOverlay";
+
+    overlay.innerHTML=`
+      <div class="phone-action-dialog" role="dialog" aria-modal="true">
+        <div class="phone-action-title">연락 방법 선택</div>
+        <div class="phone-action-number">${displayText || phone}</div>
+        <div class="phone-action-buttons">
+          <button type="button" class="phone-call-btn">전화 연결</button>
+          <button type="button" class="phone-kakao-btn">카카오톡 연결</button>
+          <button type="button" class="phone-cancel-btn">취소</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close=()=>overlay.remove();
+    overlay.addEventListener("click",(e)=>{
+      if(e.target===overlay) close();
+    });
+    overlay.querySelector(".phone-call-btn").addEventListener("click",()=>{
+      close();
+      window.location.href="tel:"+phone;
+    });
+    overlay.querySelector(".phone-kakao-btn").addEventListener("click",()=>{
+      close();
+      openKakao(phone,kakaoLink);
+    });
+    overlay.querySelector(".phone-cancel-btn").addEventListener("click",close);
   }
 
   function applyPhoneLinks(){
@@ -2566,8 +2737,9 @@ document.addEventListener("DOMContentLoaded",()=>{
 
         if(phone.length < 9) return;
 
+        const kakaoLink=findKakaoLinkFromRow(row);
         cell.dataset.originalPhone=text;
-        cell.innerHTML='<a class="phone-link" data-phone="'+phone+'">'+text+'</a>';
+        cell.innerHTML='<a class="phone-link" data-phone="'+phone+'" data-kakao-link="'+kakaoLink+'">'+text+'</a>';
       });
     });
 
@@ -2576,30 +2748,55 @@ document.addEventListener("DOMContentLoaded",()=>{
 
   function bindPhoneLongPress(){
     document.querySelectorAll("a.phone-link").forEach(link=>{
-      if(link.dataset.bindDone==="1") return;
-      link.dataset.bindDone="1";
-
-      const startPress=(e)=>{
-        e.preventDefault();
-        pressedLink=link;
-
-        phonePressTimer=setTimeout(()=>{
-          const phone=link.dataset.phone;
-          if(phone){
-            window.location.href='tel:'+phone;
-          }
-        },2000);
-      };
+      if(link.dataset.phoneBindDone==="1") return;
+      link.dataset.phoneBindDone="1";
 
       const cancelPress=()=>{
         clearTimeout(phonePressTimer);
         phonePressTimer=null;
-        pressedLink=null;
       };
+
+      const startPress=(e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+
+        const point=e.touches && e.touches[0] ? e.touches[0] : e;
+        pressStartX=point.clientX || 0;
+        pressStartY=point.clientY || 0;
+        moved=false;
+
+        clearTimeout(phonePressTimer);
+        phonePressTimer=setTimeout(()=>{
+          if(moved) return;
+          const phone=link.dataset.phone || "";
+          if(!phone) return;
+          showPhoneActionDialog({
+            phone,
+            displayText:link.textContent.trim(),
+            kakaoLink:link.dataset.kakaoLink || ""
+          });
+        },LONG_PRESS_MS);
+      };
+
+      const movePress=(e)=>{
+        const point=e.touches && e.touches[0] ? e.touches[0] : e;
+        const dx=Math.abs((point.clientX||0)-pressStartX);
+        const dy=Math.abs((point.clientY||0)-pressStartY);
+        if(dx>12 || dy>12){
+          moved=true;
+          cancelPress();
+        }
+      };
+
+      link.addEventListener("click",(e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+      });
 
       link.addEventListener("mousedown",startPress);
       link.addEventListener("touchstart",startPress,{passive:false});
-
+      link.addEventListener("mousemove",movePress);
+      link.addEventListener("touchmove",movePress,{passive:true});
       link.addEventListener("mouseup",cancelPress);
       link.addEventListener("mouseleave",cancelPress);
       link.addEventListener("touchend",cancelPress);
@@ -2610,7 +2807,8 @@ document.addEventListener("DOMContentLoaded",()=>{
   setTimeout(applyPhoneLinks,1000);
 
   const observer=new MutationObserver(()=>{
-    applyPhoneLinks();
+    clearTimeout(window.__phoneKakaoRelinkTimer);
+    window.__phoneKakaoRelinkTimer=setTimeout(applyPhoneLinks,250);
   });
 
   observer.observe(document.body,{
