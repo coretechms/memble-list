@@ -1061,90 +1061,37 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 }
 
 
-/* 전화번호 2초 길게누름 연결 */
-.phone-link{
-  cursor:pointer;
-  color:#1737c9;
-  text-decoration:underline;
+/* 연락처 길게누름: 1.5초=편집, 4초=전화연결 */
+.member-table td.phone-hold-cell{
+  color:#1737c9 !important;
+  text-decoration:underline !important;
+  font-weight:700 !important;
+  cursor:pointer !important;
 }
-
-
-/* 전화번호 3초 길게누름: 전화/카카오톡 선택 */
-.phone-link{
-  cursor:pointer;
-  color:#1737c9;
-  text-decoration:underline;
-  font-weight:700;
+.member-table td.phone-hold-cell.phone-hold-editing{
+  color:#111 !important;
+  text-decoration:none !important;
+  caret-color:auto !important;
+  -webkit-user-select:text !important;
+  user-select:text !important;
 }
-.phone-action-overlay{
+.phone-hold-toast{
   position:fixed;
-  inset:0;
-  z-index:9999999;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  background:rgba(0,0,0,.28);
-  padding:18px;
-}
-.phone-action-dialog{
-  width:min(340px,92vw);
-  background:#fff;
-  border:1px solid #cfd4dc;
-  border-radius:16px;
-  box-shadow:0 10px 30px rgba(0,0,0,.22);
-  padding:16px;
-  text-align:center;
-  font-family:inherit;
-}
-.phone-action-title{
-  font-size:16px;
-  font-weight:700;
-  margin-bottom:8px;
-  color:#111;
-}
-.phone-action-number{
-  font-size:14px;
-  color:#1737c9;
-  font-weight:700;
-  margin-bottom:14px;
-  word-break:break-all;
-}
-.phone-action-buttons{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:8px;
-}
-.phone-action-buttons button{
-  width:100%;
-  height:38px;
-  border-radius:10px;
-  border:1px solid #999;
-  background:#f4f4f4;
-  color:#111;
-  font-size:14px;
-  font-weight:700;
-  font-family:inherit;
-  cursor:pointer;
-}
-.phone-action-buttons .phone-call-btn{
-  background:#1737c9;
-  border-color:#1737c9;
+  left:50%;
+  bottom:24px;
+  transform:translateX(-50%);
+  z-index:2147483647;
+  min-width:180px;
+  max-width:90vw;
+  padding:10px 14px;
+  border-radius:999px;
+  background:rgba(17,24,39,.94);
   color:#fff;
-}
-.phone-action-buttons .phone-kakao-btn{
-  background:#fee500;
-  border-color:#d6c300;
-  color:#111;
-}
-.phone-action-buttons .phone-cancel-btn{
-  background:#fff;
-  color:#555;
-}
-@media(max-width:480px){
-  .phone-action-dialog{padding:12px;border-radius:12px;}
-  .phone-action-title{font-size:13px;}
-  .phone-action-number{font-size:12px;}
-  .phone-action-buttons button{height:32px;font-size:12px;border-radius:8px;}
+  font-size:13px;
+  font-weight:700;
+  text-align:center;
+  box-shadow:0 6px 18px rgba(0,0,0,.22);
+  pointer-events:none;
 }
 
 </style>
@@ -2616,206 +2563,247 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 </script>
 
 
-
-
-
 <script>
-document.addEventListener("DOMContentLoaded",()=>{
-  const PHONE_COLS=[5,6]; // 연락처 / 비상연락처 열
-  const KAKAO_SEARCH_COLS=[14,15,16]; // 연관검색 칸 등에 카카오톡 링크가 있으면 사용
-  const LONG_PRESS_MS=3000;
-  let phonePressTimer=null;
-  let pressStartX=0;
-  let pressStartY=0;
-  let moved=false;
+(function(){
+  const PHONE_COLS = [5, 6]; // 연락처, 비상연락처
+  const EDIT_MS = 1500;
+  const CALL_MS = 4000;
+
+  let editTimer = null;
+  let callTimer = null;
+  let activeCell = null;
+  let startX = 0;
+  let startY = 0;
+  let moved = false;
+  let editTriggered = false;
 
   function cleanPhone(text){
-    return String(text||"").replace(/[^0-9]/g,"");
+    return String(text || "").replace(/[^0-9]/g, "");
   }
 
-  function isKakaoLink(text){
-    const value=String(text||"").trim();
-    return /^(https?:\/\/)?(open\.kakao\.com|pf\.kakao\.com|talk\.kakao\.com)|^kakaotalk:\/\//i.test(value);
-  }
-
-  function normalizeKakaoLink(text){
-    const value=String(text||"").trim();
-    if(!value) return "";
-    if(/^kakaotalk:\/\//i.test(value)) return value;
-    if(/^https?:\/\//i.test(value)) return value;
-    if(/^(open\.kakao\.com|pf\.kakao\.com|talk\.kakao\.com)/i.test(value)) return "https://" + value;
-    return "";
-  }
-
-  function findKakaoLinkFromRow(row){
-    if(!row) return "";
-    // 행 전체에서 카카오톡/오픈채팅 URL 우선 검색
-    const rowText=String(row.innerText||"");
-    const urlMatch=rowText.match(/(?:https?:\/\/)?(?:open\.kakao\.com|pf\.kakao\.com|talk\.kakao\.com)[^\s<>"']*/i);
-    if(urlMatch) return normalizeKakaoLink(urlMatch[0]);
-
-    // 지정 연관검색 열에서도 확인
-    for(const col of KAKAO_SEARCH_COLS){
-      const cell=row.cells[col];
-      if(!cell) continue;
-      const text=String(cell.innerText||"").trim();
-      if(isKakaoLink(text)) return normalizeKakaoLink(text);
-    }
-    return "";
-  }
-
-  function openKakao(phone, kakaoLink){
-    // 카카오톡 링크/오픈채팅 링크가 있으면 그것을 우선 실행
-    if(kakaoLink){
-      window.location.href=kakaoLink;
-      return;
-    }
-
-    // 전화번호만으로 특정 채팅방을 바로 여는 것은 브라우저 보안상 불안정하므로
-    // 카카오톡 앱 실행을 시도하고, 실패 시 카카오톡 안내 페이지로 이동
-    const now=Date.now();
-    window.location.href="kakaotalk://launch";
-    setTimeout(()=>{
-      if(Date.now()-now<1800){
-        window.location.href="https://www.kakaocorp.com/page/service/service/KakaoTalk";
-      }
-    },1200);
-  }
-
-  function showPhoneActionDialog({phone, displayText, kakaoLink}){
-    const old=document.getElementById("phoneActionOverlay");
+  function showToast(message){
+    const old = document.getElementById("phoneHoldToast");
     if(old) old.remove();
 
-    const overlay=document.createElement("div");
-    overlay.className="phone-action-overlay";
-    overlay.id="phoneActionOverlay";
+    const toast = document.createElement("div");
+    toast.id = "phoneHoldToast";
+    toast.className = "phone-hold-toast";
+    toast.textContent = message;
+    document.body.appendChild(toast);
 
-    overlay.innerHTML=`
-      <div class="phone-action-dialog" role="dialog" aria-modal="true">
-        <div class="phone-action-title">연락 방법 선택</div>
-        <div class="phone-action-number">${displayText || phone}</div>
-        <div class="phone-action-buttons">
-          <button type="button" class="phone-call-btn">전화 연결</button>
-          <button type="button" class="phone-kakao-btn">카카오톡 연결</button>
-          <button type="button" class="phone-cancel-btn">취소</button>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
-
-    const close=()=>overlay.remove();
-    overlay.addEventListener("click",(e)=>{
-      if(e.target===overlay) close();
-    });
-    overlay.querySelector(".phone-call-btn").addEventListener("click",()=>{
-      close();
-      window.location.href="tel:"+phone;
-    });
-    overlay.querySelector(".phone-kakao-btn").addEventListener("click",()=>{
-      close();
-      openKakao(phone,kakaoLink);
-    });
-    overlay.querySelector(".phone-cancel-btn").addEventListener("click",close);
+    clearTimeout(window.__phoneHoldToastTimer);
+    window.__phoneHoldToastTimer = setTimeout(function(){
+      toast.remove();
+    }, 1400);
   }
 
-  function applyPhoneLinks(){
-    const table=document.getElementById("memberTable");
-    if(!table) return;
+  function setCaretToEndSafe(cell){
+    try{
+      const range = document.createRange();
+      range.selectNodeContents(cell);
+      range.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }catch(error){}
+  }
 
-    const rows=table.querySelectorAll("tbody tr");
-    rows.forEach((row,rowIndex)=>{
-      if(rowIndex===0) return;
+  function enablePhoneEdit(cell){
+    if(!cell) return;
+    editTriggered = true;
 
-      PHONE_COLS.forEach(colIndex=>{
-        const cell=row.cells[colIndex];
+    try{
+      if(typeof window.lockAllCellEditing === "function") window.lockAllCellEditing(cell);
+    }catch(error){}
+
+    cell.contentEditable = "true";
+    cell.classList.add("cell-editing");
+    cell.classList.add("selected-cell");
+    cell.classList.add("phone-hold-editing");
+    cell.focus();
+    setCaretToEndSafe(cell);
+    showToast("편집 가능");
+  }
+
+  function callPhone(cell){
+    if(!cell) return;
+    const phone = cell.dataset.phoneNumber || cleanPhone(cell.innerText);
+    if(phone.length < 9){
+      showToast("전화번호 확인 필요");
+      return;
+    }
+    window.location.href = "tel:" + phone;
+  }
+
+  function markPhoneCells(){
+    const table = document.getElementById("memberTable");
+    if(!table || !table.tBodies || !table.tBodies[0]) return;
+
+    Array.from(table.tBodies[0].rows).forEach(function(row, rowIndex){
+      if(rowIndex === 0) return;
+
+      PHONE_COLS.forEach(function(colIndex){
+        const cell = row.cells[colIndex];
         if(!cell) return;
 
-        if(cell.querySelector("a.phone-link")) return;
+        const text = String(cell.innerText || "").trim();
+        const phone = cleanPhone(text);
 
-        const text=cell.innerText.trim();
-        const phone=cleanPhone(text);
-
-        if(phone.length < 9) return;
-
-        const kakaoLink=findKakaoLinkFromRow(row);
-        cell.dataset.originalPhone=text;
-        cell.innerHTML='<a class="phone-link" data-phone="'+phone+'" data-kakao-link="'+kakaoLink+'">'+text+'</a>';
-      });
-    });
-
-    bindPhoneLongPress();
-  }
-
-  function bindPhoneLongPress(){
-    document.querySelectorAll("a.phone-link").forEach(link=>{
-      if(link.dataset.phoneBindDone==="1") return;
-      link.dataset.phoneBindDone="1";
-
-      const cancelPress=()=>{
-        clearTimeout(phonePressTimer);
-        phonePressTimer=null;
-      };
-
-      const startPress=(e)=>{
-        e.preventDefault();
-        e.stopPropagation();
-
-        const point=e.touches && e.touches[0] ? e.touches[0] : e;
-        pressStartX=point.clientX || 0;
-        pressStartY=point.clientY || 0;
-        moved=false;
-
-        clearTimeout(phonePressTimer);
-        phonePressTimer=setTimeout(()=>{
-          if(moved) return;
-          const phone=link.dataset.phone || "";
-          if(!phone) return;
-          showPhoneActionDialog({
-            phone,
-            displayText:link.textContent.trim(),
-            kakaoLink:link.dataset.kakaoLink || ""
-          });
-        },LONG_PRESS_MS);
-      };
-
-      const movePress=(e)=>{
-        const point=e.touches && e.touches[0] ? e.touches[0] : e;
-        const dx=Math.abs((point.clientX||0)-pressStartX);
-        const dy=Math.abs((point.clientY||0)-pressStartY);
-        if(dx>12 || dy>12){
-          moved=true;
-          cancelPress();
+        if(phone.length < 9){
+          cell.classList.remove("phone-hold-cell");
+          delete cell.dataset.phoneNumber;
+          return;
         }
-      };
 
-      link.addEventListener("click",(e)=>{
-        e.preventDefault();
-        e.stopPropagation();
+        cell.classList.add("phone-hold-cell");
+        cell.dataset.phoneNumber = phone;
+
+        if(!cell.classList.contains("cell-editing") && !cell.classList.contains("phone-hold-editing")){
+          cell.contentEditable = "false";
+        }
       });
-
-      link.addEventListener("mousedown",startPress);
-      link.addEventListener("touchstart",startPress,{passive:false});
-      link.addEventListener("mousemove",movePress);
-      link.addEventListener("touchmove",movePress,{passive:true});
-      link.addEventListener("mouseup",cancelPress);
-      link.addEventListener("mouseleave",cancelPress);
-      link.addEventListener("touchend",cancelPress);
-      link.addEventListener("touchcancel",cancelPress);
     });
   }
 
-  setTimeout(applyPhoneLinks,1000);
+  function cancelTimers(){
+    clearTimeout(editTimer);
+    clearTimeout(callTimer);
+    editTimer = null;
+    callTimer = null;
+    activeCell = null;
+    moved = false;
+    editTriggered = false;
+  }
 
-  const observer=new MutationObserver(()=>{
-    clearTimeout(window.__phoneKakaoRelinkTimer);
-    window.__phoneKakaoRelinkTimer=setTimeout(applyPhoneLinks,250);
-  });
+  function getPhoneCell(target){
+    const cell = target && target.closest ? target.closest("td.phone-hold-cell") : null;
+    if(!cell) return null;
+    const table = document.getElementById("memberTable");
+    if(!table || !table.contains(cell)) return null;
+    return cell;
+  }
 
-  observer.observe(document.body,{
-    childList:true,
-    subtree:true
+  function startPress(e){
+    const cell = getPhoneCell(e.target);
+    if(!cell) return;
+
+    // 연락처 칸은 기존 0.5초 셀 편집 기능보다 이 기능을 우선 적용
+    e.preventDefault();
+    e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+    const point = e.touches && e.touches[0] ? e.touches[0] : e;
+    startX = point.clientX || 0;
+    startY = point.clientY || 0;
+    moved = false;
+    editTriggered = false;
+    activeCell = cell;
+
+    clearTimeout(editTimer);
+    clearTimeout(callTimer);
+
+    editTimer = setTimeout(function(){
+      if(moved || !activeCell) return;
+      enablePhoneEdit(activeCell);
+    }, EDIT_MS);
+
+    callTimer = setTimeout(function(){
+      if(moved || !activeCell) return;
+      callPhone(activeCell);
+      cancelTimers();
+    }, CALL_MS);
+  }
+
+  function movePress(e){
+    if(!activeCell) return;
+    const point = e.touches && e.touches[0] ? e.touches[0] : e;
+    const dx = Math.abs((point.clientX || 0) - startX);
+    const dy = Math.abs((point.clientY || 0) - startY);
+
+    if(dx > 12 || dy > 12){
+      moved = true;
+      cancelTimers();
+    }
+  }
+
+  function endPress(e){
+    if(!activeCell) return;
+
+    // 1.5초 편집이 발동된 경우에는 편집 상태 유지
+    clearTimeout(editTimer);
+    clearTimeout(callTimer);
+
+    if(e){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    }
+
+    activeCell = null;
+    moved = false;
+    editTriggered = false;
+  }
+
+  function blockShortClick(e){
+    const cell = getPhoneCell(e.target);
+    if(!cell) return;
+    // 짧은 클릭은 전화도 편집도 하지 않음
+    e.preventDefault();
+    e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+  }
+
+  function bindPhoneHold(){
+    markPhoneCells();
+
+    if(document.body.dataset.phoneHoldEditCallBind === "1") return;
+    document.body.dataset.phoneHoldEditCallBind = "1";
+
+    document.addEventListener("pointerdown", startPress, true);
+    document.addEventListener("pointermove", movePress, true);
+    document.addEventListener("pointerup", endPress, true);
+    document.addEventListener("pointercancel", endPress, true);
+
+    document.addEventListener("touchstart", startPress, {capture:true, passive:false});
+    document.addEventListener("touchmove", movePress, {capture:true, passive:true});
+    document.addEventListener("touchend", endPress, true);
+    document.addEventListener("touchcancel", endPress, true);
+
+    document.addEventListener("mousedown", startPress, true);
+    document.addEventListener("mousemove", movePress, true);
+    document.addEventListener("mouseup", endPress, true);
+
+    document.addEventListener("click", blockShortClick, true);
+    document.addEventListener("dblclick", blockShortClick, true);
+
+    document.addEventListener("input", function(e){
+      const cell = getPhoneCell(e.target);
+      if(cell){
+        cell.dataset.phoneNumber = cleanPhone(cell.innerText);
+      }
+    }, true);
+
+    document.addEventListener("blur", function(e){
+      const cell = e.target && e.target.closest ? e.target.closest("td.phone-hold-cell") : null;
+      if(cell){
+        cell.classList.remove("phone-hold-editing");
+        cell.dataset.phoneNumber = cleanPhone(cell.innerText);
+      }
+    }, true);
+  }
+
+  document.addEventListener("DOMContentLoaded", function(){
+    setTimeout(bindPhoneHold, 300);
+    setTimeout(markPhoneCells, 1000);
+    setTimeout(markPhoneCells, 2500);
+
+    const observer = new MutationObserver(function(){
+      clearTimeout(window.__phoneHoldMarkTimer);
+      window.__phoneHoldMarkTimer = setTimeout(markPhoneCells, 150);
+    });
+    observer.observe(document.body, {childList:true, subtree:true, characterData:true});
   });
-});
+})();
 </script>
 
 </body>
