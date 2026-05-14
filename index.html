@@ -1060,6 +1060,14 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   width:100% !important;
 }
 
+
+/* 전화번호 2초 길게누름 연결 */
+.phone-link{
+  cursor:pointer;
+  color:#1737c9;
+  text-decoration:underline;
+}
+
 </style>
 </head>
 <body class="locked">
@@ -2526,6 +2534,90 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAdmin);
   else bindAdmin();
 })();
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+  const PHONE_COLS=[5,6];
+  let phonePressTimer=null;
+  let pressedLink=null;
+
+  function cleanPhone(text){
+    return String(text||'').replace(/[^0-9]/g,'');
+  }
+
+  function applyPhoneLinks(){
+    const table=document.getElementById("memberTable");
+    if(!table) return;
+
+    const rows=table.querySelectorAll("tbody tr");
+    rows.forEach((row,rowIndex)=>{
+      if(rowIndex===0) return;
+
+      PHONE_COLS.forEach(colIndex=>{
+        const cell=row.cells[colIndex];
+        if(!cell) return;
+
+        if(cell.querySelector("a.phone-link")) return;
+
+        const text=cell.innerText.trim();
+        const phone=cleanPhone(text);
+
+        if(phone.length < 9) return;
+
+        cell.dataset.originalPhone=text;
+        cell.innerHTML='<a class="phone-link" data-phone="'+phone+'">'+text+'</a>';
+      });
+    });
+
+    bindPhoneLongPress();
+  }
+
+  function bindPhoneLongPress(){
+    document.querySelectorAll("a.phone-link").forEach(link=>{
+      if(link.dataset.bindDone==="1") return;
+      link.dataset.bindDone="1";
+
+      const startPress=(e)=>{
+        e.preventDefault();
+        pressedLink=link;
+
+        phonePressTimer=setTimeout(()=>{
+          const phone=link.dataset.phone;
+          if(phone){
+            window.location.href='tel:'+phone;
+          }
+        },2000);
+      };
+
+      const cancelPress=()=>{
+        clearTimeout(phonePressTimer);
+        phonePressTimer=null;
+        pressedLink=null;
+      };
+
+      link.addEventListener("mousedown",startPress);
+      link.addEventListener("touchstart",startPress,{passive:false});
+
+      link.addEventListener("mouseup",cancelPress);
+      link.addEventListener("mouseleave",cancelPress);
+      link.addEventListener("touchend",cancelPress);
+      link.addEventListener("touchcancel",cancelPress);
+    });
+  }
+
+  setTimeout(applyPhoneLinks,1000);
+
+  const observer=new MutationObserver(()=>{
+    applyPhoneLinks();
+  });
+
+  observer.observe(document.body,{
+    childList:true,
+    subtree:true
+  });
+});
 </script>
 
 </body>
