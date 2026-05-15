@@ -1624,60 +1624,6 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
   .readonly-column-actions button{height:24px;font-size:9px;padding:0 7px;}
 }
 
-
-
-/* 요청 수정: 풀다운 메뉴 글자 크기 조정
-   - 편집/전화/문자 버튼 글자: 이름 표시 크기 수준으로 확대
-   - 상단 이름 표시: 버튼 글자보다 20% 작게 */
-.phone-dropdown-menu{
-  min-width:82px !important;
-  max-width:128px !important;
-  padding:4px !important;
-  border-radius:6px !important;
-}
-.phone-dropdown-menu .phone-dropdown-name{
-  font-size:8.8px !important;
-  line-height:1.18 !important;
-  font-weight:800 !important;
-  padding:3px 5px !important;
-  max-width:116px !important;
-}
-.phone-dropdown-menu button.edit,
-.phone-dropdown-menu button.call,
-.phone-dropdown-menu button.sms{
-  height:24px !important;
-  min-height:24px !important;
-  font-size:11px !important;
-  line-height:22px !important;
-  font-weight:800 !important;
-  padding:0 6px !important;
-  border-radius:5px !important;
-}
-@media(max-width:480px){
-  .phone-dropdown-menu{
-    min-width:66px !important;
-    max-width:104px !important;
-    padding:3px !important;
-    border-radius:5px !important;
-  }
-  .phone-dropdown-menu .phone-dropdown-name{
-    font-size:6.4px !important;
-    line-height:1.15 !important;
-    padding:2px 4px !important;
-    max-width:96px !important;
-  }
-  .phone-dropdown-menu button.edit,
-  .phone-dropdown-menu button.call,
-  .phone-dropdown-menu button.sms{
-    height:20px !important;
-    min-height:20px !important;
-    font-size:8px !important;
-    line-height:18px !important;
-    padding:0 5px !important;
-    border-radius:4px !important;
-  }
-}
-
 </style>
 </head>
 <body class="locked">
@@ -3577,6 +3523,114 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
     });
     observer.observe(document.body, {childList:true, subtree:true, characterData:true});
   });
+})();
+</script>
+
+
+
+<style id="readonlyMobileForceStyle">
+/* 최종 보강: 모바일/확대 상태에서도 읽기전용 숨김 열 강제 적용 */
+body.readonly-mode #memberTable .readonly-hidden-column,
+body.readonly-mode #memberTable col.readonly-hidden-column,
+body.readonly-mode #memberTable tr > th.readonly-hidden-column,
+body.readonly-mode #memberTable tr > td.readonly-hidden-column{
+  display:none !important;
+  visibility:collapse !important;
+  width:0 !important;
+  min-width:0 !important;
+  max-width:0 !important;
+  padding:0 !important;
+  border:0 !important;
+}
+</style>
+<script id="readonlyMobileForceFix">
+/* 최종 보강: 읽기전용 로그인 직후/모바일 리사이즈/표 재생성 후 열 숨김 재적용 */
+(function(){
+  const CONFIG_KEY = "memberList.readonly.visibleColumns.v1";
+  const DEFAULT_VISIBLE = [0, 1, 2, 5, 11, 12]; // 직책/이름/성별/연락처/닉네임/버스타는곳
+  const DEFAULT_NAMES = ["직책", "이름", "성별", "연락처", "닉네임", "버스타는곳"];
+  function getTable(){ return document.getElementById("memberTable"); }
+  function norm(v){ return String(v || "").replace(/\s+/g, "").trim(); }
+  function getHeaders(table){
+    const first = table && table.rows && table.rows[0];
+    if(!first) return [];
+    return Array.from(first.cells).map((cell, idx)=>{
+      return norm(cell.dataset.headerTitle || (cell.querySelector(".header-title") && cell.querySelector(".header-title").innerText) || cell.innerText || ("열" + (idx + 1)));
+    });
+  }
+  function readVisibleIndexes(table){
+    try{
+      const raw = localStorage.getItem(CONFIG_KEY);
+      const arr = raw ? JSON.parse(raw) : null;
+      if(Array.isArray(arr) && arr.length){
+        return new Set(arr.map(Number).filter(n => Number.isInteger(n) && n >= 0));
+      }
+    }catch(e){}
+    const headers = getHeaders(table);
+    const byName = [];
+    DEFAULT_NAMES.forEach(name=>{
+      const target = norm(name);
+      const idx = headers.findIndex(h => h === target || h.includes(target));
+      if(idx >= 0) byName.push(idx);
+    });
+    return new Set(byName.length ? byName : DEFAULT_VISIBLE);
+  }
+  function forceReadonlyColumns(){
+    const table = getTable();
+    if(!table || !table.rows || !table.rows.length) return;
+    const readonly = document.body.classList.contains("readonly-mode");
+    const visible = readVisibleIndexes(table);
+
+    Array.from(table.querySelectorAll("col")).forEach((col, idx)=>{
+      const hide = !visible.has(idx);
+      col.classList.toggle("readonly-hidden-column", hide);
+      col.style.display = (readonly && hide) ? "none" : "";
+      col.style.visibility = (readonly && hide) ? "collapse" : "";
+      col.style.width = (readonly && hide) ? "0px" : "";
+    });
+    Array.from(table.rows).forEach(row=>{
+      Array.from(row.cells).forEach((cell, idx)=>{
+        const hide = !visible.has(idx);
+        cell.classList.toggle("readonly-hidden-column", hide);
+        if(readonly && hide){
+          cell.style.display = "none";
+          cell.style.visibility = "collapse";
+          cell.style.width = "0px";
+          cell.style.minWidth = "0px";
+          cell.style.maxWidth = "0px";
+          cell.style.padding = "0px";
+          cell.style.borderWidth = "0px";
+        }else{
+          cell.style.display = "";
+          cell.style.visibility = "";
+          cell.style.width = "";
+          cell.style.minWidth = "";
+          cell.style.maxWidth = "";
+          cell.style.padding = "";
+          cell.style.borderWidth = "";
+        }
+      });
+    });
+    if(typeof window.applyReadonlyColumnVisibility === "function"){
+      try{ window.applyReadonlyColumnVisibility(true); }catch(e){}
+    }
+  }
+  function scheduleForce(){
+    forceReadonlyColumns();
+    setTimeout(forceReadonlyColumns, 50);
+    setTimeout(forceReadonlyColumns, 250);
+    setTimeout(forceReadonlyColumns, 800);
+  }
+  document.addEventListener("DOMContentLoaded", scheduleForce);
+  window.addEventListener("resize", scheduleForce);
+  window.addEventListener("orientationchange", scheduleForce);
+  document.addEventListener("visibilitychange", scheduleForce);
+  document.addEventListener("click", e=>{
+    if(e.target && (e.target.id === "readOnlyLoginBtn" || e.target.id === "adminLogoutBtn" || e.target.id === "adminLoginBtn")) scheduleForce();
+  }, true);
+  const table = getTable();
+  if(table){ new MutationObserver(scheduleForce).observe(table, {childList:true, subtree:true}); }
+  scheduleForce();
 })();
 </script>
 
