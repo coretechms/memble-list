@@ -2731,7 +2731,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 (function(){
   const PHONE_COLS = [5, 6]; // 연락처, 비상연락처
   const HOLD_MS = 1500;
-  const MOVE_LIMIT = 12;
+  const MOVE_LIMIT = 28; // 손가락 떨림으로 길게누름이 취소되지 않도록 완화
 
   let holdTimer = null;
   let activeCell = null;
@@ -2746,7 +2746,6 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
   function markZoomingLock(ms = 700){
     zoomingUntil = Date.now() + ms;
-    cancelHold();
   }
 
   function isZoomingNow(){
@@ -2889,9 +2888,21 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
   function getPhoneCell(node){
     if(!node || !node.closest) return null;
-    const cell = node.closest("td.phone-hold-cell");
     const table = document.getElementById("memberTable");
-    if(!cell || !table || !table.contains(cell)) return null;
+    if(!table) return null;
+    let cell = node.closest("td.phone-hold-cell");
+    if(!cell){
+      const candidate = node.closest("td");
+      if(candidate && table.contains(candidate) && PHONE_COLS.includes(candidate.cellIndex)){
+        const phone = cleanPhone(candidate.innerText || candidate.textContent || "");
+        if(phone.length >= 9){
+          candidate.classList.add("phone-hold-cell");
+          candidate.dataset.phoneNumber = phone;
+          cell = candidate;
+        }
+      }
+    }
+    if(!cell || !table.contains(cell)) return null;
     return cell;
   }
 
@@ -3083,15 +3094,15 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   }
 
   function startHold(e){
-    if(isZoomingNow()) return;
-
     // 두 손가락 확대/축소는 길게누름 기능보다 항상 우선한다.
     if(e.touches && e.touches.length > 1){
       lastTouchCount = e.touches.length;
+      cancelHold();
       markZoomingLock(900);
       return;
     }
     if(e.pointerType === "touch" && e.isPrimary === false){
+      cancelHold();
       markZoomingLock(900);
       return;
     }
@@ -3112,7 +3123,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
     clearTimeout(holdTimer);
     holdTimer = setTimeout(function(){
-      if(moved || !activeCell || isZoomingNow()) return;
+      if(moved || !activeCell) return;
       lastTriggeredAt = Date.now();
       try{
         if(e.cancelable !== false && typeof e.preventDefault === "function") e.preventDefault();
@@ -3125,10 +3136,12 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   function moveHold(e){
     if(e.touches && e.touches.length > 1){
       lastTouchCount = e.touches.length;
+      cancelHold();
       markZoomingLock(900);
       return;
     }
     if(e.pointerType === "touch" && e.isPrimary === false){
+      cancelHold();
       markZoomingLock(900);
       return;
     }
@@ -3170,6 +3183,8 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   function bind(){
     injectPhoneActionStyles();
     markPhoneCells();
+    setTimeout(markPhoneCells, 500);
+    setTimeout(markPhoneCells, 1500);
 
     if(document.body.dataset.memberPhoneBusRouteBind === "1") return;
     document.body.dataset.memberPhoneBusRouteBind = "1";
@@ -3179,15 +3194,8 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     document.addEventListener("pointerup", endHold, true);
     document.addEventListener("pointercancel", endHold, true);
 
-    // 확대/축소/뷰포트 변화가 감지되면 길게누름 판정을 즉시 중지한다.
-    if(window.visualViewport){
-      window.visualViewport.addEventListener("resize", function(){ markZoomingLock(500); }, {passive:true});
-      window.visualViewport.addEventListener("scroll", function(){ markZoomingLock(350); }, {passive:true});
-    }
-    window.addEventListener("resize", function(){
-      cancelAnimationFrame(resizeCancelRaf);
-      resizeCancelRaf = requestAnimationFrame(function(){ markZoomingLock(350); });
-    }, {passive:true});
+    // 단일 손가락 길게누름 중에는 visualViewport scroll/resize로 타이머를 취소하지 않는다.
+    // 두 손가락 확대/축소만 위의 touch/pointer 조건에서 취소한다.
 
     // 복사/공유/모두선택/컨텍스트 메뉴 차단
     document.addEventListener("contextmenu", suppressNativePhoneMenu, true);
