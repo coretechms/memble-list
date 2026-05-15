@@ -1170,6 +1170,32 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   transform:translate(-50%, -50%) !important;
   margin:0 !important;
 }
+
+
+/* 최종 수정: 전화/문자 선택 박스는 선택한 셀 중앙에 배치 */
+.phone-action-overlay.phone-action-cell-centered{
+  position:absolute !important;
+  inset:auto !important;
+  left:0 !important;
+  top:0 !important;
+  width:100% !important;
+  height:100% !important;
+  min-height:100vh !important;
+  display:block !important;
+  overflow:visible !important;
+  background:rgba(0,0,0,.18) !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+}
+.phone-action-overlay.phone-action-cell-centered .phone-action-dialog{
+  position:absolute !important;
+  margin:0 !important;
+  transform:translate(-50%, -50%) !important;
+}
+.member-table td.phone-hold-cell{
+  -webkit-touch-callout:none !important;
+  -webkit-user-select:none !important;
+  user-select:none !important;
+}
 </style>
 </head>
 <body class="locked">
@@ -1402,7 +1428,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   let longPressStartX=0;
   let longPressStartY=0;
   let touchMovedAsScroll=false;
-  const CELL_TOUCH_DELAY_MS=150;
+  const CELL_TOUCH_DELAY_MS=180;
   const LONG_PRESS_EDIT_MS=300;
   const TOUCH_SCROLL_MOVE_LIMIT=8;
   const LONG_PRESS_MOVE_LIMIT=12;
@@ -2652,6 +2678,10 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   let startY = 0;
   let moved = false;
   let editTriggered = false;
+  let actionTriggered = false;
+  let activePointerId = null;
+  let viewportAdjustRaf = 0;
+  let lastDialogCell = null;
 
   function cleanPhone(text){
     return String(text || "").replace(/[^0-9]/g, "");
@@ -2703,52 +2733,57 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
   function getViewportBox(){
     const vv = window.visualViewport;
+    const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
     return {
-      width: Math.max(220, Math.floor(vv ? vv.width : window.innerWidth)),
-      height: Math.max(180, Math.floor(vv ? vv.height : window.innerHeight)),
-      offsetLeft: Math.floor(vv ? vv.offsetLeft : 0),
-      offsetTop: Math.floor(vv ? vv.offsetTop : 0),
-      scale: Number(vv && vv.scale ? vv.scale : 1)
+      width: Math.max(180, Math.floor(vv ? vv.width : window.innerWidth)),
+      height: Math.max(150, Math.floor(vv ? vv.height : window.innerHeight)),
+      left: scrollX + Math.floor(vv ? vv.offsetLeft : 0),
+      top: scrollY + Math.floor(vv ? vv.offsetTop : 0),
+      scale: Math.max(1, Number(vv && vv.scale ? vv.scale : 1))
     };
   }
 
-  function fitPhoneActionDialog(){
+  function clamp(value, min, max){
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function scheduleFitPhoneActionDialog(){
+    cancelAnimationFrame(viewportAdjustRaf);
+    viewportAdjustRaf = requestAnimationFrame(function(){
+      fitPhoneActionDialog(lastDialogCell);
+    });
+  }
+
+  function fitPhoneActionDialog(sourceCell){
     const overlay = document.getElementById("phoneActionOverlay");
     const dialog = document.getElementById("phoneActionDialog");
-    if(!overlay || !dialog) return;
+    const cell = sourceCell || lastDialogCell;
+    if(!overlay || !dialog || !cell || !cell.isConnected) return;
 
-    const vv = window.visualViewport;
-    const scale = Math.max(1, Number(vv && vv.scale ? vv.scale : 1));
-    const vw = Math.max(160, Math.floor(vv ? vv.width : window.innerWidth));
-    const vh = Math.max(140, Math.floor(vv ? vv.height : window.innerHeight));
+    const box = getViewportBox();
+    const scale = box.scale;
+    const margin = Math.max(6, Math.round(10 / scale));
 
-    /*
-      모바일 확대 상태에서는 CSS px 자체가 확대되어 보이므로,
-      선택 박스의 CSS 크기를 visualViewport.scale 만큼 역으로 줄인다.
-      fixed 좌표는 브라우저마다 기준이 달라 offsetLeft/offsetTop을 쓰면 화면 밖으로 밀릴 수 있어
-      항상 현재 보이는 화면의 50vw/50vh 중앙에 고정한다.
-    */
-    const margin = 12;
+    const rect = cell.getBoundingClientRect();
+    const cellCenterX = (window.scrollX || 0) + rect.left + rect.width / 2;
+    const cellCenterY = (window.scrollY || 0) + rect.top + rect.height / 2;
+
+    // 확대 상태에서는 CSS px가 크게 보이므로 선택창 자체를 역축소한다.
     const inverse = 1 / scale;
-    const dialogWidth = Math.max(92, Math.min(300, (vw - margin * 2) * inverse));
-    const dialogMaxHeight = Math.max(110, (vh - margin * 2) * inverse);
-    const uiScale = Math.max(0.42, Math.min(1, inverse));
+    const uiScale = Math.max(0.45, Math.min(1, inverse));
+    const dialogWidth = Math.max(116, Math.min(260, (box.width - margin * 2) * inverse));
+    const dialogMaxHeight = Math.max(96, (box.height - margin * 2) * inverse);
 
-    overlay.style.position = "fixed";
-    overlay.style.inset = "0";
-    overlay.style.left = "0";
-    overlay.style.top = "0";
-    overlay.style.right = "0";
-    overlay.style.bottom = "0";
-    overlay.style.width = "100vw";
-    overlay.style.height = "100vh";
-    overlay.style.padding = "0";
-    overlay.style.display = "block";
-    overlay.style.overflow = "hidden";
+    overlay.classList.add("phone-action-cell-centered");
+    overlay.style.position = "absolute";
+    overlay.style.left = "0px";
+    overlay.style.top = "0px";
+    overlay.style.width = Math.max(document.documentElement.scrollWidth, box.left + box.width, window.innerWidth) + "px";
+    overlay.style.height = Math.max(document.documentElement.scrollHeight, box.top + box.height, window.innerHeight) + "px";
+    overlay.style.pointerEvents = "auto";
+    overlay.style.touchAction = "pan-x pan-y pinch-zoom";
 
-    dialog.style.position = "fixed";
-    dialog.style.left = "50vw";
-    dialog.style.top = "50vh";
     dialog.style.width = dialogWidth + "px";
     dialog.style.maxWidth = dialogWidth + "px";
     dialog.style.maxHeight = dialogMaxHeight + "px";
@@ -2756,37 +2791,54 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     dialog.style.boxSizing = "border-box";
     dialog.style.transformOrigin = "center center";
     dialog.style.transform = "translate(-50%, -50%)";
-    dialog.style.padding = Math.max(5, Math.round(14 * uiScale)) + "px";
-    dialog.style.borderRadius = Math.max(8, Math.round(18 * uiScale)) + "px";
+    dialog.style.padding = Math.max(5, Math.round(12 * uiScale)) + "px";
+    dialog.style.borderRadius = Math.max(8, Math.round(16 * uiScale)) + "px";
+
+    // 먼저 크기를 적용한 뒤 실제 크기를 읽어서 보이는 영역 안으로 보정한다.
+    const measured = dialog.getBoundingClientRect();
+    const halfW = Math.max(40, measured.width / 2);
+    const halfH = Math.max(36, measured.height / 2);
+    const minX = box.left + margin + halfW;
+    const maxX = box.left + box.width - margin - halfW;
+    const minY = box.top + margin + halfH;
+    const maxY = box.top + box.height - margin - halfH;
+    const finalX = clamp(cellCenterX, Math.min(minX, maxX), Math.max(minX, maxX));
+    const finalY = clamp(cellCenterY, Math.min(minY, maxY), Math.max(minY, maxY));
+
+    dialog.style.position = "absolute";
+    dialog.style.left = finalX + "px";
+    dialog.style.top = finalY + "px";
 
     const title = dialog.querySelector(".phone-action-title");
     if(title){
-      title.style.fontSize = Math.max(9, Math.round(16 * uiScale)) + "px";
-      title.style.marginBottom = Math.max(3, Math.round(6 * uiScale)) + "px";
+      title.style.fontSize = Math.max(9, Math.round(15 * uiScale)) + "px";
+      title.style.marginBottom = Math.max(3, Math.round(5 * uiScale)) + "px";
     }
     const message = dialog.querySelector(".phone-action-message");
     if(message){
-      message.style.fontSize = Math.max(8, Math.round(13 * uiScale)) + "px";
+      message.style.fontSize = Math.max(8, Math.round(12 * uiScale)) + "px";
       message.style.lineHeight = "1.25";
-      message.style.marginBottom = Math.max(4, Math.round(10 * uiScale)) + "px";
+      message.style.marginBottom = Math.max(4, Math.round(8 * uiScale)) + "px";
     }
     const buttonWrap = dialog.querySelector(".phone-action-buttons");
-    if(buttonWrap) buttonWrap.style.gap = Math.max(3, Math.round(7 * uiScale)) + "px";
+    if(buttonWrap) buttonWrap.style.gap = Math.max(3, Math.round(6 * uiScale)) + "px";
     dialog.querySelectorAll("button").forEach(function(btn){
-      btn.style.height = Math.max(20, Math.round(38 * uiScale)) + "px";
-      btn.style.fontSize = Math.max(8, Math.round(13 * uiScale)) + "px";
-      btn.style.borderRadius = Math.max(6, Math.round(12 * uiScale)) + "px";
-      btn.style.padding = "0 " + Math.max(4, Math.round(8 * uiScale)) + "px";
+      btn.style.height = Math.max(22, Math.round(34 * uiScale)) + "px";
+      btn.style.fontSize = Math.max(8, Math.round(12 * uiScale)) + "px";
+      btn.style.borderRadius = Math.max(6, Math.round(10 * uiScale)) + "px";
+      btn.style.padding = "0 " + Math.max(4, Math.round(7 * uiScale)) + "px";
     });
   }
 
   function closePhoneActionDialog(){
     const old = document.getElementById("phoneActionOverlay");
     if(old) old.remove();
-    window.removeEventListener("resize", fitPhoneActionDialog, true);
+    lastDialogCell = null;
+    cancelAnimationFrame(viewportAdjustRaf);
+    window.removeEventListener("resize", scheduleFitPhoneActionDialog, true);
     if(window.visualViewport){
-      window.visualViewport.removeEventListener("resize", fitPhoneActionDialog);
-      window.visualViewport.removeEventListener("scroll", fitPhoneActionDialog);
+      window.visualViewport.removeEventListener("resize", scheduleFitPhoneActionDialog);
+      window.visualViewport.removeEventListener("scroll", scheduleFitPhoneActionDialog);
     }
   }
 
@@ -2800,7 +2852,8 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     closePhoneActionDialog();
     const overlay = document.createElement("div");
     overlay.id = "phoneActionOverlay";
-    overlay.className = "phone-action-overlay";
+    overlay.className = "phone-action-overlay phone-action-cell-centered";
+    lastDialogCell = cell;
     overlay.innerHTML = `
       <div class="phone-action-dialog" id="phoneActionDialog" role="dialog" aria-modal="true">
         <div class="phone-action-title">연락처 작업 선택</div>
@@ -2813,20 +2866,19 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
         </div>
       </div>`;
     document.body.appendChild(overlay);
-    fitPhoneActionDialog();
+    fitPhoneActionDialog(cell);
 
     overlay.addEventListener("contextmenu", function(e){ e.preventDefault(); }, true);
-    overlay.addEventListener("touchmove", function(e){ e.preventDefault(); }, {passive:false});
     overlay.addEventListener("click", function(e){ if(e.target === overlay) closePhoneActionDialog(); }, true);
     overlay.querySelector("#phoneActionCallBtn").onclick = function(){ closePhoneActionDialog(); window.location.href = "tel:" + phone; };
     overlay.querySelector("#phoneActionSmsBtn").onclick = function(){ closePhoneActionDialog(); window.location.href = "sms:" + phone; };
     overlay.querySelector("#phoneActionEditBtn").onclick = function(){ closePhoneActionDialog(); enablePhoneEdit(cell); };
     overlay.querySelector("#phoneActionCancelBtn").onclick = closePhoneActionDialog;
 
-    window.addEventListener("resize", fitPhoneActionDialog, true);
+    window.addEventListener("resize", scheduleFitPhoneActionDialog, true);
     if(window.visualViewport){
-      window.visualViewport.addEventListener("resize", fitPhoneActionDialog);
-      window.visualViewport.addEventListener("scroll", fitPhoneActionDialog);
+      window.visualViewport.addEventListener("resize", scheduleFitPhoneActionDialog);
+      window.visualViewport.addEventListener("scroll", scheduleFitPhoneActionDialog);
     }
   }
 
@@ -2868,6 +2920,8 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     activeCell = null;
     moved = false;
     editTriggered = false;
+    actionTriggered = false;
+    activePointerId = null;
   }
 
   function getPhoneCell(target){
@@ -2878,20 +2932,31 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     return cell;
   }
 
+  function isMultiTouchEvent(e){
+    return !!(e && e.touches && e.touches.length > 1);
+  }
+
   function startPress(e){
+    if(isMultiTouchEvent(e)){
+      cancelTimers();
+      return;
+    }
+
     const cell = getPhoneCell(e.target);
     if(!cell) return;
 
-    // 연락처 칸은 기존 0.5초 셀 편집 기능보다 이 기능을 우선 적용
-    e.preventDefault();
+    // 확대/축소 지연 방지를 위해 시작 단계에서는 preventDefault를 하지 않는다.
+    // 단, 다른 셀 편집 이벤트와 충돌하지 않도록 전파만 차단한다.
     e.stopPropagation();
     if(e.stopImmediatePropagation) e.stopImmediatePropagation();
 
+    if(e.pointerId != null) activePointerId = e.pointerId;
     const point = e.touches && e.touches[0] ? e.touches[0] : e;
     startX = point.clientX || 0;
     startY = point.clientY || 0;
     moved = false;
     editTriggered = false;
+    actionTriggered = false;
     activeCell = cell;
 
     clearTimeout(editTimer);
@@ -2904,6 +2969,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
     actionTimer = setTimeout(function(){
       if(moved || !activeCell) return;
+      actionTriggered = true;
       openPhoneActionDialog(activeCell);
       cancelTimers();
     }, ACTION_MS);
@@ -2911,11 +2977,18 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
   function movePress(e){
     if(!activeCell) return;
+    if(isMultiTouchEvent(e)){
+      cancelTimers();
+      return;
+    }
+    if(activePointerId != null && e.pointerId != null && e.pointerId !== activePointerId) return;
+
     const point = e.touches && e.touches[0] ? e.touches[0] : e;
     const dx = Math.abs((point.clientX || 0) - startX);
     const dy = Math.abs((point.clientY || 0) - startY);
 
-    if(dx > 12 || dy > 12){
+    // 스크롤/핀치 의도는 빠르게 풀어 줘야 확대/축소가 멈추지 않는다.
+    if(dx > 10 || dy > 10){
       moved = true;
       cancelTimers();
     }
@@ -2924,11 +2997,11 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   function endPress(e){
     if(!activeCell) return;
 
-    // 1.5초 편집이 발동된 경우에는 편집 상태 유지
     clearTimeout(editTimer);
     clearTimeout(actionTimer);
 
-    if(e){
+    // 실제 전화/문자 선택창이 열린 경우에만 클릭/선택 후속 동작을 막는다.
+    if(actionTriggered && e){
       e.preventDefault();
       e.stopPropagation();
       if(e.stopImmediatePropagation) e.stopImmediatePropagation();
@@ -2937,6 +3010,8 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     activeCell = null;
     moved = false;
     editTriggered = false;
+    actionTriggered = false;
+    activePointerId = null;
   }
 
   function blockShortClick(e){
@@ -2954,19 +3029,32 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     if(document.body.dataset.phoneHoldEditCallBind === "1") return;
     document.body.dataset.phoneHoldEditCallBind = "1";
 
-    document.addEventListener("pointerdown", startPress, true);
-    document.addEventListener("pointermove", movePress, true);
-    document.addEventListener("pointerup", endPress, true);
-    document.addEventListener("pointercancel", endPress, true);
+    document.addEventListener("contextmenu", function(e){
+      if(getPhoneCell(e.target)){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
 
-    document.addEventListener("touchstart", startPress, {capture:true, passive:false});
-    document.addEventListener("touchmove", movePress, {capture:true, passive:true});
-    document.addEventListener("touchend", endPress, true);
-    document.addEventListener("touchcancel", endPress, true);
+    if(window.PointerEvent){
+      document.addEventListener("pointerdown", startPress, true);
+      document.addEventListener("pointermove", movePress, true);
+      document.addEventListener("pointerup", endPress, true);
+      document.addEventListener("pointercancel", endPress, true);
+    }else{
+      document.addEventListener("touchstart", startPress, {capture:true, passive:true});
+      document.addEventListener("touchmove", movePress, {capture:true, passive:true});
+      document.addEventListener("touchend", endPress, true);
+      document.addEventListener("touchcancel", endPress, true);
+      document.addEventListener("mousedown", startPress, true);
+      document.addEventListener("mousemove", movePress, true);
+      document.addEventListener("mouseup", endPress, true);
+    }
 
-    document.addEventListener("mousedown", startPress, true);
-    document.addEventListener("mousemove", movePress, true);
-    document.addEventListener("mouseup", endPress, true);
+    if(window.visualViewport){
+      window.visualViewport.addEventListener("resize", cancelTimers, {passive:true});
+      window.visualViewport.addEventListener("scroll", cancelTimers, {passive:true});
+    }
 
     document.addEventListener("click", blockShortClick, true);
     document.addEventListener("dblclick", blockShortClick, true);
