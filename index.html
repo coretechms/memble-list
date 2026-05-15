@@ -1624,6 +1624,30 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
   .readonly-column-actions button{height:24px;font-size:9px;padding:0 7px;}
 }
 
+
+
+/* 요청 수정: 전화 메뉴의 전화 버튼만 15% 확대 */
+.phone-dropdown-menu button.call,
+.phone-action-buttons .call,
+.phone-action-dialog button.call,
+.phone-action-cell-menu button.call{
+  height:9.2px !important;
+  min-height:9.2px !important;
+  font-size:4.6px !important;
+  line-height:7.2px !important;
+}
+@media(max-width:480px){
+  .phone-dropdown-menu button.call,
+  .phone-action-buttons .call,
+  .phone-action-dialog button.call,
+  .phone-action-cell-menu button.call{
+    height:9.2px !important;
+    min-height:9.2px !important;
+    font-size:4.6px !important;
+    line-height:7.2px !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -3633,6 +3657,92 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
   scheduleForce();
 })();
 </script>
+
+
+<style id="phoneButtonBox20PctBigger">
+/* 요청 수정: 편집/전화/문자 버튼 박스 전체 20% 확대 + 전화 버튼 15% 확대 유지 */
+.phone-action-dropdown,
+.phone-dropdown-menu,
+.phone-action-dialog,
+.phone-action-cell-menu{
+  min-width:40px !important;
+  max-width:58px !important;
+  padding:2px !important;
+  border-radius:4px !important;
+}
+.phone-action-title,
+.phone-dropdown-title,
+.phone-menu-title,
+.phone-dropdown-menu .phone-dropdown-name{
+  font-size:4px !important;
+  padding:1px 2px !important;
+  line-height:1.05 !important;
+  max-width:54px !important;
+}
+.phone-action-buttons,
+.phone-dropdown-buttons,
+.phone-menu-buttons{
+  gap:1px !important;
+}
+.phone-action-buttons button,
+.phone-dropdown-menu button,
+.phone-action-dialog button,
+.phone-action-cell-menu button{
+  height:10px !important;
+  min-height:10px !important;
+  font-size:5px !important;
+  line-height:8px !important;
+  padding:0 2px !important;
+  border-radius:3px !important;
+}
+.phone-dropdown-menu button.call,
+.phone-action-buttons .call,
+.phone-action-dialog button.call,
+.phone-action-cell-menu button.call{
+  height:11.5px !important;
+  min-height:11.5px !important;
+  font-size:5.75px !important;
+  line-height:9.5px !important;
+}
+@media(max-width:480px){
+  .phone-action-dropdown,
+  .phone-dropdown-menu,
+  .phone-action-dialog,
+  .phone-action-cell-menu{
+    min-width:36px !important;
+    max-width:53px !important;
+    padding:2px !important;
+    border-radius:4px !important;
+  }
+  .phone-action-title,
+  .phone-dropdown-title,
+  .phone-menu-title,
+  .phone-dropdown-menu .phone-dropdown-name{
+    font-size:4px !important;
+    padding:1px 2px !important;
+    max-width:50px !important;
+  }
+  .phone-action-buttons button,
+  .phone-dropdown-menu button,
+  .phone-action-dialog button,
+  .phone-action-cell-menu button{
+    height:10px !important;
+    min-height:10px !important;
+    font-size:5px !important;
+    line-height:8px !important;
+    border-radius:3px !important;
+  }
+  .phone-dropdown-menu button.call,
+  .phone-action-buttons .call,
+  .phone-action-dialog button.call,
+  .phone-action-cell-menu button.call{
+    height:11.5px !important;
+    min-height:11.5px !important;
+    font-size:5.75px !important;
+    line-height:9.5px !important;
+  }
+}
+</style>
 
 </body>
 </html>
