@@ -1215,6 +1215,41 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   text-align:center !important;
 }
 
+
+
+/* 최종 보정: 전화/문자 선택 박스는 전체 화면 중앙이 아니라 길게 누른 셀 위치에서 실행 */
+.phone-action-overlay.phone-action-cell-anchored{
+  position:absolute !important;
+  inset:auto !important;
+  left:0 !important;
+  top:0 !important;
+  width:1px !important;
+  height:1px !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  display:block !important;
+  overflow:visible !important;
+  background:transparent !important;
+  padding:0 !important;
+  pointer-events:none !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+}
+.phone-action-overlay.phone-action-cell-anchored .phone-action-dialog{
+  position:absolute !important;
+  left:auto !important;
+  top:auto !important;
+  right:auto !important;
+  bottom:auto !important;
+  margin:0 !important;
+  transform:none !important;
+  pointer-events:auto !important;
+  box-sizing:border-box !important;
+  background:#fff !important;
+}
+.phone-action-overlay.phone-action-cell-anchored::before{
+  content:none !important;
+}
+
 </style>
 </head>
 <body class="locked">
@@ -1448,7 +1483,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   let longPressStartY=0;
   let touchMovedAsScroll=false;
   const CELL_TOUCH_DELAY_MS=250;
-  const LONG_PRESS_EDIT_MS=400;
+  const LONG_PRESS_EDIT_MS=350;
   const TOUCH_SCROLL_MOVE_LIMIT=8;
   const LONG_PRESS_MOVE_LIMIT=12;
   function isEditableBodyCell(cell){
@@ -2717,13 +2752,13 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
   function getViewportBox(){
     const vv = window.visualViewport;
-    const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
-    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    const fallbackLeft = window.scrollX || document.documentElement.scrollLeft || 0;
+    const fallbackTop = window.scrollY || document.documentElement.scrollTop || 0;
     return {
-      left: scrollX + (vv ? vv.offsetLeft : 0),
-      top: scrollY + (vv ? vv.offsetTop : 0),
-      width: Math.max(180, vv ? vv.width : window.innerWidth),
-      height: Math.max(140, vv ? vv.height : window.innerHeight),
+      left: vv && Number.isFinite(vv.pageLeft) ? vv.pageLeft : fallbackLeft,
+      top: vv && Number.isFinite(vv.pageTop) ? vv.pageTop : fallbackTop,
+      width: Math.max(160, vv ? vv.width : window.innerWidth),
+      height: Math.max(120, vv ? vv.height : window.innerHeight),
       scale: Math.max(1, Number(vv && vv.scale ? vv.scale : 1))
     };
   }
@@ -2792,7 +2827,6 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     window.removeEventListener("resize", scheduleFitDialog, true);
     if(window.visualViewport){
       window.visualViewport.removeEventListener("resize", scheduleFitDialog);
-      window.visualViewport.removeEventListener("scroll", scheduleFitDialog);
     }
   }
 
@@ -2807,63 +2841,84 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     if(!overlay || !dialog || !cell || !cell.isConnected) return;
 
     const box = getViewportBox();
-    const scale = box.scale;
-    const margin = Math.max(4, Math.round(8 / scale));
-    const uiScale = Math.max(0.42, Math.min(1, 1 / scale));
-    const maxDialogW = Math.max(112, Math.min(260, box.width - margin * 2));
+    const scale = Math.max(1, box.scale || 1);
+    const uiScale = Math.max(0.48, Math.min(1, 1 / scale));
+    const margin = Math.max(3, Math.round(7 / scale));
+    const gap = Math.max(2, Math.round(5 / scale));
 
+    overlay.className = "phone-action-overlay phone-action-cell-anchored";
     overlay.style.position = "absolute";
     overlay.style.left = "0px";
     overlay.style.top = "0px";
-    overlay.style.width = Math.max(document.documentElement.scrollWidth, box.left + box.width, window.innerWidth) + "px";
-    overlay.style.height = Math.max(document.documentElement.scrollHeight, box.top + box.height, window.innerHeight) + "px";
+    overlay.style.width = "1px";
+    overlay.style.height = "1px";
     overlay.style.background = "transparent";
-    overlay.style.pointerEvents = "auto";
+    overlay.style.pointerEvents = "none";
 
+    const maxDialogW = Math.max(96, Math.min(230, box.width - margin * 2));
     dialog.style.position = "absolute";
     dialog.style.width = maxDialogW + "px";
     dialog.style.maxWidth = maxDialogW + "px";
-    dialog.style.maxHeight = Math.max(90, box.height - margin * 2) + "px";
+    dialog.style.maxHeight = Math.max(84, box.height - margin * 2) + "px";
     dialog.style.overflow = "auto";
     dialog.style.transform = "none";
     dialog.style.boxSizing = "border-box";
-    dialog.style.padding = Math.max(5, Math.round(12 * uiScale)) + "px";
-    dialog.style.borderRadius = Math.max(8, Math.round(16 * uiScale)) + "px";
+    dialog.style.padding = Math.max(5, Math.round(10 * uiScale)) + "px";
+    dialog.style.borderRadius = Math.max(7, Math.round(14 * uiScale)) + "px";
+    dialog.style.pointerEvents = "auto";
 
     const title = dialog.querySelector(".phone-action-title");
     if(title){
-      title.style.fontSize = Math.max(9, Math.round(15 * uiScale)) + "px";
-      title.style.marginBottom = Math.max(3, Math.round(5 * uiScale)) + "px";
+      title.style.fontSize = Math.max(9, Math.round(14 * uiScale)) + "px";
+      title.style.marginBottom = Math.max(2, Math.round(4 * uiScale)) + "px";
     }
     const msg = dialog.querySelector(".phone-action-message");
     if(msg){
-      msg.style.fontSize = Math.max(8, Math.round(12 * uiScale)) + "px";
-      msg.style.lineHeight = "1.25";
-      msg.style.marginBottom = Math.max(4, Math.round(8 * uiScale)) + "px";
+      msg.style.fontSize = Math.max(8, Math.round(11 * uiScale)) + "px";
+      msg.style.lineHeight = "1.22";
+      msg.style.marginBottom = Math.max(3, Math.round(7 * uiScale)) + "px";
     }
     const wrap = dialog.querySelector(".phone-action-buttons");
-    if(wrap) wrap.style.gap = Math.max(3, Math.round(6 * uiScale)) + "px";
+    if(wrap) wrap.style.gap = Math.max(2, Math.round(5 * uiScale)) + "px";
     dialog.querySelectorAll("button").forEach((btn)=>{
-      btn.style.height = Math.max(22, Math.round(34 * uiScale)) + "px";
-      btn.style.fontSize = Math.max(8, Math.round(12 * uiScale)) + "px";
-      btn.style.borderRadius = Math.max(6, Math.round(10 * uiScale)) + "px";
+      btn.style.height = Math.max(20, Math.round(31 * uiScale)) + "px";
+      btn.style.fontSize = Math.max(8, Math.round(11 * uiScale)) + "px";
+      btn.style.borderRadius = Math.max(6, Math.round(9 * uiScale)) + "px";
       btn.style.padding = "0 " + Math.max(4, Math.round(7 * uiScale)) + "px";
     });
 
     const rect = cell.getBoundingClientRect();
-    const centerX = (window.scrollX || 0) + rect.left + rect.width / 2;
-    const centerY = (window.scrollY || 0) + rect.top + rect.height / 2;
+    const cellLeft = (window.scrollX || document.documentElement.scrollLeft || 0) + rect.left;
+    const cellTop = (window.scrollY || document.documentElement.scrollTop || 0) + rect.top;
+    const cellCenterX = cellLeft + rect.width / 2;
+    const cellCenterY = cellTop + rect.height / 2;
 
+    // first measure at a safe temporary position
+    dialog.style.left = Math.round(cellCenterX) + "px";
+    dialog.style.top = Math.round(cellCenterY) + "px";
     const measured = dialog.getBoundingClientRect();
     const w = measured.width || maxDialogW;
-    const h = measured.height || 120;
-    const minX = box.left + margin;
-    const maxX = box.left + box.width - margin - w;
-    const minY = box.top + margin;
-    const maxY = box.top + box.height - margin - h;
+    const h = measured.height || 110;
 
-    dialog.style.left = clamp(centerX - w / 2, Math.min(minX, maxX), Math.max(minX, maxX)) + "px";
-    dialog.style.top = clamp(centerY - h / 2, Math.min(minY, maxY), Math.max(minY, maxY)) + "px";
+    const viewLeft = box.left + margin;
+    const viewRight = box.left + box.width - margin;
+    const viewTop = box.top + margin;
+    const viewBottom = box.top + box.height - margin;
+
+    // 기본은 길게 누른 셀 바로 아래, 공간이 부족하면 위쪽에 표시
+    let left = cellCenterX - w / 2;
+    let top = cellTop + rect.height + gap;
+    if(top + h > viewBottom && cellTop - h - gap >= viewTop){
+      top = cellTop - h - gap;
+    }
+    // 위/아래 모두 부족한 확대 상태에서는 셀 중앙 기준으로 최대한 가까운 위치에 보정
+    if(top + h > viewBottom) top = cellCenterY - h / 2;
+
+    left = clamp(left, viewLeft, viewRight - w);
+    top = clamp(top, viewTop, viewBottom - h);
+
+    dialog.style.left = Math.round(left) + "px";
+    dialog.style.top = Math.round(top) + "px";
   }
 
   function openPhoneActionDialog(cell){
@@ -2879,7 +2934,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
     const overlay = document.createElement("div");
     overlay.id = "phoneActionOverlay";
-    overlay.className = "phone-action-overlay phone-action-cell-centered";
+    overlay.className = "phone-action-overlay phone-action-cell-anchored";
     overlay.innerHTML = `
       <div class="phone-action-dialog" id="phoneActionDialog" role="dialog" aria-modal="true">
         <div class="phone-action-title">연락처 작업 선택</div>
@@ -2903,8 +2958,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
     window.addEventListener("resize", scheduleFitDialog, true);
     if(window.visualViewport){
-      window.visualViewport.addEventListener("resize", scheduleFitDialog);
-      window.visualViewport.addEventListener("scroll", scheduleFitDialog);
+      window.visualViewport.addEventListener("resize", scheduleFitDialog, {passive:true});
     }
   }
 
