@@ -1576,6 +1576,37 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   }
 }
 
+
+/* 요청 수정: 읽기전용 로그인에서는 지정 열만 표시
+   표시 열: 직책(1) / 이름(2) / 성별(3) / 연락처(6) / 닉네임(12) / 버스타는곳(13)
+   관리자/편집 모드에서는 기존 전체 열 유지 */
+body.readonly-mode #memberTable col,
+body.readonly-mode #memberTable tr > *{
+  display:none !important;
+}
+body.readonly-mode #memberTable col:nth-child(1),
+body.readonly-mode #memberTable col:nth-child(2),
+body.readonly-mode #memberTable col:nth-child(3),
+body.readonly-mode #memberTable col:nth-child(6),
+body.readonly-mode #memberTable col:nth-child(12),
+body.readonly-mode #memberTable col:nth-child(13),
+body.readonly-mode #memberTable tr > *:nth-child(1),
+body.readonly-mode #memberTable tr > *:nth-child(2),
+body.readonly-mode #memberTable tr > *:nth-child(3),
+body.readonly-mode #memberTable tr > *:nth-child(6),
+body.readonly-mode #memberTable tr > *:nth-child(12),
+body.readonly-mode #memberTable tr > *:nth-child(13){
+  display:table-cell !important;
+}
+body.readonly-mode #memberTable col:nth-child(1),
+body.readonly-mode #memberTable col:nth-child(2),
+body.readonly-mode #memberTable col:nth-child(3),
+body.readonly-mode #memberTable col:nth-child(6),
+body.readonly-mode #memberTable col:nth-child(12),
+body.readonly-mode #memberTable col:nth-child(13){
+  display:table-column !important;
+}
+
 </style>
 </head>
 <body class="locked">
