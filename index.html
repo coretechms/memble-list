@@ -1250,6 +1250,13 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   content:none !important;
 }
 
+
+/* 선택 박스 배율 연동: JS에서 visualViewport.scale 기준으로 크기 직접 계산 */
+.phone-action-overlay.phone-action-cell-anchored .phone-action-dialog{
+  max-width:calc(100vw - 8px) !important;
+  max-height:calc(100vh - 8px) !important;
+}
+
 </style>
 </head>
 <body class="locked">
@@ -2825,8 +2832,10 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     dialogCell = null;
     cancelAnimationFrame(fitRaf);
     window.removeEventListener("resize", scheduleFitDialog, true);
+    window.removeEventListener("scroll", scheduleFitDialog, true);
     if(window.visualViewport){
       window.visualViewport.removeEventListener("resize", scheduleFitDialog);
+      window.visualViewport.removeEventListener("scroll", scheduleFitDialog);
     }
   }
 
@@ -2841,10 +2850,12 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     if(!overlay || !dialog || !cell || !cell.isConnected) return;
 
     const box = getViewportBox();
-    const scale = Math.max(1, box.scale || 1);
-    const uiScale = Math.max(0.48, Math.min(1, 1 / scale));
-    const margin = Math.max(3, Math.round(7 / scale));
-    const gap = Math.max(2, Math.round(5 / scale));
+    // 화면 확대/축소 배율에 맞춰 선택 박스 자체 크기도 같이 변동
+    // 확대(scale 증가) 시 박스/글자/버튼을 역축소하여 현재 보이는 화면 안에 들어오게 함
+    const scale = Math.max(0.75, Number(box.scale || 1));
+    const uiScale = Math.max(0.42, Math.min(1.18, 1 / scale));
+    const margin = Math.max(3, Math.round(8 * uiScale));
+    const gap = Math.max(2, Math.round(6 * uiScale));
 
     overlay.className = "phone-action-overlay phone-action-cell-anchored";
     overlay.style.position = "absolute";
@@ -2855,11 +2866,15 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     overlay.style.background = "transparent";
     overlay.style.pointerEvents = "none";
 
-    const maxDialogW = Math.max(96, Math.min(230, box.width - margin * 2));
+    const baseDialogW = 230;
+    const scaledDialogW = Math.round(baseDialogW * uiScale);
+    const maxDialogW = Math.max(86, Math.min(scaledDialogW, box.width - margin * 2));
+    const maxDialogH = Math.max(76, box.height - margin * 2);
     dialog.style.position = "absolute";
     dialog.style.width = maxDialogW + "px";
+    dialog.style.minWidth = Math.min(maxDialogW, Math.max(82, Math.round(128 * uiScale))) + "px";
     dialog.style.maxWidth = maxDialogW + "px";
-    dialog.style.maxHeight = Math.max(84, box.height - margin * 2) + "px";
+    dialog.style.maxHeight = maxDialogH + "px";
     dialog.style.overflow = "auto";
     dialog.style.transform = "none";
     dialog.style.boxSizing = "border-box";
@@ -2957,8 +2972,10 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     overlay.querySelector("#phoneActionCancelBtn").onclick = closePhoneActionDialog;
 
     window.addEventListener("resize", scheduleFitDialog, true);
+    window.addEventListener("scroll", scheduleFitDialog, true);
     if(window.visualViewport){
       window.visualViewport.addEventListener("resize", scheduleFitDialog, {passive:true});
+      window.visualViewport.addEventListener("scroll", scheduleFitDialog, {passive:true});
     }
   }
 
