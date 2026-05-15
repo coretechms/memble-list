@@ -2727,22 +2727,152 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
 
 <script>
+/* ===== 연락처 길게누름: bus-route 호출 구조와 동일한 모듈형 처리 ===== */
 (function(){
   const PHONE_COLS = [5, 6]; // 연락처, 비상연락처
-  const LONG_PRESS_MS = 1500;
-  const MOVE_CANCEL_PX = 12;
+  const HOLD_MS = 1500;
+  const MOVE_LIMIT = 12;
 
   let holdTimer = null;
   let activeCell = null;
   let startX = 0;
   let startY = 0;
-  let activePointerId = null;
-  let suppressClickUntil = 0;
-  let fitRaf = 0;
-  let dialogCell = null;
+  let moved = false;
+  let lastTriggeredAt = 0;
+  let zoomingUntil = 0;
+  let lastTouchCount = 0;
+  let resizeCancelRaf = 0;
+  let markTimer = 0;
 
-  function cleanPhone(text){
-    return String(text || "").replace(/[^0-9]/g, "");
+  function markZoomingLock(ms = 700){
+    zoomingUntil = Date.now() + ms;
+    cancelHold();
+  }
+
+  function isZoomingNow(){
+    return Date.now() < zoomingUntil;
+  }
+
+  function injectPhoneActionStyles(){
+    if(document.getElementById("memberPhoneBusRouteStyle")) return;
+    const style = document.createElement("style");
+    style.id = "memberPhoneBusRouteStyle";
+    style.textContent = `
+      .phone-action-overlay{
+        position:fixed !important;
+        inset:0 !important;
+        z-index:2147483647 !important;
+        display:flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        background:rgba(0,0,0,.28) !important;
+        padding:clamp(6px, 3vw, 14px) !important;
+        overflow:auto !important;
+        box-sizing:border-box !important;
+        pointer-events:auto !important;
+      }
+      .phone-action-dialog{
+        width:min(390px, calc(100vw - 24px)) !important;
+        max-width:calc(100vw - 12px) !important;
+        max-height:calc(100vh - 12px) !important;
+        overflow:auto !important;
+        background:#fff !important;
+        border:1px solid #d4d4d4 !important;
+        border-radius:22px !important;
+        box-shadow:0 10px 34px rgba(0,0,0,.22) !important;
+        padding:clamp(10px, 3vw, 18px) !important;
+        text-align:center !important;
+        font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif !important;
+        transform:scale(var(--phone-action-dialog-scale, 1)) !important;
+        transform-origin:center center !important;
+        box-sizing:border-box !important;
+        pointer-events:auto !important;
+      }
+      .phone-action-title{font-size:17px !important;font-weight:800 !important;margin-bottom:8px !important;color:#111 !important;line-height:1.25 !important;}
+      .phone-action-message{white-space:pre-line !important;line-height:1.55 !important;font-size:14px !important;color:#222 !important;margin-bottom:16px !important;word-break:keep-all !important;overflow-wrap:anywhere !important;}
+      .phone-action-buttons{display:grid !important;grid-template-columns:1fr !important;gap:8px !important;}
+      .phone-action-buttons button{
+        width:100% !important;
+        height:40px !important;
+        border-radius:14px !important;
+        border:1px solid #d4d4d4 !important;
+        background:#fff !important;
+        color:#111 !important;
+        font-size:14px !important;
+        font-weight:800 !important;
+        font-family:inherit !important;
+        cursor:pointer !important;
+        line-height:1.2 !important;
+      }
+      .phone-action-buttons .call{background:#111827 !important;border-color:#111827 !important;color:#fff !important;}
+      .phone-action-buttons .sms{background:#2563eb !important;border-color:#2563eb !important;color:#fff !important;}
+      .phone-action-buttons .edit{background:#fff7ed !important;border-color:#fb923c !important;color:#9a3412 !important;}
+      .phone-action-buttons .cancel{background:#fff !important;color:#555 !important;}
+      .phone-hold-toast{
+        position:fixed !important;left:50% !important;bottom:24px !important;transform:translateX(-50%) !important;
+        z-index:2147483647 !important;min-width:180px !important;max-width:90vw !important;padding:10px 14px !important;
+        border-radius:999px !important;background:rgba(17,24,39,.94) !important;color:#fff !important;
+        font-size:13px !important;font-weight:800 !important;text-align:center !important;pointer-events:none !important;
+        box-shadow:0 6px 18px rgba(0,0,0,.22) !important;
+      }
+      .member-table td.phone-hold-cell{
+        color:#1737c9 !important;
+        text-decoration:underline !important;
+        font-weight:700 !important;
+        cursor:pointer !important;
+        -webkit-user-select:none !important;
+        user-select:none !important;
+        -webkit-touch-callout:none !important;
+        caret-color:transparent !important;
+        touch-action:pan-x pan-y pinch-zoom !important;
+      }
+      .member-table td.phone-hold-cell.phone-hold-editing{
+        color:#111 !important;
+        text-decoration:none !important;
+        caret-color:auto !important;
+        -webkit-user-select:text !important;
+        user-select:text !important;
+        -webkit-touch-callout:default !important;
+      }
+      @supports (height:100dvh){
+        .phone-action-dialog{max-height:calc(100dvh - 12px) !important;}
+      }
+      @media(max-width:760px){
+        .phone-action-dialog{padding:12px !important;border-radius:18px !important;}
+        .phone-action-title{font-size:15px !important;margin-bottom:6px !important;}
+        .phone-action-message{font-size:13px !important;margin-bottom:12px !important;line-height:1.45 !important;}
+        .phone-action-buttons{gap:6px !important;}
+        .phone-action-buttons button{height:34px !important;font-size:13px !important;border-radius:12px !important;}
+      }
+      @media(max-width:360px), (max-height:520px){
+        .phone-action-dialog{padding:9px !important;border-radius:15px !important;}
+        .phone-action-title{font-size:13px !important;margin-bottom:4px !important;}
+        .phone-action-message{font-size:11px !important;margin-bottom:8px !important;line-height:1.35 !important;}
+        .phone-action-buttons{gap:5px !important;}
+        .phone-action-buttons button{height:28px !important;font-size:11px !important;border-radius:10px !important;}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function cleanPhone(value){
+    return String(value || "").replace(/[^0-9]/g, "");
+  }
+
+  function formatPhone(phone){
+    const n = cleanPhone(phone);
+    if(n.length === 11) return n.replace(/(\d{3})(\d{4})(\d{4})/, "$1-$2-$3");
+    if(n.length === 10) return n.replace(/(\d{3})(\d{3})(\d{4})/, "$1-$2-$3");
+    return n || "";
+  }
+
+  function escapeHtml(text){
+    return String(text || "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#39;");
   }
 
   function showToast(message){
@@ -2754,29 +2884,12 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     toast.textContent = message;
     document.body.appendChild(toast);
     clearTimeout(window.__phoneHoldToastTimer);
-    window.__phoneHoldToastTimer = setTimeout(()=>toast.remove(), 1300);
+    window.__phoneHoldToastTimer = setTimeout(function(){ toast.remove(); }, 1500);
   }
 
-  function getViewportBox(){
-    const vv = window.visualViewport;
-    const fallbackLeft = window.scrollX || document.documentElement.scrollLeft || 0;
-    const fallbackTop = window.scrollY || document.documentElement.scrollTop || 0;
-    return {
-      left: vv && Number.isFinite(vv.pageLeft) ? vv.pageLeft : fallbackLeft,
-      top: vv && Number.isFinite(vv.pageTop) ? vv.pageTop : fallbackTop,
-      width: Math.max(160, vv ? vv.width : window.innerWidth),
-      height: Math.max(120, vv ? vv.height : window.innerHeight),
-      scale: Math.max(1, Number(vv && vv.scale ? vv.scale : 1))
-    };
-  }
-
-  function clamp(v, min, max){
-    if(max < min) return (min + max) / 2;
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function getPhoneCell(target){
-    const cell = target && target.closest ? target.closest("td.phone-hold-cell") : null;
+  function getPhoneCell(node){
+    if(!node || !node.closest) return null;
+    const cell = node.closest("td.phone-hold-cell");
     const table = document.getElementById("memberTable");
     if(!cell || !table || !table.contains(cell)) return null;
     return cell;
@@ -2785,12 +2898,12 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   function markPhoneCells(){
     const table = document.getElementById("memberTable");
     if(!table || !table.tBodies || !table.tBodies[0]) return;
-    Array.from(table.tBodies[0].rows).forEach((row, rowIndex)=>{
+    Array.from(table.tBodies[0].rows).forEach(function(row, rowIndex){
       if(rowIndex === 0) return;
-      PHONE_COLS.forEach((colIndex)=>{
+      PHONE_COLS.forEach(function(colIndex){
         const cell = row.cells[colIndex];
         if(!cell) return;
-        const phone = cleanPhone(cell.innerText);
+        const phone = cleanPhone(cell.innerText || cell.textContent || "");
         if(phone.length < 9){
           cell.classList.remove("phone-hold-cell");
           delete cell.dataset.phoneNumber;
@@ -2803,6 +2916,19 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
         }
       });
     });
+  }
+
+  function scheduleMarkPhoneCells(){
+    clearTimeout(markTimer);
+    markTimer = setTimeout(markPhoneCells, 150);
+  }
+
+  function clearNativeSelection(target){
+    try{
+      if(target && typeof target.blur === "function" && !target.classList.contains("phone-hold-editing")) target.blur();
+      const selection = window.getSelection && window.getSelection();
+      if(selection && typeof selection.removeAllRanges === "function") selection.removeAllRanges();
+    }catch(error){}
   }
 
   function setCaretToEndSafe(cell){
@@ -2818,7 +2944,18 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
   function enablePhoneEdit(cell){
     if(!cell) return;
-    try{ if(typeof window.lockAllCellEditing === "function") window.lockAllCellEditing(cell); }catch(error){}
+    if(document.body.classList.contains("readonly-mode")){
+      showToast("읽기전용 모드");
+      return;
+    }
+    try{
+      document.querySelectorAll("td.cell-editing").forEach(function(item){
+        if(item !== cell){
+          item.contentEditable = "false";
+          item.classList.remove("cell-editing", "phone-hold-editing");
+        }
+      });
+    }catch(error){}
     cell.contentEditable = "true";
     cell.classList.add("cell-editing", "selected-cell", "phone-hold-editing");
     cell.focus();
@@ -2826,284 +2963,263 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     showToast("편집 가능");
   }
 
-  function closePhoneActionDialog(){
+  function closeDialog(){
     const old = document.getElementById("phoneActionOverlay");
     if(old) old.remove();
-    dialogCell = null;
-    cancelAnimationFrame(fitRaf);
-    window.removeEventListener("resize", scheduleFitDialog, true);
-    window.removeEventListener("scroll", scheduleFitDialog, true);
-    if(window.visualViewport){
-      window.visualViewport.removeEventListener("resize", scheduleFitDialog);
-      window.visualViewport.removeEventListener("scroll", scheduleFitDialog);
+    if(window.__memberPhoneActionViewportFit){
+      try{
+        window.removeEventListener("resize", window.__memberPhoneActionViewportFit, true);
+        window.removeEventListener("orientationchange", window.__memberPhoneActionViewportFit, true);
+        if(window.visualViewport){
+          window.visualViewport.removeEventListener("resize", window.__memberPhoneActionViewportFit);
+          window.visualViewport.removeEventListener("scroll", window.__memberPhoneActionViewportFit);
+        }
+      }catch(error){}
     }
   }
 
-  function scheduleFitDialog(){
-    cancelAnimationFrame(fitRaf);
-    fitRaf = requestAnimationFrame(()=>fitDialogToCell(dialogCell));
-  }
-
-  function fitDialogToCell(cell){
+  function fitActionDialogToViewport(){
     const overlay = document.getElementById("phoneActionOverlay");
-    const dialog = document.getElementById("phoneActionDialog");
-    if(!overlay || !dialog) return;
+    if(!overlay) return;
+    const dialog = overlay.querySelector(".phone-action-dialog");
+    if(!dialog) return;
 
-    const box = getViewportBox();
-    const scale = Math.max(0.75, Number(box.scale || 1));
-    const uiScale = Math.max(0.42, Math.min(1.18, 1 / scale));
-    const margin = Math.max(4, Math.round(10 * uiScale));
+    const vv = window.visualViewport;
+    const vw = Math.max(180, Math.floor(vv ? vv.width : window.innerWidth));
+    const vh = Math.max(180, Math.floor(vv ? vv.height : window.innerHeight));
+    const zoomScale = vv && vv.scale ? Number(vv.scale) : 1;
 
-    // 현재 보이는 모바일 화면(visualViewport)의 중앙 좌표를 문서 좌표로 계산
-    // 화면을 상하좌우 이동하거나 확대/축소해도 항상 현재 화면 중앙에 표시됨
-    const centerX = box.left + box.width / 2;
-    const centerY = box.top + box.height / 2;
+    // bus-route와 같은 방식: 현재 보이는 viewport를 overlay 영역으로 잡고, 확대 비율만큼 dialog를 역축소한다.
+    const dialogScale = Math.max(0.48, Math.min(1, 1 / Math.max(1, zoomScale)));
+    const sideGap = vw < 360 || vh < 520 ? 8 : 18;
 
-    overlay.className = "phone-action-overlay phone-action-cell-anchored";
-    overlay.style.position = "absolute";
-    overlay.style.left = "0px";
-    overlay.style.top = "0px";
-    overlay.style.width = "1px";
-    overlay.style.height = "1px";
-    overlay.style.background = "transparent";
-    overlay.style.pointerEvents = "none";
+    overlay.style.left = (vv ? vv.offsetLeft : 0) + "px";
+    overlay.style.top = (vv ? vv.offsetTop : 0) + "px";
+    overlay.style.width = vw + "px";
+    overlay.style.height = vh + "px";
+    overlay.style.padding = Math.max(4, Math.min(14, Math.floor(sideGap / 2))) + "px";
 
-    const baseDialogW = 230;
-    const scaledDialogW = Math.round(baseDialogW * uiScale);
-    const maxDialogW = Math.max(90, Math.min(scaledDialogW, box.width - margin * 2));
-    const maxDialogH = Math.max(86, box.height - margin * 2);
-
-    dialog.style.position = "absolute";
-    dialog.style.width = maxDialogW + "px";
-    dialog.style.minWidth = Math.min(maxDialogW, Math.max(86, Math.round(128 * uiScale))) + "px";
-    dialog.style.maxWidth = maxDialogW + "px";
-    dialog.style.maxHeight = maxDialogH + "px";
-    dialog.style.overflow = "auto";
-    dialog.style.transform = "none";
-    dialog.style.boxSizing = "border-box";
-    dialog.style.padding = Math.max(5, Math.round(10 * uiScale)) + "px";
-    dialog.style.borderRadius = Math.max(7, Math.round(14 * uiScale)) + "px";
-    dialog.style.pointerEvents = "auto";
-
-    const title = dialog.querySelector(".phone-action-title");
-    if(title){
-      title.style.fontSize = Math.max(9, Math.round(14 * uiScale)) + "px";
-      title.style.marginBottom = Math.max(2, Math.round(4 * uiScale)) + "px";
-    }
-    const msg = dialog.querySelector(".phone-action-message");
-    if(msg){
-      msg.style.fontSize = Math.max(8, Math.round(11 * uiScale)) + "px";
-      msg.style.lineHeight = "1.22";
-      msg.style.marginBottom = Math.max(3, Math.round(7 * uiScale)) + "px";
-    }
-    const wrap = dialog.querySelector(".phone-action-buttons");
-    if(wrap) wrap.style.gap = Math.max(2, Math.round(5 * uiScale)) + "px";
-    dialog.querySelectorAll("button").forEach((btn)=>{
-      btn.style.height = Math.max(20, Math.round(31 * uiScale)) + "px";
-      btn.style.fontSize = Math.max(8, Math.round(11 * uiScale)) + "px";
-      btn.style.borderRadius = Math.max(6, Math.round(9 * uiScale)) + "px";
-      btn.style.padding = "0 " + Math.max(4, Math.round(7 * uiScale)) + "px";
-    });
-
-    // 먼저 중앙에 임시 배치 후 실제 크기를 측정
-    dialog.style.left = Math.round(centerX) + "px";
-    dialog.style.top = Math.round(centerY) + "px";
-    const measured = dialog.getBoundingClientRect();
-    const w = measured.width || maxDialogW;
-    const h = measured.height || 110;
-
-    const viewLeft = box.left + margin;
-    const viewRight = box.left + box.width - margin;
-    const viewTop = box.top + margin;
-    const viewBottom = box.top + box.height - margin;
-
-    // 현재 보이는 화면 중앙에 위치시키되, 화면 밖으로 나가지 않게 보정
-    let left = centerX - w / 2;
-    let top = centerY - h / 2;
-    left = clamp(left, viewLeft, viewRight - w);
-    top = clamp(top, viewTop, viewBottom - h);
-
-    dialog.style.left = Math.round(left) + "px";
-    dialog.style.top = Math.round(top) + "px";
+    dialog.style.setProperty("--phone-action-dialog-scale", String(dialogScale));
+    dialog.style.width = Math.min(390, Math.max(190, vw - sideGap)) + "px";
+    dialog.style.maxWidth = Math.max(180, vw - sideGap) + "px";
+    dialog.style.maxHeight = Math.max(160, vh - sideGap) + "px";
   }
 
-  function openPhoneActionDialog(cell){
-    const phone = cell ? (cell.dataset.phoneNumber || cleanPhone(cell.innerText)) : "";
+  function bindActionDialogViewportFit(){
+    window.__memberPhoneActionViewportFit = fitActionDialogToViewport;
+    fitActionDialogToViewport();
+    window.addEventListener("resize", fitActionDialogToViewport, true);
+    window.addEventListener("orientationchange", fitActionDialogToViewport, true);
+    if(window.visualViewport){
+      window.visualViewport.addEventListener("resize", fitActionDialogToViewport);
+      window.visualViewport.addEventListener("scroll", fitActionDialogToViewport);
+    }
+  }
+
+  function showActionDialog(cell){
+    const phone = cell ? (cell.dataset.phoneNumber || cleanPhone(cell.innerText || cell.textContent || "")) : "";
     if(phone.length < 9){
       showToast("전화번호 확인 필요");
       return;
     }
 
-    closePhoneActionDialog();
-    dialogCell = cell;
-    suppressClickUntil = Date.now() + 900;
+    closeDialog();
+    injectPhoneActionStyles();
 
     const overlay = document.createElement("div");
     overlay.id = "phoneActionOverlay";
-    overlay.className = "phone-action-overlay phone-action-cell-anchored";
+    overlay.className = "phone-action-overlay";
     overlay.innerHTML = `
-      <div class="phone-action-dialog" id="phoneActionDialog" role="dialog" aria-modal="true">
+      <div class="phone-action-dialog" role="dialog" aria-modal="true">
         <div class="phone-action-title">연락처 작업 선택</div>
-        <div class="phone-action-message">${phone}\n원하는 작업을 선택하세요.</div>
+        <div class="phone-action-message">${escapeHtml(formatPhone(phone))}\n원하는 작업을 선택하세요.</div>
         <div class="phone-action-buttons">
           <button type="button" class="call" id="phoneActionCallBtn">전화연결</button>
           <button type="button" class="sms" id="phoneActionSmsBtn">문자메세지</button>
           <button type="button" class="edit" id="phoneActionEditBtn">편집</button>
           <button type="button" class="cancel" id="phoneActionCancelBtn">취소</button>
         </div>
-      </div>`;
+      </div>
+    `;
     document.body.appendChild(overlay);
-    fitDialogToCell(cell);
+    bindActionDialogViewportFit();
 
-    overlay.addEventListener("contextmenu", (e)=>e.preventDefault(), true);
-    overlay.addEventListener("click", (e)=>{ if(e.target === overlay) closePhoneActionDialog(); }, true);
-    overlay.querySelector("#phoneActionCallBtn").onclick = ()=>{ closePhoneActionDialog(); window.location.href = "tel:" + phone; };
-    overlay.querySelector("#phoneActionSmsBtn").onclick = ()=>{ closePhoneActionDialog(); window.location.href = "sms:" + phone; };
-    overlay.querySelector("#phoneActionEditBtn").onclick = ()=>{ closePhoneActionDialog(); enablePhoneEdit(cell); };
-    overlay.querySelector("#phoneActionCancelBtn").onclick = closePhoneActionDialog;
-
-    window.addEventListener("resize", scheduleFitDialog, true);
-    window.addEventListener("scroll", scheduleFitDialog, true);
-    if(window.visualViewport){
-      window.visualViewport.addEventListener("resize", scheduleFitDialog, {passive:true});
-      window.visualViewport.addEventListener("scroll", scheduleFitDialog, {passive:true});
-    }
+    overlay.addEventListener("click", function(e){
+      if(e.target === overlay) closeDialog();
+    });
+    overlay.addEventListener("contextmenu", function(e){
+      if(e.cancelable !== false) e.preventDefault();
+    }, true);
+    overlay.querySelector("#phoneActionCallBtn").addEventListener("click", function(){
+      window.location.href = "tel:" + cleanPhone(phone);
+      closeDialog();
+    });
+    overlay.querySelector("#phoneActionSmsBtn").addEventListener("click", function(){
+      window.location.href = "sms:" + cleanPhone(phone);
+      closeDialog();
+    });
+    overlay.querySelector("#phoneActionEditBtn").addEventListener("click", function(){
+      closeDialog();
+      enablePhoneEdit(cell);
+    });
+    overlay.querySelector("#phoneActionCancelBtn").addEventListener("click", closeDialog);
   }
 
-  function clearHoldTimer(){
-    clearTimeout(holdTimer);
-    holdTimer = null;
+  function triggerPhoneAction(cell){
+    clearNativeSelection(cell);
+    const phone = cell ? (cell.dataset.phoneNumber || cleanPhone(cell.innerText || cell.textContent || "")) : "";
+    if(phone.length < 9){
+      showToast("전화번호 확인 필요");
+      return;
+    }
+    showActionDialog(cell);
   }
 
   function cancelHold(){
-    clearHoldTimer();
+    clearTimeout(holdTimer);
+    holdTimer = null;
     activeCell = null;
-    activePointerId = null;
-  }
-
-  function isMultiTouch(e){
-    return !!(e && e.touches && e.touches.length > 1);
-  }
-
-  function getPoint(e){
-    return e.touches && e.touches[0] ? e.touches[0] : e;
+    moved = false;
   }
 
   function startHold(e){
-    if(isMultiTouch(e)){
-      cancelHold();
+    if(isZoomingNow()) return;
+
+    // 두 손가락 확대/축소는 길게누름 기능보다 항상 우선한다.
+    if(e.touches && e.touches.length > 1){
+      lastTouchCount = e.touches.length;
+      markZoomingLock(900);
       return;
     }
+    if(e.pointerType === "touch" && e.isPrimary === false){
+      markZoomingLock(900);
+      return;
+    }
+    if(Date.now() - lastTriggeredAt < 350) return;
+
     const cell = getPhoneCell(e.target);
     if(!cell) return;
 
-    // 전화번호 칸은 자체 길게누름만 사용하게 하여 기존 셀 편집 타이머와 충돌 방지
-    e.stopPropagation();
-    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    // 중요: pointerdown/touchstart에서 preventDefault 하지 않는다.
+    // 그래야 화면 확대/축소와 스크롤 반응이 즉시 살아난다.
+    clearNativeSelection(cell);
 
-    const p = getPoint(e);
-    startX = p.clientX || 0;
-    startY = p.clientY || 0;
+    const point = e.touches && e.touches[0] ? e.touches[0] : e;
+    startX = point.clientX || 0;
+    startY = point.clientY || 0;
+    moved = false;
     activeCell = cell;
-    activePointerId = e.pointerId != null ? e.pointerId : null;
-    clearHoldTimer();
 
-    holdTimer = setTimeout(()=>{
-      if(!activeCell) return;
-      openPhoneActionDialog(activeCell);
+    clearTimeout(holdTimer);
+    holdTimer = setTimeout(function(){
+      if(moved || !activeCell || isZoomingNow()) return;
+      lastTriggeredAt = Date.now();
+      try{
+        if(e.cancelable !== false && typeof e.preventDefault === "function") e.preventDefault();
+      }catch(error){}
+      triggerPhoneAction(activeCell);
       cancelHold();
-    }, LONG_PRESS_MS);
+    }, HOLD_MS);
   }
 
   function moveHold(e){
-    if(!activeCell) return;
-    if(isMultiTouch(e)){
-      cancelHold();
+    if(e.touches && e.touches.length > 1){
+      lastTouchCount = e.touches.length;
+      markZoomingLock(900);
       return;
     }
-    if(activePointerId != null && e.pointerId != null && e.pointerId !== activePointerId) return;
-    const p = getPoint(e);
-    const dx = Math.abs((p.clientX || 0) - startX);
-    const dy = Math.abs((p.clientY || 0) - startY);
-    if(dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX){
+    if(e.pointerType === "touch" && e.isPrimary === false){
+      markZoomingLock(900);
+      return;
+    }
+    if(!activeCell) return;
+    const point = e.touches && e.touches[0] ? e.touches[0] : e;
+    const dx = Math.abs((point.clientX || 0) - startX);
+    const dy = Math.abs((point.clientY || 0) - startY);
+    if(dx > MOVE_LIMIT || dy > MOVE_LIMIT){
+      moved = true;
       cancelHold();
     }
   }
 
   function endHold(e){
-    const hadCell = !!activeCell;
+    if(e && e.touches && e.touches.length > 0){
+      if(e.touches.length > 1) markZoomingLock(900);
+      return;
+    }
+    if(lastTouchCount > 1){
+      lastTouchCount = 0;
+      markZoomingLock(700);
+      return;
+    }
     cancelHold();
-    if(hadCell && Date.now() < suppressClickUntil && e){
-      e.preventDefault();
-      e.stopPropagation();
-      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-    }
   }
 
-  function blockPhoneDefaults(e){
-    if(getPhoneCell(e.target)){
-      e.preventDefault();
-      e.stopPropagation();
-      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-    }
+  function suppressNativePhoneMenu(e){
+    const cell = getPhoneCell(e.target);
+    if(!cell) return;
+    if(cell.classList.contains("phone-hold-editing")) return;
+    try{
+      if(e.cancelable !== false && typeof e.preventDefault === "function") e.preventDefault();
+      if(typeof e.stopPropagation === "function") e.stopPropagation();
+    }catch(error){}
+    clearNativeSelection(cell);
+    return false;
   }
 
-  function bindPhoneHold(){
+  function bind(){
+    injectPhoneActionStyles();
     markPhoneCells();
-    if(document.body.dataset.phoneHoldEditCallBind === "2") return;
-    document.body.dataset.phoneHoldEditCallBind = "2";
 
-    document.addEventListener("contextmenu", blockPhoneDefaults, true);
-    document.addEventListener("selectstart", blockPhoneDefaults, true);
-    document.addEventListener("dragstart", blockPhoneDefaults, true);
+    if(document.body.dataset.memberPhoneBusRouteBind === "1") return;
+    document.body.dataset.memberPhoneBusRouteBind = "1";
 
-    if(window.PointerEvent){
-      document.addEventListener("pointerdown", startHold, true);
-      document.addEventListener("pointermove", moveHold, true);
-      document.addEventListener("pointerup", endHold, true);
-      document.addEventListener("pointercancel", endHold, true);
-    }else{
-      document.addEventListener("touchstart", startHold, {capture:true, passive:true});
-      document.addEventListener("touchmove", moveHold, {capture:true, passive:true});
-      document.addEventListener("touchend", endHold, true);
-      document.addEventListener("touchcancel", endHold, true);
-      document.addEventListener("mousedown", startHold, true);
-      document.addEventListener("mousemove", moveHold, true);
-      document.addEventListener("mouseup", endHold, true);
-    }
+    document.addEventListener("pointerdown", startHold, true);
+    document.addEventListener("pointermove", moveHold, true);
+    document.addEventListener("pointerup", endHold, true);
+    document.addEventListener("pointercancel", endHold, true);
 
+    // 확대/축소/뷰포트 변화가 감지되면 길게누름 판정을 즉시 중지한다.
     if(window.visualViewport){
-      window.visualViewport.addEventListener("resize", cancelHold, {passive:true});
-      window.visualViewport.addEventListener("scroll", cancelHold, {passive:true});
+      window.visualViewport.addEventListener("resize", function(){ markZoomingLock(500); }, {passive:true});
+      window.visualViewport.addEventListener("scroll", function(){ markZoomingLock(350); }, {passive:true});
     }
+    window.addEventListener("resize", function(){
+      cancelAnimationFrame(resizeCancelRaf);
+      resizeCancelRaf = requestAnimationFrame(function(){ markZoomingLock(350); });
+    }, {passive:true});
 
-    document.addEventListener("click", function(e){
-      if(Date.now() < suppressClickUntil && getPhoneCell(e.target)) blockPhoneDefaults(e);
-    }, true);
+    // 복사/공유/모두선택/컨텍스트 메뉴 차단
+    document.addEventListener("contextmenu", suppressNativePhoneMenu, true);
+    document.addEventListener("selectstart", suppressNativePhoneMenu, true);
+    document.addEventListener("dragstart", suppressNativePhoneMenu, true);
+    document.addEventListener("copy", suppressNativePhoneMenu, true);
+    document.addEventListener("cut", suppressNativePhoneMenu, true);
+
+    // 일부 구형 모바일 브라우저 보완
+    document.addEventListener("touchstart", startHold, {capture:true, passive:true});
+    document.addEventListener("touchmove", moveHold, {capture:true, passive:true});
+    document.addEventListener("touchend", endHold, true);
+    document.addEventListener("touchcancel", endHold, true);
 
     document.addEventListener("input", function(e){
       const cell = getPhoneCell(e.target);
-      if(cell) cell.dataset.phoneNumber = cleanPhone(cell.innerText);
+      if(cell) cell.dataset.phoneNumber = cleanPhone(cell.innerText || cell.textContent || "");
     }, true);
     document.addEventListener("blur", function(e){
       const cell = e.target && e.target.closest ? e.target.closest("td.phone-hold-cell") : null;
       if(cell){
         cell.classList.remove("phone-hold-editing");
-        cell.dataset.phoneNumber = cleanPhone(cell.innerText);
+        cell.dataset.phoneNumber = cleanPhone(cell.innerText || cell.textContent || "");
       }
     }, true);
+
+    const observer = new MutationObserver(scheduleMarkPhoneCells);
+    observer.observe(document.body, {childList:true, subtree:true, characterData:true});
   }
 
-  document.addEventListener("DOMContentLoaded", function(){
-    setTimeout(bindPhoneHold, 300);
-    setTimeout(markPhoneCells, 1000);
-    setTimeout(markPhoneCells, 2500);
-    const observer = new MutationObserver(function(){
-      clearTimeout(window.__phoneHoldMarkTimer);
-      window.__phoneHoldMarkTimer = setTimeout(markPhoneCells, 150);
-    });
-    observer.observe(document.body, {childList:true, subtree:true, characterData:true});
-  });
+  if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", bind);
+  else bind();
 })();
 </script>
 
