@@ -1418,6 +1418,89 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   }
 }
 
+
+/* 풀다운 메뉴 50% 축소 */
+.phone-action-dropdown,
+.phone-dropdown-menu,
+.phone-action-dialog,
+.phone-action-cell-menu{
+  min-width:66px !important;
+  max-width:95px !important;
+  padding:3px !important;
+  border-radius:5px !important;
+  border-width:0.5px !important;
+  box-shadow:0 4px 11px rgba(0,0,0,.18) !important;
+}
+.phone-action-title,
+.phone-dropdown-title,
+.phone-menu-title{
+  margin:0 0 2px 0 !important;
+  padding:2px 3px !important;
+  border-radius:4px !important;
+  font-size:5px !important;
+  line-height:1.15 !important;
+  font-weight:700 !important;
+}
+.phone-action-message{
+  margin:0 0 2px 0 !important;
+  font-size:5px !important;
+  line-height:1.15 !important;
+}
+.phone-action-buttons,
+.phone-dropdown-buttons,
+.phone-menu-buttons{
+  gap:2px !important;
+}
+.phone-action-buttons button,
+.phone-dropdown-menu button,
+.phone-action-dialog button,
+.phone-action-cell-menu button{
+  height:13px !important;
+  min-height:13px !important;
+  border-width:0.5px !important;
+  border-radius:4px !important;
+  font-size:5px !important;
+  line-height:11px !important;
+  padding:0 3px !important;
+}
+@media(max-width:480px){
+  .phone-action-dropdown,
+  .phone-dropdown-menu,
+  .phone-action-dialog,
+  .phone-action-cell-menu{
+    min-width:56px !important;
+    max-width:80px !important;
+    padding:3px !important;
+    border-radius:5px !important;
+  }
+  .phone-action-title,
+  .phone-dropdown-title,
+  .phone-menu-title{
+    font-size:5px !important;
+    padding:2px 3px !important;
+  }
+  .phone-action-buttons button,
+  .phone-dropdown-menu button,
+  .phone-action-dialog button,
+  .phone-action-cell-menu button{
+    height:12px !important;
+    min-height:12px !important;
+    font-size:5px !important;
+    line-height:10px !important;
+    border-radius:4px !important;
+  }
+}
+
+
+/* 요청 수정: 전화번호 밑줄 삭제 */
+.member-table td.phone-hold-cell{
+  text-decoration:none !important;
+  font-weight:400 !important;
+}
+.member-table td.phone-hold-cell.phone-hold-editing{
+  text-decoration:none !important;
+}
+
 </style>
 </head>
 <body class="locked">
