@@ -1152,6 +1152,24 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   .phone-action-buttons button{height:30px;font-size:11px;border-radius:10px;}
 }
 
+
+
+/* 모바일 확대 상태 전화/문자 선택 박스 강제 화면맞춤 */
+.phone-action-overlay{
+  position:fixed !important;
+  inset:0 !important;
+  width:100vw !important;
+  height:100vh !important;
+  display:block !important;
+  overflow:hidden !important;
+}
+.phone-action-dialog{
+  position:fixed !important;
+  left:50vw !important;
+  top:50vh !important;
+  transform:translate(-50%, -50%) !important;
+  margin:0 !important;
+}
 </style>
 </head>
 <body class="locked">
@@ -1384,8 +1402,8 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   let longPressStartX=0;
   let longPressStartY=0;
   let touchMovedAsScroll=false;
-  const CELL_TOUCH_DELAY_MS=200;
-  const LONG_PRESS_EDIT_MS=400;
+  const CELL_TOUCH_DELAY_MS=150;
+  const LONG_PRESS_EDIT_MS=300;
   const TOUCH_SCROLL_MOVE_LIMIT=8;
   const LONG_PRESS_MOVE_LIMIT=12;
   function isEditableBodyCell(cell){
@@ -2699,50 +2717,67 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     const dialog = document.getElementById("phoneActionDialog");
     if(!overlay || !dialog) return;
 
-    const vp = getViewportBox();
-    const margin = 8;
-    const safeWidth = Math.max(140, vp.width - margin * 2);
-    const safeHeight = Math.max(120, vp.height - margin * 2);
+    const vv = window.visualViewport;
+    const scale = Math.max(1, Number(vv && vv.scale ? vv.scale : 1));
+    const vw = Math.max(160, Math.floor(vv ? vv.width : window.innerWidth));
+    const vh = Math.max(140, Math.floor(vv ? vv.height : window.innerHeight));
 
-    /* 확대/축소 후 실제 보이는 화면(visualViewport)에 오버레이를 정확히 맞춤 */
-    overlay.style.left = vp.offsetLeft + "px";
-    overlay.style.top = vp.offsetTop + "px";
-    overlay.style.width = vp.width + "px";
-    overlay.style.height = vp.height + "px";
-    overlay.style.right = "auto";
-    overlay.style.bottom = "auto";
-    overlay.style.padding = margin + "px";
-    overlay.style.alignItems = "center";
-    overlay.style.justifyContent = "center";
+    /*
+      모바일 확대 상태에서는 CSS px 자체가 확대되어 보이므로,
+      선택 박스의 CSS 크기를 visualViewport.scale 만큼 역으로 줄인다.
+      fixed 좌표는 브라우저마다 기준이 달라 offsetLeft/offsetTop을 쓰면 화면 밖으로 밀릴 수 있어
+      항상 현재 보이는 화면의 50vw/50vh 중앙에 고정한다.
+    */
+    const margin = 12;
+    const inverse = 1 / scale;
+    const dialogWidth = Math.max(92, Math.min(300, (vw - margin * 2) * inverse));
+    const dialogMaxHeight = Math.max(110, (vh - margin * 2) * inverse);
+    const uiScale = Math.max(0.42, Math.min(1, inverse));
 
-    /* 기본 크기를 먼저 줄이고, 그래도 확대 배율 때문에 크면 역축소한다. */
-    const targetWidth = Math.min(300, safeWidth);
-    dialog.style.width = Math.max(150, targetWidth) + "px";
-    dialog.style.maxWidth = safeWidth + "px";
-    dialog.style.maxHeight = safeHeight + "px";
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.left = "0";
+    overlay.style.top = "0";
+    overlay.style.right = "0";
+    overlay.style.bottom = "0";
+    overlay.style.width = "100vw";
+    overlay.style.height = "100vh";
+    overlay.style.padding = "0";
+    overlay.style.display = "block";
+    overlay.style.overflow = "hidden";
+
+    dialog.style.position = "fixed";
+    dialog.style.left = "50vw";
+    dialog.style.top = "50vh";
+    dialog.style.width = dialogWidth + "px";
+    dialog.style.maxWidth = dialogWidth + "px";
+    dialog.style.maxHeight = dialogMaxHeight + "px";
     dialog.style.overflow = "auto";
     dialog.style.boxSizing = "border-box";
-
-    const normalWidth = Math.min(300, Math.max(150, targetWidth));
-    const normalHeight = Math.min(250, safeHeight);
-    const viewportRatio = Math.min(1, safeWidth / normalWidth, safeHeight / normalHeight);
-    const inverseZoomRatio = Math.min(1, 1 / Math.max(1, vp.scale || 1));
-    const finalScale = Math.max(0.38, Math.min(viewportRatio, inverseZoomRatio));
-
     dialog.style.transformOrigin = "center center";
-    dialog.style.transform = "scale(" + finalScale.toFixed(3) + ")";
+    dialog.style.transform = "translate(-50%, -50%)";
+    dialog.style.padding = Math.max(5, Math.round(14 * uiScale)) + "px";
+    dialog.style.borderRadius = Math.max(8, Math.round(18 * uiScale)) + "px";
 
-    /* 배율이 커질수록 글자/버튼도 함께 줄여 화면 안에 들어오게 함 */
-    dialog.style.setProperty("--phone-dialog-font-scale", String(finalScale));
-    dialog.querySelectorAll("button").forEach(function(btn){
-      btn.style.height = Math.max(24, Math.round(36 * finalScale)) + "px";
-      btn.style.fontSize = Math.max(9, Math.round(13 * finalScale)) + "px";
-      btn.style.borderRadius = Math.max(7, Math.round(12 * finalScale)) + "px";
-    });
     const title = dialog.querySelector(".phone-action-title");
-    if(title) title.style.fontSize = Math.max(10, Math.round(16 * finalScale)) + "px";
+    if(title){
+      title.style.fontSize = Math.max(9, Math.round(16 * uiScale)) + "px";
+      title.style.marginBottom = Math.max(3, Math.round(6 * uiScale)) + "px";
+    }
     const message = dialog.querySelector(".phone-action-message");
-    if(message) message.style.fontSize = Math.max(9, Math.round(13 * finalScale)) + "px";
+    if(message){
+      message.style.fontSize = Math.max(8, Math.round(13 * uiScale)) + "px";
+      message.style.lineHeight = "1.25";
+      message.style.marginBottom = Math.max(4, Math.round(10 * uiScale)) + "px";
+    }
+    const buttonWrap = dialog.querySelector(".phone-action-buttons");
+    if(buttonWrap) buttonWrap.style.gap = Math.max(3, Math.round(7 * uiScale)) + "px";
+    dialog.querySelectorAll("button").forEach(function(btn){
+      btn.style.height = Math.max(20, Math.round(38 * uiScale)) + "px";
+      btn.style.fontSize = Math.max(8, Math.round(13 * uiScale)) + "px";
+      btn.style.borderRadius = Math.max(6, Math.round(12 * uiScale)) + "px";
+      btn.style.padding = "0 " + Math.max(4, Math.round(8 * uiScale)) + "px";
+    });
   }
 
   function closePhoneActionDialog(){
