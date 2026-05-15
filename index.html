@@ -1061,7 +1061,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 }
 
 
-/* 연락처 길게누름: 1.5초=편집, 4초=전화/문자 선택 */
+/* 연락처 길게누름: 1.5초=편집, 2.5초=전화/문자 선택 */
 .member-table td.phone-hold-cell{
   color:#1737c9 !important;
   text-decoration:underline !important;
@@ -1094,6 +1094,9 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   pointer-events:none;
 }
 
+
+
+/* 연락처 전화/문자 선택 박스: 확대/축소 화면 맞춤 */
 .phone-action-overlay{
   position:fixed;
   inset:0;
@@ -1101,43 +1104,52 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   display:flex;
   align-items:center;
   justify-content:center;
-  background:rgba(0,0,0,.28);
-  padding:14px;
+  background:rgba(0,0,0,.26);
+  padding:max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  box-sizing:border-box;
+  overflow:hidden;
+  touch-action:none;
 }
 .phone-action-dialog{
-  width:min(360px, calc(100vw - 24px));
+  width:min(340px, calc(100vw - 20px));
+  max-width:calc(100vw - 20px);
+  max-height:calc(100vh - 20px);
+  overflow:auto;
   background:#fff;
   border:1px solid #d4d4d4;
-  border-radius:20px;
-  box-shadow:0 10px 34px rgba(0,0,0,.22);
-  padding:16px;
+  border-radius:18px;
+  box-shadow:0 10px 32px rgba(0,0,0,.24);
+  padding:14px;
   text-align:center;
   font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;
+  transform-origin:center center;
 }
-.phone-action-title{font-size:16px;font-weight:700;margin-bottom:8px;color:#111;}
-.phone-action-message{white-space:pre-line;line-height:1.5;font-size:13px;color:#222;margin-bottom:14px;word-break:break-all;}
-.phone-action-buttons{display:grid;grid-template-columns:1fr;gap:8px;}
+.phone-action-title{font-size:16px;font-weight:800;margin-bottom:6px;color:#111;line-height:1.25;}
+.phone-action-message{font-size:13px;line-height:1.45;color:#222;margin-bottom:12px;white-space:pre-line;word-break:keep-all;overflow-wrap:anywhere;}
+.phone-action-buttons{display:grid;grid-template-columns:1fr;gap:7px;}
 .phone-action-buttons button{
   width:100%;
   height:38px;
-  border-radius:13px;
+  border-radius:12px;
   border:1px solid #d4d4d4;
   background:#fff;
   color:#111;
-  font-size:14px;
-  font-weight:700;
+  font-size:13px;
+  font-weight:800;
   font-family:inherit;
   cursor:pointer;
 }
 .phone-action-buttons .call{background:#111827;border-color:#111827;color:#fff;}
-.phone-action-buttons .sms{background:#1737c9;border-color:#1737c9;color:#fff;}
-.phone-action-buttons .edit{background:#f4f4f4;color:#111;}
+.phone-action-buttons .sms{background:#2563eb;border-color:#2563eb;color:#fff;}
+.phone-action-buttons .edit{background:#fff7ed;border-color:#fb923c;color:#9a3412;}
 .phone-action-buttons .cancel{background:#fff;color:#555;}
 @media(max-width:480px){
-  .phone-action-dialog{padding:13px;border-radius:17px;}
-  .phone-action-title{font-size:14px;}
-  .phone-action-message{font-size:12px;}
-  .phone-action-buttons button{height:34px;font-size:12px;}
+  .phone-action-overlay{padding:6px;}
+  .phone-action-dialog{width:min(260px, calc(100vw - 12px));max-width:calc(100vw - 12px);max-height:calc(100vh - 12px);padding:10px;border-radius:14px;}
+  .phone-action-title{font-size:13px;}
+  .phone-action-message{font-size:11px;margin-bottom:8px;}
+  .phone-action-buttons{gap:5px;}
+  .phone-action-buttons button{height:30px;font-size:11px;border-radius:10px;}
 }
 
 </style>
@@ -1372,8 +1384,8 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   let longPressStartX=0;
   let longPressStartY=0;
   let touchMovedAsScroll=false;
-  const CELL_TOUCH_DELAY_MS=300;
-  const LONG_PRESS_EDIT_MS=500;
+  const CELL_TOUCH_DELAY_MS=200;
+  const LONG_PRESS_EDIT_MS=400;
   const TOUCH_SCROLL_MOVE_LIMIT=8;
   const LONG_PRESS_MOVE_LIMIT=12;
   function isEditableBodyCell(cell){
@@ -2613,7 +2625,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 (function(){
   const PHONE_COLS = [5, 6]; // 연락처, 비상연락처
   const EDIT_MS = 1500;
-  const ACTION_MS = 3000; // 4초 이상 길게 누르면 전화/문자 선택
+  const ACTION_MS = 2500;
 
   let editTimer = null;
   let actionTimer = null;
@@ -2671,84 +2683,87 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     showToast("편집 가능");
   }
 
-  function getPhoneFromCell(cell){
-    return cell ? (cell.dataset.phoneNumber || cleanPhone(cell.innerText)) : "";
+  function getViewportBox(){
+    const vv = window.visualViewport;
+    return {
+      width: Math.max(220, Math.floor(vv ? vv.width : window.innerWidth)),
+      height: Math.max(180, Math.floor(vv ? vv.height : window.innerHeight)),
+      offsetLeft: Math.floor(vv ? vv.offsetLeft : 0),
+      offsetTop: Math.floor(vv ? vv.offsetTop : 0),
+      scale: Number(vv && vv.scale ? vv.scale : 1)
+    };
   }
 
-  function callPhoneNumber(phone){
-    if(!phone || phone.length < 9){
-      showToast("전화번호 확인 필요");
-      return;
-    }
-    window.location.href = "tel:" + phone;
-  }
+  function fitPhoneActionDialog(){
+    const overlay = document.getElementById("phoneActionOverlay");
+    const dialog = document.getElementById("phoneActionDialog");
+    if(!overlay || !dialog) return;
+    const vp = getViewportBox();
+    overlay.style.left = vp.offsetLeft + "px";
+    overlay.style.top = vp.offsetTop + "px";
+    overlay.style.width = vp.width + "px";
+    overlay.style.height = vp.height + "px";
+    overlay.style.right = "auto";
+    overlay.style.bottom = "auto";
 
-  function sendSmsToPhone(phone){
-    if(!phone || phone.length < 9){
-      showToast("전화번호 확인 필요");
-      return;
-    }
-    window.location.href = "sms:" + phone;
+    const baseWidth = Math.min(340, Math.max(210, vp.width - 16));
+    dialog.style.width = baseWidth + "px";
+    dialog.style.maxWidth = Math.max(180, vp.width - 12) + "px";
+    dialog.style.maxHeight = Math.max(150, vp.height - 12) + "px";
+
+    const ratio = Math.min(1, (vp.width - 12) / 340, (vp.height - 12) / 260);
+    const scale = Math.max(0.62, ratio);
+    dialog.style.transform = "scale(" + scale + ")";
   }
 
   function closePhoneActionDialog(){
     const old = document.getElementById("phoneActionOverlay");
     if(old) old.remove();
+    window.removeEventListener("resize", fitPhoneActionDialog, true);
+    if(window.visualViewport){
+      window.visualViewport.removeEventListener("resize", fitPhoneActionDialog);
+      window.visualViewport.removeEventListener("scroll", fitPhoneActionDialog);
+    }
   }
 
-  function showPhoneActionDialog(cell){
+  function openPhoneActionDialog(cell){
     if(!cell) return;
-    const phone = getPhoneFromCell(cell);
+    const phone = cell.dataset.phoneNumber || cleanPhone(cell.innerText);
     if(phone.length < 9){
       showToast("전화번호 확인 필요");
       return;
     }
-
     closePhoneActionDialog();
     const overlay = document.createElement("div");
     overlay.id = "phoneActionOverlay";
     overlay.className = "phone-action-overlay";
     overlay.innerHTML = `
-      <div class="phone-action-dialog" role="dialog" aria-modal="true">
+      <div class="phone-action-dialog" id="phoneActionDialog" role="dialog" aria-modal="true">
         <div class="phone-action-title">연락처 작업 선택</div>
-        <div class="phone-action-message">${phone}
-전화연결 / 문자메세지 / 편집 중 선택하세요.</div>
+        <div class="phone-action-message">${phone}\n원하는 작업을 선택하세요.</div>
         <div class="phone-action-buttons">
           <button type="button" class="call" id="phoneActionCallBtn">전화연결</button>
           <button type="button" class="sms" id="phoneActionSmsBtn">문자메세지</button>
           <button type="button" class="edit" id="phoneActionEditBtn">편집</button>
           <button type="button" class="cancel" id="phoneActionCancelBtn">취소</button>
         </div>
-      </div>
-    `;
+      </div>`;
     document.body.appendChild(overlay);
+    fitPhoneActionDialog();
 
-    overlay.addEventListener("click", function(e){
-      if(e.target === overlay) closePhoneActionDialog();
-    }, true);
-    overlay.querySelector("#phoneActionCallBtn").addEventListener("click", function(e){
-      e.preventDefault(); e.stopPropagation();
-      closePhoneActionDialog();
-      callPhoneNumber(phone);
-    }, true);
-    overlay.querySelector("#phoneActionSmsBtn").addEventListener("click", function(e){
-      e.preventDefault(); e.stopPropagation();
-      closePhoneActionDialog();
-      sendSmsToPhone(phone);
-    }, true);
-    overlay.querySelector("#phoneActionEditBtn").addEventListener("click", function(e){
-      e.preventDefault(); e.stopPropagation();
-      closePhoneActionDialog();
-      enablePhoneEdit(cell);
-    }, true);
-    overlay.querySelector("#phoneActionCancelBtn").addEventListener("click", function(e){
-      e.preventDefault(); e.stopPropagation();
-      closePhoneActionDialog();
-    }, true);
-  }
+    overlay.addEventListener("contextmenu", function(e){ e.preventDefault(); }, true);
+    overlay.addEventListener("touchmove", function(e){ e.preventDefault(); }, {passive:false});
+    overlay.addEventListener("click", function(e){ if(e.target === overlay) closePhoneActionDialog(); }, true);
+    overlay.querySelector("#phoneActionCallBtn").onclick = function(){ closePhoneActionDialog(); window.location.href = "tel:" + phone; };
+    overlay.querySelector("#phoneActionSmsBtn").onclick = function(){ closePhoneActionDialog(); window.location.href = "sms:" + phone; };
+    overlay.querySelector("#phoneActionEditBtn").onclick = function(){ closePhoneActionDialog(); enablePhoneEdit(cell); };
+    overlay.querySelector("#phoneActionCancelBtn").onclick = closePhoneActionDialog;
 
-  function callPhone(cell){
-    showPhoneActionDialog(cell);
+    window.addEventListener("resize", fitPhoneActionDialog, true);
+    if(window.visualViewport){
+      window.visualViewport.addEventListener("resize", fitPhoneActionDialog);
+      window.visualViewport.addEventListener("scroll", fitPhoneActionDialog);
+    }
   }
 
   function markPhoneCells(){
@@ -2825,7 +2840,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
     actionTimer = setTimeout(function(){
       if(moved || !activeCell) return;
-      showPhoneActionDialog(activeCell);
+      openPhoneActionDialog(activeCell);
       cancelTimers();
     }, ACTION_MS);
   }
