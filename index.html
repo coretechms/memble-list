@@ -1196,6 +1196,25 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   -webkit-user-select:none !important;
   user-select:none !important;
 }
+
+
+/* 전화번호 길게누름 안정화: 기본 선택메뉴 차단 + 선택 셀 중앙 박스 */
+.member-table td.phone-hold-cell{
+  -webkit-user-select:none !important;
+  user-select:none !important;
+  -webkit-touch-callout:none !important;
+  touch-action:pan-x pan-y pinch-zoom !important;
+}
+.phone-action-cell-centered{
+  z-index:2147483647 !important;
+}
+.phone-action-cell-centered .phone-action-dialog{
+  background:#fff !important;
+  border:1px solid #d4d4d4 !important;
+  box-shadow:0 6px 20px rgba(0,0,0,.24) !important;
+  text-align:center !important;
+}
+
 </style>
 </head>
 <body class="locked">
@@ -1428,8 +1447,8 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   let longPressStartX=0;
   let longPressStartY=0;
   let touchMovedAsScroll=false;
-  const CELL_TOUCH_DELAY_MS=180;
-  const LONG_PRESS_EDIT_MS=300;
+  const CELL_TOUCH_DELAY_MS=250;
+  const LONG_PRESS_EDIT_MS=400;
   const TOUCH_SCROLL_MOVE_LIMIT=8;
   const LONG_PRESS_MOVE_LIMIT=12;
   function isEditableBodyCell(cell){
@@ -2668,20 +2687,17 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 <script>
 (function(){
   const PHONE_COLS = [5, 6]; // 연락처, 비상연락처
-  const EDIT_MS = 1500;
-  const ACTION_MS = 2500;
+  const LONG_PRESS_MS = 1500;
+  const MOVE_CANCEL_PX = 12;
 
-  let editTimer = null;
-  let actionTimer = null;
+  let holdTimer = null;
   let activeCell = null;
   let startX = 0;
   let startY = 0;
-  let moved = false;
-  let editTriggered = false;
-  let actionTriggered = false;
   let activePointerId = null;
-  let viewportAdjustRaf = 0;
-  let lastDialogCell = null;
+  let suppressClickUntil = 0;
+  let fitRaf = 0;
+  let dialogCell = null;
 
   function cleanPhone(text){
     return String(text || "").replace(/[^0-9]/g, "");
@@ -2690,17 +2706,61 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   function showToast(message){
     const old = document.getElementById("phoneHoldToast");
     if(old) old.remove();
-
     const toast = document.createElement("div");
     toast.id = "phoneHoldToast";
     toast.className = "phone-hold-toast";
     toast.textContent = message;
     document.body.appendChild(toast);
-
     clearTimeout(window.__phoneHoldToastTimer);
-    window.__phoneHoldToastTimer = setTimeout(function(){
-      toast.remove();
-    }, 1400);
+    window.__phoneHoldToastTimer = setTimeout(()=>toast.remove(), 1300);
+  }
+
+  function getViewportBox(){
+    const vv = window.visualViewport;
+    const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    return {
+      left: scrollX + (vv ? vv.offsetLeft : 0),
+      top: scrollY + (vv ? vv.offsetTop : 0),
+      width: Math.max(180, vv ? vv.width : window.innerWidth),
+      height: Math.max(140, vv ? vv.height : window.innerHeight),
+      scale: Math.max(1, Number(vv && vv.scale ? vv.scale : 1))
+    };
+  }
+
+  function clamp(v, min, max){
+    if(max < min) return (min + max) / 2;
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function getPhoneCell(target){
+    const cell = target && target.closest ? target.closest("td.phone-hold-cell") : null;
+    const table = document.getElementById("memberTable");
+    if(!cell || !table || !table.contains(cell)) return null;
+    return cell;
+  }
+
+  function markPhoneCells(){
+    const table = document.getElementById("memberTable");
+    if(!table || !table.tBodies || !table.tBodies[0]) return;
+    Array.from(table.tBodies[0].rows).forEach((row, rowIndex)=>{
+      if(rowIndex === 0) return;
+      PHONE_COLS.forEach((colIndex)=>{
+        const cell = row.cells[colIndex];
+        if(!cell) return;
+        const phone = cleanPhone(cell.innerText);
+        if(phone.length < 9){
+          cell.classList.remove("phone-hold-cell");
+          delete cell.dataset.phoneNumber;
+          return;
+        }
+        cell.classList.add("phone-hold-cell");
+        cell.dataset.phoneNumber = phone;
+        if(!cell.classList.contains("cell-editing") && !cell.classList.contains("phone-hold-editing")){
+          cell.contentEditable = "false";
+        }
+      });
+    });
   }
 
   function setCaretToEndSafe(cell){
@@ -2716,144 +2776,110 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
   function enablePhoneEdit(cell){
     if(!cell) return;
-    editTriggered = true;
-
-    try{
-      if(typeof window.lockAllCellEditing === "function") window.lockAllCellEditing(cell);
-    }catch(error){}
-
+    try{ if(typeof window.lockAllCellEditing === "function") window.lockAllCellEditing(cell); }catch(error){}
     cell.contentEditable = "true";
-    cell.classList.add("cell-editing");
-    cell.classList.add("selected-cell");
-    cell.classList.add("phone-hold-editing");
+    cell.classList.add("cell-editing", "selected-cell", "phone-hold-editing");
     cell.focus();
     setCaretToEndSafe(cell);
     showToast("편집 가능");
   }
 
-  function getViewportBox(){
-    const vv = window.visualViewport;
-    const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
-    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-    return {
-      width: Math.max(180, Math.floor(vv ? vv.width : window.innerWidth)),
-      height: Math.max(150, Math.floor(vv ? vv.height : window.innerHeight)),
-      left: scrollX + Math.floor(vv ? vv.offsetLeft : 0),
-      top: scrollY + Math.floor(vv ? vv.offsetTop : 0),
-      scale: Math.max(1, Number(vv && vv.scale ? vv.scale : 1))
-    };
+  function closePhoneActionDialog(){
+    const old = document.getElementById("phoneActionOverlay");
+    if(old) old.remove();
+    dialogCell = null;
+    cancelAnimationFrame(fitRaf);
+    window.removeEventListener("resize", scheduleFitDialog, true);
+    if(window.visualViewport){
+      window.visualViewport.removeEventListener("resize", scheduleFitDialog);
+      window.visualViewport.removeEventListener("scroll", scheduleFitDialog);
+    }
   }
 
-  function clamp(value, min, max){
-    return Math.max(min, Math.min(max, value));
+  function scheduleFitDialog(){
+    cancelAnimationFrame(fitRaf);
+    fitRaf = requestAnimationFrame(()=>fitDialogToCell(dialogCell));
   }
 
-  function scheduleFitPhoneActionDialog(){
-    cancelAnimationFrame(viewportAdjustRaf);
-    viewportAdjustRaf = requestAnimationFrame(function(){
-      fitPhoneActionDialog(lastDialogCell);
-    });
-  }
-
-  function fitPhoneActionDialog(sourceCell){
+  function fitDialogToCell(cell){
     const overlay = document.getElementById("phoneActionOverlay");
     const dialog = document.getElementById("phoneActionDialog");
-    const cell = sourceCell || lastDialogCell;
     if(!overlay || !dialog || !cell || !cell.isConnected) return;
 
     const box = getViewportBox();
     const scale = box.scale;
-    const margin = Math.max(6, Math.round(10 / scale));
+    const margin = Math.max(4, Math.round(8 / scale));
+    const uiScale = Math.max(0.42, Math.min(1, 1 / scale));
+    const maxDialogW = Math.max(112, Math.min(260, box.width - margin * 2));
 
-    const rect = cell.getBoundingClientRect();
-    const cellCenterX = (window.scrollX || 0) + rect.left + rect.width / 2;
-    const cellCenterY = (window.scrollY || 0) + rect.top + rect.height / 2;
-
-    // 확대 상태에서는 CSS px가 크게 보이므로 선택창 자체를 역축소한다.
-    const inverse = 1 / scale;
-    const uiScale = Math.max(0.45, Math.min(1, inverse));
-    const dialogWidth = Math.max(116, Math.min(260, (box.width - margin * 2) * inverse));
-    const dialogMaxHeight = Math.max(96, (box.height - margin * 2) * inverse);
-
-    overlay.classList.add("phone-action-cell-centered");
     overlay.style.position = "absolute";
     overlay.style.left = "0px";
     overlay.style.top = "0px";
     overlay.style.width = Math.max(document.documentElement.scrollWidth, box.left + box.width, window.innerWidth) + "px";
     overlay.style.height = Math.max(document.documentElement.scrollHeight, box.top + box.height, window.innerHeight) + "px";
+    overlay.style.background = "transparent";
     overlay.style.pointerEvents = "auto";
-    overlay.style.touchAction = "pan-x pan-y pinch-zoom";
-
-    dialog.style.width = dialogWidth + "px";
-    dialog.style.maxWidth = dialogWidth + "px";
-    dialog.style.maxHeight = dialogMaxHeight + "px";
-    dialog.style.overflow = "auto";
-    dialog.style.boxSizing = "border-box";
-    dialog.style.transformOrigin = "center center";
-    dialog.style.transform = "translate(-50%, -50%)";
-    dialog.style.padding = Math.max(5, Math.round(12 * uiScale)) + "px";
-    dialog.style.borderRadius = Math.max(8, Math.round(16 * uiScale)) + "px";
-
-    // 먼저 크기를 적용한 뒤 실제 크기를 읽어서 보이는 영역 안으로 보정한다.
-    const measured = dialog.getBoundingClientRect();
-    const halfW = Math.max(40, measured.width / 2);
-    const halfH = Math.max(36, measured.height / 2);
-    const minX = box.left + margin + halfW;
-    const maxX = box.left + box.width - margin - halfW;
-    const minY = box.top + margin + halfH;
-    const maxY = box.top + box.height - margin - halfH;
-    const finalX = clamp(cellCenterX, Math.min(minX, maxX), Math.max(minX, maxX));
-    const finalY = clamp(cellCenterY, Math.min(minY, maxY), Math.max(minY, maxY));
 
     dialog.style.position = "absolute";
-    dialog.style.left = finalX + "px";
-    dialog.style.top = finalY + "px";
+    dialog.style.width = maxDialogW + "px";
+    dialog.style.maxWidth = maxDialogW + "px";
+    dialog.style.maxHeight = Math.max(90, box.height - margin * 2) + "px";
+    dialog.style.overflow = "auto";
+    dialog.style.transform = "none";
+    dialog.style.boxSizing = "border-box";
+    dialog.style.padding = Math.max(5, Math.round(12 * uiScale)) + "px";
+    dialog.style.borderRadius = Math.max(8, Math.round(16 * uiScale)) + "px";
 
     const title = dialog.querySelector(".phone-action-title");
     if(title){
       title.style.fontSize = Math.max(9, Math.round(15 * uiScale)) + "px";
       title.style.marginBottom = Math.max(3, Math.round(5 * uiScale)) + "px";
     }
-    const message = dialog.querySelector(".phone-action-message");
-    if(message){
-      message.style.fontSize = Math.max(8, Math.round(12 * uiScale)) + "px";
-      message.style.lineHeight = "1.25";
-      message.style.marginBottom = Math.max(4, Math.round(8 * uiScale)) + "px";
+    const msg = dialog.querySelector(".phone-action-message");
+    if(msg){
+      msg.style.fontSize = Math.max(8, Math.round(12 * uiScale)) + "px";
+      msg.style.lineHeight = "1.25";
+      msg.style.marginBottom = Math.max(4, Math.round(8 * uiScale)) + "px";
     }
-    const buttonWrap = dialog.querySelector(".phone-action-buttons");
-    if(buttonWrap) buttonWrap.style.gap = Math.max(3, Math.round(6 * uiScale)) + "px";
-    dialog.querySelectorAll("button").forEach(function(btn){
+    const wrap = dialog.querySelector(".phone-action-buttons");
+    if(wrap) wrap.style.gap = Math.max(3, Math.round(6 * uiScale)) + "px";
+    dialog.querySelectorAll("button").forEach((btn)=>{
       btn.style.height = Math.max(22, Math.round(34 * uiScale)) + "px";
       btn.style.fontSize = Math.max(8, Math.round(12 * uiScale)) + "px";
       btn.style.borderRadius = Math.max(6, Math.round(10 * uiScale)) + "px";
       btn.style.padding = "0 " + Math.max(4, Math.round(7 * uiScale)) + "px";
     });
-  }
 
-  function closePhoneActionDialog(){
-    const old = document.getElementById("phoneActionOverlay");
-    if(old) old.remove();
-    lastDialogCell = null;
-    cancelAnimationFrame(viewportAdjustRaf);
-    window.removeEventListener("resize", scheduleFitPhoneActionDialog, true);
-    if(window.visualViewport){
-      window.visualViewport.removeEventListener("resize", scheduleFitPhoneActionDialog);
-      window.visualViewport.removeEventListener("scroll", scheduleFitPhoneActionDialog);
-    }
+    const rect = cell.getBoundingClientRect();
+    const centerX = (window.scrollX || 0) + rect.left + rect.width / 2;
+    const centerY = (window.scrollY || 0) + rect.top + rect.height / 2;
+
+    const measured = dialog.getBoundingClientRect();
+    const w = measured.width || maxDialogW;
+    const h = measured.height || 120;
+    const minX = box.left + margin;
+    const maxX = box.left + box.width - margin - w;
+    const minY = box.top + margin;
+    const maxY = box.top + box.height - margin - h;
+
+    dialog.style.left = clamp(centerX - w / 2, Math.min(minX, maxX), Math.max(minX, maxX)) + "px";
+    dialog.style.top = clamp(centerY - h / 2, Math.min(minY, maxY), Math.max(minY, maxY)) + "px";
   }
 
   function openPhoneActionDialog(cell){
-    if(!cell) return;
-    const phone = cell.dataset.phoneNumber || cleanPhone(cell.innerText);
+    const phone = cell ? (cell.dataset.phoneNumber || cleanPhone(cell.innerText)) : "";
     if(phone.length < 9){
       showToast("전화번호 확인 필요");
       return;
     }
+
     closePhoneActionDialog();
+    dialogCell = cell;
+    suppressClickUntil = Date.now() + 900;
+
     const overlay = document.createElement("div");
     overlay.id = "phoneActionOverlay";
     overlay.className = "phone-action-overlay phone-action-cell-centered";
-    lastDialogCell = cell;
     overlay.innerHTML = `
       <div class="phone-action-dialog" id="phoneActionDialog" role="dialog" aria-modal="true">
         <div class="phone-action-title">연락처 작업 선택</div>
@@ -2866,206 +2892,137 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
         </div>
       </div>`;
     document.body.appendChild(overlay);
-    fitPhoneActionDialog(cell);
+    fitDialogToCell(cell);
 
-    overlay.addEventListener("contextmenu", function(e){ e.preventDefault(); }, true);
-    overlay.addEventListener("click", function(e){ if(e.target === overlay) closePhoneActionDialog(); }, true);
-    overlay.querySelector("#phoneActionCallBtn").onclick = function(){ closePhoneActionDialog(); window.location.href = "tel:" + phone; };
-    overlay.querySelector("#phoneActionSmsBtn").onclick = function(){ closePhoneActionDialog(); window.location.href = "sms:" + phone; };
-    overlay.querySelector("#phoneActionEditBtn").onclick = function(){ closePhoneActionDialog(); enablePhoneEdit(cell); };
+    overlay.addEventListener("contextmenu", (e)=>e.preventDefault(), true);
+    overlay.addEventListener("click", (e)=>{ if(e.target === overlay) closePhoneActionDialog(); }, true);
+    overlay.querySelector("#phoneActionCallBtn").onclick = ()=>{ closePhoneActionDialog(); window.location.href = "tel:" + phone; };
+    overlay.querySelector("#phoneActionSmsBtn").onclick = ()=>{ closePhoneActionDialog(); window.location.href = "sms:" + phone; };
+    overlay.querySelector("#phoneActionEditBtn").onclick = ()=>{ closePhoneActionDialog(); enablePhoneEdit(cell); };
     overlay.querySelector("#phoneActionCancelBtn").onclick = closePhoneActionDialog;
 
-    window.addEventListener("resize", scheduleFitPhoneActionDialog, true);
+    window.addEventListener("resize", scheduleFitDialog, true);
     if(window.visualViewport){
-      window.visualViewport.addEventListener("resize", scheduleFitPhoneActionDialog);
-      window.visualViewport.addEventListener("scroll", scheduleFitPhoneActionDialog);
+      window.visualViewport.addEventListener("resize", scheduleFitDialog);
+      window.visualViewport.addEventListener("scroll", scheduleFitDialog);
     }
   }
 
-  function markPhoneCells(){
-    const table = document.getElementById("memberTable");
-    if(!table || !table.tBodies || !table.tBodies[0]) return;
-
-    Array.from(table.tBodies[0].rows).forEach(function(row, rowIndex){
-      if(rowIndex === 0) return;
-
-      PHONE_COLS.forEach(function(colIndex){
-        const cell = row.cells[colIndex];
-        if(!cell) return;
-
-        const text = String(cell.innerText || "").trim();
-        const phone = cleanPhone(text);
-
-        if(phone.length < 9){
-          cell.classList.remove("phone-hold-cell");
-          delete cell.dataset.phoneNumber;
-          return;
-        }
-
-        cell.classList.add("phone-hold-cell");
-        cell.dataset.phoneNumber = phone;
-
-        if(!cell.classList.contains("cell-editing") && !cell.classList.contains("phone-hold-editing")){
-          cell.contentEditable = "false";
-        }
-      });
-    });
+  function clearHoldTimer(){
+    clearTimeout(holdTimer);
+    holdTimer = null;
   }
 
-  function cancelTimers(){
-    clearTimeout(editTimer);
-    clearTimeout(actionTimer);
-    editTimer = null;
-    actionTimer = null;
+  function cancelHold(){
+    clearHoldTimer();
     activeCell = null;
-    moved = false;
-    editTriggered = false;
-    actionTriggered = false;
     activePointerId = null;
   }
 
-  function getPhoneCell(target){
-    const cell = target && target.closest ? target.closest("td.phone-hold-cell") : null;
-    if(!cell) return null;
-    const table = document.getElementById("memberTable");
-    if(!table || !table.contains(cell)) return null;
-    return cell;
-  }
-
-  function isMultiTouchEvent(e){
+  function isMultiTouch(e){
     return !!(e && e.touches && e.touches.length > 1);
   }
 
-  function startPress(e){
-    if(isMultiTouchEvent(e)){
-      cancelTimers();
+  function getPoint(e){
+    return e.touches && e.touches[0] ? e.touches[0] : e;
+  }
+
+  function startHold(e){
+    if(isMultiTouch(e)){
+      cancelHold();
       return;
     }
-
     const cell = getPhoneCell(e.target);
     if(!cell) return;
 
-    // 확대/축소 지연 방지를 위해 시작 단계에서는 preventDefault를 하지 않는다.
-    // 단, 다른 셀 편집 이벤트와 충돌하지 않도록 전파만 차단한다.
+    // 전화번호 칸은 자체 길게누름만 사용하게 하여 기존 셀 편집 타이머와 충돌 방지
     e.stopPropagation();
     if(e.stopImmediatePropagation) e.stopImmediatePropagation();
 
-    if(e.pointerId != null) activePointerId = e.pointerId;
-    const point = e.touches && e.touches[0] ? e.touches[0] : e;
-    startX = point.clientX || 0;
-    startY = point.clientY || 0;
-    moved = false;
-    editTriggered = false;
-    actionTriggered = false;
+    const p = getPoint(e);
+    startX = p.clientX || 0;
+    startY = p.clientY || 0;
     activeCell = cell;
+    activePointerId = e.pointerId != null ? e.pointerId : null;
+    clearHoldTimer();
 
-    clearTimeout(editTimer);
-    clearTimeout(actionTimer);
-
-    editTimer = setTimeout(function(){
-      if(moved || !activeCell) return;
-      enablePhoneEdit(activeCell);
-    }, EDIT_MS);
-
-    actionTimer = setTimeout(function(){
-      if(moved || !activeCell) return;
-      actionTriggered = true;
+    holdTimer = setTimeout(()=>{
+      if(!activeCell) return;
       openPhoneActionDialog(activeCell);
-      cancelTimers();
-    }, ACTION_MS);
+      cancelHold();
+    }, LONG_PRESS_MS);
   }
 
-  function movePress(e){
+  function moveHold(e){
     if(!activeCell) return;
-    if(isMultiTouchEvent(e)){
-      cancelTimers();
+    if(isMultiTouch(e)){
+      cancelHold();
       return;
     }
     if(activePointerId != null && e.pointerId != null && e.pointerId !== activePointerId) return;
-
-    const point = e.touches && e.touches[0] ? e.touches[0] : e;
-    const dx = Math.abs((point.clientX || 0) - startX);
-    const dy = Math.abs((point.clientY || 0) - startY);
-
-    // 스크롤/핀치 의도는 빠르게 풀어 줘야 확대/축소가 멈추지 않는다.
-    if(dx > 10 || dy > 10){
-      moved = true;
-      cancelTimers();
+    const p = getPoint(e);
+    const dx = Math.abs((p.clientX || 0) - startX);
+    const dy = Math.abs((p.clientY || 0) - startY);
+    if(dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX){
+      cancelHold();
     }
   }
 
-  function endPress(e){
-    if(!activeCell) return;
-
-    clearTimeout(editTimer);
-    clearTimeout(actionTimer);
-
-    // 실제 전화/문자 선택창이 열린 경우에만 클릭/선택 후속 동작을 막는다.
-    if(actionTriggered && e){
+  function endHold(e){
+    const hadCell = !!activeCell;
+    cancelHold();
+    if(hadCell && Date.now() < suppressClickUntil && e){
       e.preventDefault();
       e.stopPropagation();
       if(e.stopImmediatePropagation) e.stopImmediatePropagation();
     }
-
-    activeCell = null;
-    moved = false;
-    editTriggered = false;
-    actionTriggered = false;
-    activePointerId = null;
   }
 
-  function blockShortClick(e){
-    const cell = getPhoneCell(e.target);
-    if(!cell) return;
-    // 짧은 클릭은 전화도 편집도 하지 않음
-    e.preventDefault();
-    e.stopPropagation();
-    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+  function blockPhoneDefaults(e){
+    if(getPhoneCell(e.target)){
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    }
   }
 
   function bindPhoneHold(){
     markPhoneCells();
+    if(document.body.dataset.phoneHoldEditCallBind === "2") return;
+    document.body.dataset.phoneHoldEditCallBind = "2";
 
-    if(document.body.dataset.phoneHoldEditCallBind === "1") return;
-    document.body.dataset.phoneHoldEditCallBind = "1";
-
-    document.addEventListener("contextmenu", function(e){
-      if(getPhoneCell(e.target)){
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, true);
+    document.addEventListener("contextmenu", blockPhoneDefaults, true);
+    document.addEventListener("selectstart", blockPhoneDefaults, true);
+    document.addEventListener("dragstart", blockPhoneDefaults, true);
 
     if(window.PointerEvent){
-      document.addEventListener("pointerdown", startPress, true);
-      document.addEventListener("pointermove", movePress, true);
-      document.addEventListener("pointerup", endPress, true);
-      document.addEventListener("pointercancel", endPress, true);
+      document.addEventListener("pointerdown", startHold, true);
+      document.addEventListener("pointermove", moveHold, true);
+      document.addEventListener("pointerup", endHold, true);
+      document.addEventListener("pointercancel", endHold, true);
     }else{
-      document.addEventListener("touchstart", startPress, {capture:true, passive:true});
-      document.addEventListener("touchmove", movePress, {capture:true, passive:true});
-      document.addEventListener("touchend", endPress, true);
-      document.addEventListener("touchcancel", endPress, true);
-      document.addEventListener("mousedown", startPress, true);
-      document.addEventListener("mousemove", movePress, true);
-      document.addEventListener("mouseup", endPress, true);
+      document.addEventListener("touchstart", startHold, {capture:true, passive:true});
+      document.addEventListener("touchmove", moveHold, {capture:true, passive:true});
+      document.addEventListener("touchend", endHold, true);
+      document.addEventListener("touchcancel", endHold, true);
+      document.addEventListener("mousedown", startHold, true);
+      document.addEventListener("mousemove", moveHold, true);
+      document.addEventListener("mouseup", endHold, true);
     }
 
     if(window.visualViewport){
-      window.visualViewport.addEventListener("resize", cancelTimers, {passive:true});
-      window.visualViewport.addEventListener("scroll", cancelTimers, {passive:true});
+      window.visualViewport.addEventListener("resize", cancelHold, {passive:true});
+      window.visualViewport.addEventListener("scroll", cancelHold, {passive:true});
     }
 
-    document.addEventListener("click", blockShortClick, true);
-    document.addEventListener("dblclick", blockShortClick, true);
+    document.addEventListener("click", function(e){
+      if(Date.now() < suppressClickUntil && getPhoneCell(e.target)) blockPhoneDefaults(e);
+    }, true);
 
     document.addEventListener("input", function(e){
       const cell = getPhoneCell(e.target);
-      if(cell){
-        cell.dataset.phoneNumber = cleanPhone(cell.innerText);
-      }
+      if(cell) cell.dataset.phoneNumber = cleanPhone(cell.innerText);
     }, true);
-
     document.addEventListener("blur", function(e){
       const cell = e.target && e.target.closest ? e.target.closest("td.phone-hold-cell") : null;
       if(cell){
@@ -3079,7 +3036,6 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     setTimeout(bindPhoneHold, 300);
     setTimeout(markPhoneCells, 1000);
     setTimeout(markPhoneCells, 2500);
-
     const observer = new MutationObserver(function(){
       clearTimeout(window.__phoneHoldMarkTimer);
       window.__phoneHoldMarkTimer = setTimeout(markPhoneCells, 150);
