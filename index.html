@@ -1010,12 +1010,12 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
 /* 요청 수정: 필터 글자 확대 + 체크 후 필터창 유지 */
 .column-filter-toggle{
-  font-size:13px !important;
+  font-size:9px !important;
   font-weight:700 !important;
 }
 .multi-filter-panel{
   font-size:14px !important;
-  min-width:180px !important;
+  min-width:126px !important;
   max-height:280px !important;
 }
 .multi-filter-action-row button{
@@ -1082,13 +1082,13 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   bottom:24px;
   transform:translateX(-50%);
   z-index:2147483647;
-  min-width:180px;
+  min-width:126px;
   max-width:90vw;
   padding:10px 14px;
   border-radius:999px;
   background:rgba(17,24,39,.94);
   color:#fff;
-  font-size:13px;
+  font-size:9px;
   font-weight:700;
   text-align:center;
   box-shadow:0 6px 18px rgba(0,0,0,.22);
@@ -1120,22 +1120,22 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   border:1px solid #d4d4d4;
   border-radius:18px;
   box-shadow:0 10px 32px rgba(0,0,0,.24);
-  padding:14px;
+  padding:10px;
   text-align:center;
   font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;
   transform-origin:center center;
 }
 .phone-action-title{font-size:16px;font-weight:800;margin-bottom:6px;color:#111;line-height:1.25;}
-.phone-action-message{font-size:13px;line-height:1.45;color:#222;margin-bottom:12px;white-space:pre-line;word-break:keep-all;overflow-wrap:anywhere;}
+.phone-action-message{font-size:9px;line-height:1.45;color:#222;margin-bottom:12px;white-space:pre-line;word-break:keep-all;overflow-wrap:anywhere;}
 .phone-action-buttons{display:grid;grid-template-columns:1fr;gap:7px;}
 .phone-action-buttons button{
   width:100%;
-  height:38px;
-  border-radius:12px;
+  height:27px;
+  border-radius:8px;
   border:1px solid #d4d4d4;
   background:#fff;
   color:#111;
-  font-size:13px;
+  font-size:9px;
   font-weight:800;
   font-family:inherit;
   cursor:pointer;
@@ -1147,7 +1147,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 @media(max-width:480px){
   .phone-action-overlay{padding:6px;}
   .phone-action-dialog{width:min(260px, calc(100vw - 12px));max-width:calc(100vw - 12px);max-height:calc(100vh - 12px);padding:10px;border-radius:14px;}
-  .phone-action-title{font-size:13px;}
+  .phone-action-title{font-size:9px;}
   .phone-action-message{font-size:11px;margin-bottom:8px;}
   .phone-action-buttons{gap:5px;}
   .phone-action-buttons button{height:30px;font-size:11px;border-radius:10px;}
@@ -1248,6 +1248,19 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
   text-align:center;
   touch-action:manipulation;
 }
+.phone-dropdown-menu .phone-dropdown-name{
+  padding:4px 6px 5px;
+  margin-bottom:2px;
+  border-bottom:1px solid #ddd;
+  color:#111;
+  font-weight:800;
+  font-size:11px;
+  line-height:1.25;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:120px;
+}
 .phone-dropdown-menu button{
   display:block;
   width:100%;
@@ -1270,7 +1283,139 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 .phone-dropdown-menu .sms{color:#2563eb;}
 @media(max-width:480px){
   .phone-dropdown-menu{min-width:70px;font-size:10px;padding:2px;border-radius:4px;}
+  .phone-dropdown-menu .phone-dropdown-name{font-size:8px;padding:3px 4px;max-width:92px;}
   .phone-dropdown-menu button{height:23px;padding:0 5px;}
+}
+
+
+/* 예쁜 풀다운 메뉴 디자인 */
+.phone-action-dropdown,
+.phone-dropdown-menu,
+.phone-action-dialog,
+.phone-action-cell-menu{
+  min-width:132px !important;
+  max-width:190px !important;
+  padding:6px !important;
+  border:1px solid rgba(23,55,201,.22) !important;
+  border-radius:10px !important;
+  background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%) !important;
+  box-shadow:0 8px 22px rgba(0,0,0,.20) !important;
+  overflow:hidden !important;
+  font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif !important;
+}
+.phone-action-title,
+.phone-dropdown-title,
+.phone-menu-title{
+  margin:0 0 5px 0 !important;
+  padding:5px 7px !important;
+  border-radius:7px !important;
+  background:#eef2ff !important;
+  color:#1737c9 !important;
+  font-size:10px !important;
+  font-weight:700 !important;
+  line-height:1.25 !important;
+  text-align:center !important;
+  word-break:keep-all !important;
+}
+.phone-action-message{
+  margin:0 0 5px 0 !important;
+  color:#333 !important;
+  font-size:9px !important;
+  line-height:1.25 !important;
+  text-align:center !important;
+}
+.phone-action-buttons,
+.phone-dropdown-buttons,
+.phone-menu-buttons{
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:4px !important;
+}
+.phone-action-buttons button,
+.phone-dropdown-menu button,
+.phone-action-dialog button,
+.phone-action-cell-menu button{
+  height:25px !important;
+  min-height:25px !important;
+  border:1px solid #d8deea !important;
+  border-radius:7px !important;
+  background:#fff !important;
+  color:#111 !important;
+  font-size:10px !important;
+  font-weight:700 !important;
+  line-height:23px !important;
+  padding:0 7px !important;
+  box-shadow:0 1px 2px rgba(0,0,0,.04) !important;
+}
+.phone-action-buttons button:active,
+.phone-dropdown-menu button:active,
+.phone-action-dialog button:active,
+.phone-action-cell-menu button:active{
+  transform:translateY(1px) !important;
+}
+.phone-action-buttons .edit,
+.phone-dropdown-menu .edit,
+.phone-action-dialog .edit,
+.phone-action-cell-menu .edit{
+  background:#fff7ed !important;
+  border-color:#fed7aa !important;
+  color:#9a3412 !important;
+}
+.phone-action-buttons .call,
+.phone-dropdown-menu .call,
+.phone-action-dialog .call,
+.phone-action-cell-menu .call{
+  background:#ecfdf5 !important;
+  border-color:#bbf7d0 !important;
+  color:#047857 !important;
+}
+.phone-action-buttons .sms,
+.phone-dropdown-menu .sms,
+.phone-action-dialog .sms,
+.phone-action-cell-menu .sms{
+  background:#eff6ff !important;
+  border-color:#bfdbfe !important;
+  color:#1d4ed8 !important;
+}
+.phone-action-buttons .cancel,
+.phone-dropdown-menu .cancel,
+.phone-action-dialog .cancel,
+.phone-action-cell-menu .cancel{
+  background:#f8fafc !important;
+  border-color:#e2e8f0 !important;
+  color:#64748b !important;
+}
+.member-table td.phone-hold-cell{
+  font-weight:400 !important;
+  color:#1737c9 !important;
+  text-decoration:underline !important;
+}
+@media(max-width:480px){
+  .phone-action-dropdown,
+  .phone-dropdown-menu,
+  .phone-action-dialog,
+  .phone-action-cell-menu{
+    min-width:112px !important;
+    max-width:160px !important;
+    padding:5px !important;
+    border-radius:9px !important;
+  }
+  .phone-action-title,
+  .phone-dropdown-title,
+  .phone-menu-title{
+    font-size:9px !important;
+    padding:4px 6px !important;
+  }
+  .phone-action-buttons button,
+  .phone-dropdown-menu button,
+  .phone-action-dialog button,
+  .phone-action-cell-menu button{
+    height:22px !important;
+    min-height:22px !important;
+    font-size:9px !important;
+    line-height:20px !important;
+    border-radius:6px !important;
+  }
 }
 
 </style>
@@ -1303,7 +1448,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     <input id="nickSearch" type="search" placeholder="닉네임검색">
     <button type="button" id="clearSearchBtn">검색해제</button>
     <button type="button" id="adminGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="adminButtonGroup">시스템관리자</button>
-    <button type="button" id="editGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="editButtonGroup">편집</button>
+    <button type="button" id="editGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="editButtonGroup">✏️ 편집</button>
     <span class="status" id="statusText">편집가능</span>
 
     <span class="button-group-panel admin-button-group" id="adminButtonGroup" hidden>
@@ -2860,6 +3005,23 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     menu.style.top = top + "px";
   }
 
+  function escapeHtml(value){
+    return String(value || "").replace(/[&<>"']/g, function(ch){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch] || ch;
+    });
+  }
+
+  function getRowName(cell){
+    try{
+      const row = cell && cell.parentElement;
+      const nameCell = row && row.cells ? row.cells[1] : null;
+      const name = String(nameCell ? nameCell.innerText : "").trim();
+      return name || "이름 없음";
+    }catch(error){
+      return "이름 없음";
+    }
+  }
+
   function openPhoneDropdown(cell){
     const phone = cell ? (cell.dataset.phoneNumber || cleanPhone(cell.innerText)) : "";
     if(phone.length < 9){
@@ -2874,10 +3036,12 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     menu.id = "phoneDropdownMenu";
     menu.className = "phone-dropdown-menu";
     menu.setAttribute("role", "menu");
+    const rowName = getRowName(cell);
     menu.innerHTML = `
-      <button type="button" class="edit" data-action="edit">편집</button>
-      <button type="button" class="call" data-action="call">전화</button>
-      <button type="button" class="sms" data-action="sms">문자</button>`;
+      <div class="phone-dropdown-name" title="${escapeHtml(rowName)}">${escapeHtml(rowName)}</div>
+      <button type="button" class="edit" data-action="edit">✏️ 편집</button>
+      <button type="button" class="call" data-action="call">📞 전화</button>
+      <button type="button" class="sms" data-action="sms">💬 문자</button>`;
 
     menu.addEventListener("click", function(e){
       const btn = e.target && e.target.closest ? e.target.closest("button[data-action]") : null;
