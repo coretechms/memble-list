@@ -1577,34 +1577,51 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 }
 
 
-/* 요청 수정: 읽기전용 로그인에서는 지정 열만 표시
-   표시 열: 직책(1) / 이름(2) / 성별(3) / 연락처(6) / 닉네임(12) / 버스타는곳(13)
+/* 요청 수정: 읽기전용 로그인 열 보기/숨김은 관리자 설정값으로 동적 적용
+   기본 표시 열: 직책 / 이름 / 성별 / 연락처 / 닉네임 / 버스타는곳
    관리자/편집 모드에서는 기존 전체 열 유지 */
-body.readonly-mode #memberTable col,
-body.readonly-mode #memberTable tr > *{
+body.readonly-mode #memberTable col.readonly-hidden-column{
   display:none !important;
 }
-body.readonly-mode #memberTable col:nth-child(1),
-body.readonly-mode #memberTable col:nth-child(2),
-body.readonly-mode #memberTable col:nth-child(3),
-body.readonly-mode #memberTable col:nth-child(6),
-body.readonly-mode #memberTable col:nth-child(12),
-body.readonly-mode #memberTable col:nth-child(13),
-body.readonly-mode #memberTable tr > *:nth-child(1),
-body.readonly-mode #memberTable tr > *:nth-child(2),
-body.readonly-mode #memberTable tr > *:nth-child(3),
-body.readonly-mode #memberTable tr > *:nth-child(6),
-body.readonly-mode #memberTable tr > *:nth-child(12),
-body.readonly-mode #memberTable tr > *:nth-child(13){
-  display:table-cell !important;
+body.readonly-mode #memberTable tr > .readonly-hidden-column{
+  display:none !important;
 }
-body.readonly-mode #memberTable col:nth-child(1),
-body.readonly-mode #memberTable col:nth-child(2),
-body.readonly-mode #memberTable col:nth-child(3),
-body.readonly-mode #memberTable col:nth-child(6),
-body.readonly-mode #memberTable col:nth-child(12),
-body.readonly-mode #memberTable col:nth-child(13){
-  display:table-column !important;
+.readonly-column-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:2147483647;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,.28);
+  padding:14px;
+}
+.readonly-column-modal{
+  width:min(520px,94vw);
+  max-height:86vh;
+  overflow:auto;
+  background:#fff;
+  border:1px solid #cfd4dc;
+  border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.22);
+  padding:14px;
+  font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;
+}
+.readonly-column-modal h2{margin:0 0 8px;font-size:16px;text-align:center;}
+.readonly-column-desc{font-size:12px;color:#444;margin:0 0 10px;text-align:center;line-height:1.45;}
+.readonly-column-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:12px;}
+.readonly-column-item{display:flex;align-items:center;gap:6px;border:1px solid #e2e8f0;border-radius:8px;padding:7px 8px;font-size:13px;background:#f8fafc;}
+.readonly-column-item input{width:16px;height:16px;margin:0;}
+.readonly-column-actions{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;}
+.readonly-column-actions button{height:32px;border:1px solid #999;border-radius:6px;background:#f4f4f4;font-size:12px;font-weight:700;padding:0 10px;cursor:pointer;}
+.readonly-column-actions .save{background:#1737c9;color:#fff;border-color:#1737c9;}
+@media(max-width:480px){
+  .readonly-column-modal{padding:10px;border-radius:9px;}
+  .readonly-column-modal h2{font-size:13px;}
+  .readonly-column-desc{font-size:9px;}
+  .readonly-column-list{grid-template-columns:1fr;gap:4px;}
+  .readonly-column-item{font-size:10px;padding:5px 6px;border-radius:6px;}
+  .readonly-column-actions button{height:24px;font-size:9px;padding:0 7px;}
 }
 
 </style>
@@ -1643,6 +1660,7 @@ body.readonly-mode #memberTable col:nth-child(13){
     <span class="button-group-panel admin-button-group" id="adminButtonGroup" hidden>
       <button type="button" id="adminChangePasswordBtn">비번변경</button>
       <button type="button" id="readOnlyChangePasswordBtn">읽기비번변경</button>
+      <button type="button" id="readOnlyColumnSettingBtn">읽기열설정</button>
       <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
       <button type="button" id="systemAdminChangePasswordBtn">시스템관리자 비번변경</button>
       <button type="button" id="resetBtn">초기화</button>
@@ -3072,6 +3090,126 @@ body.readonly-mode #memberTable col:nth-child(13){
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAdmin);
   else bindAdmin();
+})();
+</script>
+
+<script>
+/* 관리자 모드: 읽기전용 로그인에서 보일 열을 설정 */
+(function(){
+  const CONFIG_KEY = "memberList.readonly.visibleColumns.v1";
+  const DEFAULT_VISIBLE = [0, 1, 2, 5, 11, 12]; // 직책/이름/성별/연락처/닉네임/버스타는곳
+  let lastSignature = "";
+
+  function getTable(){ return document.getElementById("memberTable"); }
+  function getHeaders(){
+    const table = getTable();
+    const first = table && table.rows && table.rows[0];
+    if(!first) return [];
+    return Array.from(first.cells).map((cell, idx)=>{
+      const title = cell.dataset.headerTitle || cell.querySelector(".header-title")?.innerText || cell.innerText || ("열" + (idx + 1));
+      return String(title).replace(/\s+/g," ").trim() || ("열" + (idx + 1));
+    });
+  }
+  function readConfig(){
+    try{
+      const raw = localStorage.getItem(CONFIG_KEY);
+      const arr = raw ? JSON.parse(raw) : DEFAULT_VISIBLE;
+      if(Array.isArray(arr) && arr.length) return arr.map(Number).filter(n=>Number.isInteger(n) && n >= 0);
+    }catch(e){}
+    return DEFAULT_VISIBLE.slice();
+  }
+  function saveConfig(arr){
+    const clean = Array.from(new Set(arr.map(Number).filter(n=>Number.isInteger(n) && n >= 0))).sort((a,b)=>a-b);
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(clean.length ? clean : DEFAULT_VISIBLE));
+    applyReadonlyColumnVisibility(true);
+  }
+  function applyReadonlyColumnVisibility(force=false){
+    const table = getTable();
+    if(!table) return;
+    const headers = getHeaders();
+    const visible = new Set(readConfig());
+    const signature = headers.length + "|" + Array.from(visible).join(",") + "|" + table.rows.length;
+    if(!force && signature === lastSignature) return;
+    lastSignature = signature;
+
+    Array.from(table.querySelectorAll("col")).forEach((col, idx)=>{
+      col.classList.toggle("readonly-hidden-column", !visible.has(idx));
+    });
+    Array.from(table.rows).forEach(row=>{
+      Array.from(row.cells).forEach((cell, idx)=>{
+        cell.classList.toggle("readonly-hidden-column", !visible.has(idx));
+      });
+    });
+  }
+  function closeModal(){
+    const old = document.getElementById("readonlyColumnModalBackdrop");
+    if(old) old.remove();
+  }
+  function showModal(){
+    applyReadonlyColumnVisibility(true);
+    const headers = getHeaders();
+    if(!headers.length){ alert("표가 아직 준비되지 않았습니다."); return; }
+    closeModal();
+    const visible = new Set(readConfig());
+    const backdrop = document.createElement("div");
+    backdrop.id = "readonlyColumnModalBackdrop";
+    backdrop.className = "readonly-column-modal-backdrop";
+    backdrop.innerHTML = `
+      <div class="readonly-column-modal" role="dialog" aria-modal="true">
+        <h2>읽기전용 열 보기/숨김 설정</h2>
+        <p class="readonly-column-desc">체크한 열만 읽기전용 로그인 화면에서 보입니다.<br>관리자/편집 로그인에서는 모든 열이 그대로 보입니다.</p>
+        <div class="readonly-column-list"></div>
+        <div class="readonly-column-actions">
+          <button type="button" class="all">전체보기</button>
+          <button type="button" class="default">기본값</button>
+          <button type="button" class="cancel">취소</button>
+          <button type="button" class="save">저장</button>
+        </div>
+      </div>`;
+    const list = backdrop.querySelector(".readonly-column-list");
+    headers.forEach((name, idx)=>{
+      const label = document.createElement("label");
+      label.className = "readonly-column-item";
+      label.innerHTML = `<input type="checkbox" value="${idx}"> <span>${idx + 1}. ${name}</span>`;
+      const input = label.querySelector("input");
+      input.checked = visible.has(idx);
+      list.appendChild(label);
+    });
+    backdrop.addEventListener("click", e=>{ if(e.target === backdrop) closeModal(); });
+    backdrop.querySelector(".cancel").onclick = closeModal;
+    backdrop.querySelector(".all").onclick = ()=>{ list.querySelectorAll("input").forEach(input=>input.checked = true); };
+    backdrop.querySelector(".default").onclick = ()=>{ list.querySelectorAll("input").forEach(input=>input.checked = DEFAULT_VISIBLE.includes(Number(input.value))); };
+    backdrop.querySelector(".save").onclick = ()=>{
+      const selected = Array.from(list.querySelectorAll("input:checked")).map(input=>Number(input.value));
+      if(!selected.length){ alert("읽기전용에서 최소 1개 열은 보여야 합니다."); return; }
+      saveConfig(selected);
+      closeModal();
+      alert("읽기전용 열 보기/숨김 설정을 저장했습니다.");
+    };
+    document.body.appendChild(backdrop);
+  }
+  function bindButton(){
+    const btn = document.getElementById("readOnlyColumnSettingBtn");
+    if(btn && !btn.dataset.boundReadonlyColumn){
+      btn.dataset.boundReadonlyColumn = "1";
+      btn.addEventListener("click", showModal);
+    }
+  }
+  window.applyReadonlyColumnVisibility = applyReadonlyColumnVisibility;
+  document.addEventListener("DOMContentLoaded", ()=>{
+    bindButton();
+    applyReadonlyColumnVisibility(true);
+    const table = getTable();
+    if(table){
+      new MutationObserver(()=>applyReadonlyColumnVisibility()).observe(table,{childList:true,subtree:true});
+    }
+  });
+  if(document.readyState !== "loading"){
+    bindButton();
+    setTimeout(()=>applyReadonlyColumnVisibility(true), 0);
+    const table = getTable();
+    if(table){ new MutationObserver(()=>applyReadonlyColumnVisibility()).observe(table,{childList:true,subtree:true}); }
+  }
 })();
 </script>
 
