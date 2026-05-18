@@ -1677,6 +1677,7 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
     <input id="nameSearch" type="search" placeholder="이름검색">
     <input id="nickSearch" type="search" placeholder="닉네임검색">
     <button type="button" id="clearSearchBtn">검색해제</button>
+    <button type="button" id="sortBtn">이름정렬</button>
     <button type="button" id="adminGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="adminButtonGroup">시스템관리자</button>
     <button type="button" id="editGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="editButtonGroup">✏️ 편집</button>
     <span class="status" id="statusText">편집가능</span>
@@ -1694,7 +1695,6 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
     </span>
 
     <span class="button-group-panel edit-button-group" id="editButtonGroup" hidden>
-      <button type="button" id="sortBtn">정렬</button>
       <button type="button" id="addRowBtn">행밑추가</button>
       <button type="button" id="delRowBtn">행삭제</button>
       <button type="button" id="addColBtn">열추가</button>
@@ -2069,6 +2069,198 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
         setRealtimeStatus("저장 오류",false);
       }
     },Number(delayMs)||0);
+  }
+
+
+  /* ===== bus-seat 가입승인 회원 → 멤버리스트 자동 등록 =====
+     bus-seat 파일에서 승인 버튼을 누르면 busSeatApp DB의 memberList/joinCodes/{회원번호}에
+     승인 회원 정보가 저장된다. 이 멤버리스트 파일은 해당 경로를 감시해 열 구조에 맞춰 자동 등록한다. */
+  const BUS_SEAT_MEMBER_SOURCE_CONFIG = {
+    apiKey: "AIzaSyBH3866EIMkhI--ms4xAZ7k7XS9sQFvgwQ",
+    authDomain: "bus-seat-eb86c.firebaseapp.com",
+    databaseURL: "https://bus-seat-eb86c-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "bus-seat-eb86c",
+    storageBucket: "bus-seat-eb86c.firebasestorage.app",
+    messagingSenderId: "132111967366",
+    appId: "1:132111967366:web:e034a00f8c8cc4aa441d07"
+  };
+  const BUS_SEAT_APPROVED_JOIN_PATH = "memberList/joinCodes";
+  let busSeatMemberSourceReady = false;
+  let busSeatMemberSourceRef = null;
+
+  function normalizeIncomingPhone344(value){
+    const digits=String(value||"").replace(/\D/g,"").slice(0,11);
+    if(digits.length<=3) return digits;
+    if(digits.length<=7) return digits.slice(0,3)+" "+digits.slice(3);
+    return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7,11);
+  }
+  function formatMemberJoinDate(ms){
+    if(!ms) return "";
+    try{
+      const d=new Date(Number(ms));
+      const y=d.getFullYear();
+      const m=String(d.getMonth()+1).padStart(2,"0");
+      const day=String(d.getDate()).padStart(2,"0");
+      return `${y}-${m}-${day}`;
+    }catch(e){ return ""; }
+  }
+  function getHeaderIndex(label,fallback=-1){
+    const row=rowsArray()[0];
+    if(!row) return fallback;
+    const target=normalize(label);
+    for(let i=0;i<row.cells.length;i++){
+      const text=normalize(row.cells[i].dataset.headerTitle||row.cells[i].innerText||"");
+      if(text===target || text.includes(target)) return i;
+    }
+    return fallback;
+  }
+  function getCellPlain(row,index){
+    if(!row || index<0 || !row.cells[index]) return "";
+    return String(row.cells[index].innerText||"").trim();
+  }
+  function setCellPlain(row,index,value){
+    if(!row || index<0 || !row.cells[index]) return;
+    row.cells[index].innerText=String(value||"");
+  }
+  function ensureMemberListRowCount(minRows){
+    const tbody=table.tBodies[0];
+    if(!tbody) return;
+    while(rowsArray().length<minRows){
+      const tr=document.createElement("tr");
+      const cols=table.querySelectorAll("col").length || headers.length;
+      for(let c=0;c<cols;c++){
+        const td=document.createElement("td");
+        td.contentEditable="false";
+        td.setAttribute("style","font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;");
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+  }
+  function normalizeCompareText(value){
+    return String(value||"").replace(/\s+/g,"").trim();
+  }
+  function normalizeComparePhone(value){
+    return String(value||"").replace(/\D/g,"").trim();
+  }
+  function findRowByMemberCode(memberCode){
+    const code=String(memberCode||"").trim();
+    if(!code) return null;
+    const uidIdx=getHeaderIndex("회원UID",20);
+    return rowsArray().slice(1).find(row=>getCellPlain(row,uidIdx)===code)||null;
+  }
+  function findRowBySameNameAndPhone(name,phone){
+    const nameKey=normalizeCompareText(name);
+    const phoneKey=normalizeComparePhone(phone);
+    if(!nameKey || !phoneKey) return null;
+    const nameIdx=getHeaderIndex("이 름",1);
+    const phoneIdx=getHeaderIndex("연락처",5);
+    return rowsArray().slice(1).find(row=>{
+      const rowName=normalizeCompareText(getCellPlain(row,nameIdx));
+      const rowPhone=normalizeComparePhone(getCellPlain(row,phoneIdx));
+      return rowName===nameKey && rowPhone===phoneKey;
+    })||null;
+  }
+  function findFirstEmptyMemberRow(){
+    const nameIdx=getHeaderIndex("이 름",1);
+    const phoneIdx=getHeaderIndex("연락처",5);
+    const uidIdx=getHeaderIndex("회원UID",20);
+    const rows=rowsArray().slice(1);
+    return rows.find(row=>!getCellPlain(row,nameIdx)&&!getCellPlain(row,phoneIdx)&&!getCellPlain(row,uidIdx))||null;
+  }
+  function applyBusSeatApprovedMemberToTable(member){
+    if(!member || !member.code) return false;
+    const approved = !!member.approved || String(member.status||"")==="active";
+    if(!approved) return false;
+
+    const code=String(member.code||"").trim();
+    if(!code) return false;
+
+    const idx={
+      name:getHeaderIndex("이 름",1),
+      gender:getHeaderIndex("성별",2),
+      birth:getHeaderIndex("출생년도",3),
+      phone:getHeaderIndex("연락처",5),
+      dong:getHeaderIndex("거주지",8),
+      approval:getHeaderIndex("가입:승인",19),
+      uid:getHeaderIndex("회원UID",20),
+      joinDate:getHeaderIndex("가입일",21)
+    };
+
+    const incomingName=String(member.name||"").trim();
+    const incomingPhone=normalizeIncomingPhone344(member.phone||member.phoneDigits||"");
+    const joinDate=formatMemberJoinDate(member.approvedAt||member.createdAt||member.updatedAt);
+
+    /* 등록 기준
+       1) 이름+전화번호가 모두 기존 자료와 같으면 동일인으로 판단한다.
+          이때 기존 이름/성별/출생년도/연락처/거주지는 건드리지 않고
+          가입:승인, 회원UID, 가입일만 보강한다.
+       2) 이름이 신규이거나 전화번호가 기존 자료와 다르면 새 행으로 등록한다.
+       3) 이미 같은 회원UID가 있으면 중복 등록하지 않고 가입정보만 갱신한다. */
+    let row=findRowByMemberCode(code);
+    let metadataOnly=!!row;
+
+    if(!row){
+      row=findRowBySameNameAndPhone(incomingName,incomingPhone);
+      metadataOnly=!!row;
+    }
+
+    const isNew=!row;
+    if(!row){
+      row=findFirstEmptyMemberRow();
+      if(!row){
+        ensureMemberListRowCount(rowsArray().length+1);
+        row=rowsArray()[rowsArray().length-1];
+      }
+    }
+
+    if(!metadataOnly){
+      setCellPlain(row,idx.name,incomingName);
+      setCellPlain(row,idx.gender,member.gender||"");
+      setCellPlain(row,idx.birth,member.birthYear||"");
+      setCellPlain(row,idx.phone,incomingPhone);
+      setCellPlain(row,idx.dong,member.dong||"");
+    }
+    setCellPlain(row,idx.approval,"승인완료");
+    setCellPlain(row,idx.uid,code);
+    setCellPlain(row,idx.joinDate,joinDate);
+    return isNew || metadataOnly;
+  }
+  function syncApprovedMembersFromBusSeat(joinCodeMap){
+    if(!joinCodeMap || typeof joinCodeMap!=="object") return;
+    let changed=false;
+    Object.keys(joinCodeMap).sort().forEach(code=>{
+      const member=joinCodeMap[code]||{};
+      if(applyBusSeatApprovedMemberToTable({...member,code:member.code||code})) changed=true;
+    });
+    if(changed){
+      updateTotalCount();
+      refreshHeaderFiltersSoon();
+      scheduleScaleWholeTable();
+      saveToAllKeys(collectData());
+      pushRealtimeNow("bus-seat-approved-member-sync",0);
+      setStatus("bus-seat 승인 회원을 멤버리스트에 등록했습니다");
+    }
+  }
+  function initBusSeatApprovedMemberSync(){
+    try{
+      if(!window.firebase) return;
+      const appName="busSeatApprovedMemberSource";
+      const sourceApp=(firebase.apps||[]).find(app=>app.name===appName) || firebase.initializeApp(BUS_SEAT_MEMBER_SOURCE_CONFIG,appName);
+      const sourceDb=firebase.database(sourceApp);
+      busSeatMemberSourceRef=sourceDb.ref(BUS_SEAT_APPROVED_JOIN_PATH);
+      busSeatMemberSourceReady=true;
+      busSeatMemberSourceRef.on("value",snap=>{
+        if(!snap.exists()) return;
+        syncApprovedMembersFromBusSeat(snap.val()||{});
+      },error=>{
+        console.error("bus-seat 승인 회원 읽기 실패",error);
+        setStatus("bus-seat 승인 회원 읽기 실패");
+      });
+    }catch(error){
+      console.error("bus-seat 승인 회원 자동등록 초기화 실패",error);
+      setStatus("bus-seat 승인 회원 자동등록 실패");
+    }
   }
 
   function setStatus(msg){statusText.textContent=msg;clearTimeout(window.__statusTimer);window.__statusTimer=setTimeout(()=>statusText.textContent=(document.body.classList.contains("readonly-mode")?"읽기전용":"편집 가능"),1800)}
@@ -2734,6 +2926,7 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
   applyData(loadBestSaved()||defaultData());
 
   initFirebaseRealtime();
+  initBusSeatApprovedMemberSync();
 
   function bindToolbarButtonGroups(){
     const groups = [
