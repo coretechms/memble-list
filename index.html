@@ -2573,7 +2573,7 @@ body.filter-edit-lock #memberTable td.cell-editing{
       values:getSelectedFilterValuesFromHeader(th)
     })).filter(item=>Number.isFinite(item.col) && item.values.length>0);
   }
-  const FILTER_COUNTER_TARGET_HEADERS = new Set(["직책","이름","거주지","버스타는곳","참석","가입:승인","승인결과"]);
+  const FILTER_COUNTER_TARGET_HEADERS = new Set(["직책","이름","성별","출생년도","거주지","버스타는곳","참석","가입:승인","승인결과"]);
   function normalizeFilterCounterTitle(title){
     return String(title || "").replace(/\s+/g,"").trim();
   }
@@ -4425,6 +4425,16 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
       }
     }
   }, true);
+
+
+  /* 요청 수정 보강: 카운터 표시 대상 열에 성별/출생년도 포함 */
+  const FILTER_COUNTER_TARGET_HEADER_NAMES_PATCH = new Set(["직책","이름","성별","출생년도","거주지","버스타는곳","참석","가입:승인","승인결과"]);
+  function normalizeFilterCounterHeaderNameForPatch(text){
+    return String(text || "").replace(/\s+/g, " ").trim();
+  }
+  function isAllowedFilterCounterHeaderForPatch(text){
+    return FILTER_COUNTER_TARGET_HEADER_NAMES_PATCH.has(normalizeFilterCounterHeaderNameForPatch(text));
+  }
 
 })();
 </script>
