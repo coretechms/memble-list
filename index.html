@@ -1676,6 +1676,58 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
   }
 }
 
+
+/* 요청 수정: 필터 박스가 전체 박스 내부 overflow에 가려지지 않도록 최상위 고정 레이어로 표시 */
+.multi-filter-panel{
+  position:fixed !important;
+  z-index:2147483647 !important;
+  top:auto !important;
+  left:auto !important;
+  max-height:min(280px, calc(100vh - 12px)) !important;
+  overflow:auto !important;
+}
+.member-table th.header-cell,
+.header-filter-wrap{
+  overflow:visible !important;
+}
+
+
+/* 요청 수정: 열린 필터 박스가 우측/좌측 제목 열에 가려지지 않도록 열린 제목셀을 최상위로 올림 */
+.member-table th.header-cell:has(.multi-filter-panel:not([hidden])),
+.member-table tr:first-child th:has(.multi-filter-panel:not([hidden])){
+  z-index:2147483646 !important;
+  overflow:visible !important;
+}
+.member-table th.header-cell:has(.multi-filter-panel:not([hidden])) .multi-filter-panel,
+.member-table tr:first-child th:has(.multi-filter-panel:not([hidden])) .multi-filter-panel{
+  z-index:2147483647 !important;
+}
+.multi-filter-panel{
+  isolation:isolate !important;
+}
+
+
+/* :has 미지원/보조용: JS 클래스 방식으로 열린 필터 셀 최상위 처리 */
+.member-table th.header-cell.filter-header-open,
+.member-table tr:first-child th.filter-header-open{
+  z-index:2147483646 !important;
+  overflow:visible !important;
+}
+.member-table th.header-cell.filter-header-open .multi-filter-panel,
+.member-table tr:first-child th.filter-header-open .multi-filter-panel{
+  z-index:2147483647 !important;
+}
+
+
+/* 요청 수정: 필터 편집 잠금 중 현재 편집 행은 숨김 처리 금지 */
+body.filter-edit-lock #memberTable tr:has(td.cell-editing),
+body.filter-edit-lock #memberTable tr:focus-within{
+  display:table-row !important;
+}
+body.filter-edit-lock #memberTable td.cell-editing{
+  outline:2px solid #1737c9 !important;
+}
+
 </style>
 </head>
 <body class="locked">
@@ -4250,6 +4302,130 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
     const table = getTable();
     if(table){ new MutationObserver(scheduleApply).observe(table,{childList:true,subtree:true}); }
   }
+
+  /* 요청 수정: 필터 박스 위치를 화면 기준 fixed로 재배치하여 표 박스에 가려지지 않게 함 */
+  function positionFloatingFilterPanels(){
+    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(panel=>{
+      const wrap = panel.closest(".header-filter-wrap");
+      const toggle = wrap ? wrap.querySelector(".column-filter-toggle") : null;
+      if(!toggle) return;
+
+      const rect = toggle.getBoundingClientRect();
+      const panelWidth = Math.max(panel.offsetWidth || 126, 126);
+      const panelHeight = panel.offsetHeight || 200;
+      let left = rect.left;
+      let top = rect.bottom + 2;
+
+      if(left + panelWidth > window.innerWidth - 6){
+        left = Math.max(6, window.innerWidth - panelWidth - 6);
+      }
+      if(top + panelHeight > window.innerHeight - 6){
+        top = Math.max(6, rect.top - panelHeight - 2);
+      }
+
+      panel.style.position = "fixed";
+      panel.style.left = left + "px";
+      panel.style.top = top + "px";
+      panel.style.zIndex = "2147483647";
+    });
+  }
+
+  document.addEventListener("click", function(e){
+    const toggle = e.target && e.target.closest ? e.target.closest(".column-filter-toggle") : null;
+    if(toggle){
+      setTimeout(positionFloatingFilterPanels, 0);
+      setTimeout(positionFloatingFilterPanels, 60);
+    }
+  }, true);
+
+  document.addEventListener("change", function(e){
+    if(e.target && e.target.closest && e.target.closest(".multi-filter-panel")){
+      setTimeout(positionFloatingFilterPanels, 0);
+    }
+  }, true);
+
+  window.addEventListener("scroll", positionFloatingFilterPanels, true);
+  window.addEventListener("resize", positionFloatingFilterPanels);
+  if(tableWrap){
+    tableWrap.addEventListener("scroll", positionFloatingFilterPanels, true);
+  }
+
+
+  /* 요청 수정: 필터가 열린 제목셀에 클래스를 부여해 인접 열보다 앞으로 표시 */
+  function markOpenFilterHeaderCells(){
+    document.querySelectorAll(".filter-header-open").forEach(el=>el.classList.remove("filter-header-open"));
+    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(panel=>{
+      const th = panel.closest("th");
+      if(th) th.classList.add("filter-header-open");
+    });
+  }
+
+  document.addEventListener("click", function(){
+    setTimeout(markOpenFilterHeaderCells, 0);
+    setTimeout(markOpenFilterHeaderCells, 80);
+  }, true);
+
+  document.addEventListener("change", function(){
+    setTimeout(markOpenFilterHeaderCells, 0);
+  }, true);
+
+  /* 요청 수정: 필터 실행 중 셀 편집 시 행이 즉시 사라지지 않도록 필터 재적용 잠금 */
+  let filterApplyLockedByEditing = false;
+  let filterApplyAfterEditingTimer = null;
+
+  function lockFilterApplyWhileEditing(){
+    filterApplyLockedByEditing = true;
+    document.body.classList.add("filter-edit-lock");
+  }
+
+  function unlockFilterApplyAfterEditing(){
+    clearTimeout(filterApplyAfterEditingTimer);
+    filterApplyAfterEditingTimer = setTimeout(()=>{
+      filterApplyLockedByEditing = false;
+      document.body.classList.remove("filter-edit-lock");
+      if(typeof applyColumnFilters === "function"){
+        applyColumnFilters();
+      }else if(typeof applyFilters === "function"){
+        applyFilters();
+      }else if(typeof updateFilterCounters === "function"){
+        updateFilterCounters();
+      }
+    }, 250);
+  }
+
+  document.addEventListener("focusin", function(e){
+    const cell = e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
+    if(cell){
+      lockFilterApplyWhileEditing();
+    }
+  }, true);
+
+  document.addEventListener("input", function(e){
+    const cell = e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
+    if(cell){
+      lockFilterApplyWhileEditing();
+      cell.classList.remove("hidden-by-search");
+      const row = cell.closest("tr");
+      if(row) row.classList.remove("hidden-by-search");
+    }
+  }, true);
+
+  document.addEventListener("focusout", function(e){
+    const cell = e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
+    if(cell){
+      unlockFilterApplyAfterEditing();
+    }
+  }, true);
+
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Enter"){
+      const cell = e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
+      if(cell){
+        unlockFilterApplyAfterEditing();
+      }
+    }
+  }, true);
+
 })();
 </script>
 
