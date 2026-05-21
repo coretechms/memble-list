@@ -1837,6 +1837,8 @@ body.filter-edit-lock #memberTable td.cell-editing{
   let firebaseReady = false;
   let applyingRemoteData = false;
   let firebaseSaveTimer = null;
+  let firebaseInitialLoaded = false;
+  let pendingBusSeatJoinCodeMap = null;
   const CLIENT_ID = (()=>{
     try{
       let id=sessionStorage.getItem("memberList.firebase.clientId");
@@ -2094,6 +2096,8 @@ body.filter-edit-lock #memberTable td.cell-editing{
           const localData=collectData();
           const payload=buildFirebasePayload("initial-create");
           firebaseRef.set(payload).then(()=>{
+            firebaseInitialLoaded = true;
+            flushPendingBusSeatApprovedMemberSync();
             setRealtimeStatus("초기 데이터 생성 완료",true);
           }).catch((error)=>{
             console.error("Firebase initial create failed",error);
@@ -2115,6 +2119,8 @@ body.filter-edit-lock #memberTable td.cell-editing{
         const remoteClientId=String((value&&(value.updatedBy||value.clientId))||"");
         if(remoteClientId && remoteClientId===CLIENT_ID){
           saveToAllKeys(data);
+          firebaseInitialLoaded = true;
+          flushPendingBusSeatApprovedMemberSync();
           setRealtimeStatus("저장 완료",true);
           return;
         }
@@ -2124,6 +2130,8 @@ body.filter-edit-lock #memberTable td.cell-editing{
         saveToAllKeys(collectData());
         applyingRemoteData=false;
         pendingRemoteData=null;
+        firebaseInitialLoaded = true;
+        flushPendingBusSeatApprovedMemberSync();
         setRealtimeStatus("실시간반영",true);
       },(error)=>{
         console.error("Firebase realtime read failed",error);
@@ -2337,6 +2345,14 @@ body.filter-edit-lock #memberTable td.cell-editing{
       setStatus("bus-seat 가입/승인 결과를 멤버리스트에 반영했습니다");
     }
   }
+
+  function flushPendingBusSeatApprovedMemberSync(){
+    if(!firebaseInitialLoaded || !pendingBusSeatJoinCodeMap) return;
+    const pending = pendingBusSeatJoinCodeMap;
+    pendingBusSeatJoinCodeMap = null;
+    syncApprovedMembersFromBusSeat(pending);
+  }
+
   function initBusSeatApprovedMemberSync(){
     try{
       if(!window.firebase) return;
@@ -2347,7 +2363,13 @@ body.filter-edit-lock #memberTable td.cell-editing{
       busSeatMemberSourceReady=true;
       busSeatMemberSourceRef.on("value",snap=>{
         if(!snap.exists()) return;
-        syncApprovedMembersFromBusSeat(snap.val()||{});
+        const nextJoinCodeMap = snap.val() || {};
+        if(!firebaseInitialLoaded){
+          pendingBusSeatJoinCodeMap = nextJoinCodeMap;
+          setStatus("기존 멤버리스트 데이터 로딩 후 가입정보 병합 대기");
+          return;
+        }
+        syncApprovedMembersFromBusSeat(nextJoinCodeMap);
       },error=>{
         console.error("bus-seat 승인 회원 읽기 실패",error);
         setStatus("bus-seat 승인 회원 읽기 실패");
