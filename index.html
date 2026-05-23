@@ -1820,15 +1820,15 @@ body.filter-edit-lock #memberTable td.cell-editing{
   /* ===== Firebase Realtime Database 자동 동기화: bus-seat와 같은 DB 사용 =====
      수정: 기존 member-b458f DB가 아니라 bus-seat 승인정보와 같은 DB(bus-seat-eb86c)를 기본 앱으로 사용합니다.
      이 기본 앱을 관리자 비밀번호 동기화도 함께 사용하므로 member-list / bus-seat 간 연결이 끊기지 않습니다. */
-  const firebaseConfig = {
-    apiKey: "AIzaSyBH3866EIMkhI--ms4xAZ7k7XS9sQFvgwQ",
-    authDomain: "bus-seat-eb86c.firebaseapp.com",
-    databaseURL: "https://bus-seat-eb86c-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "bus-seat-eb86c",
-    storageBucket: "bus-seat-eb86c.firebasestorage.app",
-    messagingSenderId: "132111967366",
-    appId: "1:132111967366:web:e034a00f8c8cc4aa441d07"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyBRxAdYRyjMIcQvCQ2ja7YOkdFGNCkW1cE",
+  authDomain: "member-b458f.firebaseapp.com",
+  databaseURL: "https://member-b458f-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "member-b458f",
+  storageBucket: "member-b458f.firebasestorage.app",
+  messagingSenderId: "399411166551",
+  appId: "1:399411166551:web:3c693da51daaa042751212"
+};
   const FIREBASE_PATH = "memberList/main";
   const FIREBASE_PATHS = [FIREBASE_PATH];
   let firebaseApp = null;
@@ -3134,7 +3134,7 @@ body.filter-edit-lock #memberTable td.cell-editing{
   const DEFAULT_READONLY_PASSWORD="0000";
   const SESSION_KEY="memberList.admin.sessionUnlocked.v1";
   const SESSION_MODE_KEY="memberList.admin.sessionMode.v1";
-  const ADMIN_SYNC_PATH="admin/passwordSync";
+  const ADMIN_SYNC_PATH="memberList/main/adminPasswordSync";
   const ZOOMABLE_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=15, user-scalable=yes, viewport-fit=cover";
   const LOCKED_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
   const $=(id)=>document.getElementById(id);
