@@ -81,14 +81,14 @@
   padding:18px;
   text-align:center;
 }
-.admin-card h1{margin:0 0 14px;font-size:18px;}
+.admin-card h1{margin:0 0 14px;font-size:20px;}
 .admin-card input{
   width:100%;
-  height:61px; /* 기존 38px 대비 약 60% 확대 */
+  height:48px; /* 기존 38px 대비 약 60% 확대 */
   border:1px solid #999;
   border-radius:5px;
   padding:0 16px;
-  font-size:22px; /* 입력 박스 확대 비율에 맞춤 */
+  font-size:16px; /* 입력 박스 확대 비율에 맞춤 */
   text-align:center;
 }
 .admin-card .admin-row{
@@ -616,6 +616,7 @@ body.locked #tableWrap{
 .style-tools .style-btn-text-black{background:#ffffff !important;color:#111 !important;border-color:#111 !important;}
 .style-tools .style-btn-text-red{background:#c51616 !important;color:#ffffff !important;border-color:#c51616 !important;}
 .style-tools .style-btn-text-blue{background:#1737c9 !important;color:#ffffff !important;border-color:#1737c9 !important;}
+.style-tools .style-btn-text-gray{background:#777777 !important;color:#ffffff !important;border-color:#777777 !important;}
 .style-tools .style-btn-bg-white{background:#ffffff !important;color:#111 !important;border-color:#999 !important;}
 .style-tools .style-btn-bg-yellow{background:#fff200 !important;color:#111 !important;border-color:#c9b800 !important;}
 .style-tools .style-btn-bg-sky{background:#eaf6ff !important;color:#111 !important;border-color:#83b7dc !important;}
@@ -624,6 +625,36 @@ body.locked #tableWrap{
 @media(max-width:480px){
   .style-tools{gap:1px !important;}
   .style-tools button{min-width:10px !important;}
+}
+
+/* 요청 수정: trip-schedule 방식으로 글자/배경 서식 버튼 그룹화 */
+.style-tools{
+  align-items:center !important;
+}
+.style-subgroup{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:4px !important;
+  flex-wrap:wrap !important;
+  padding:2px 4px !important;
+  border:0.5px solid #cfd4dc !important;
+  border-radius:4px !important;
+  background:#ffffff !important;
+}
+.style-group-label{
+  font-size:12px !important;
+  font-weight:800 !important;
+  color:#111 !important;
+  white-space:nowrap !important;
+  line-height:28px !important;
+}
+.style-subgroup button{
+  min-width:36px !important;
+}
+@media(max-width:480px){
+  .style-subgroup{gap:1px !important;padding:1px !important;border-radius:1px !important;}
+  .style-group-label{font-size:5px !important;line-height:8px !important;}
+  .style-subgroup button{min-width:9px !important;}
 }
 
 
@@ -637,6 +668,7 @@ body.readonly-mode #addRowBtn,
 body.readonly-mode #delRowBtn,
 body.readonly-mode #addColBtn,
 body.readonly-mode #delColBtn,
+body.readonly-mode #selectRowBtn,
 body.readonly-mode #adminChangePasswordBtn,
 body.readonly-mode #readOnlyChangePasswordBtn,
 body.readonly-mode #adminRecoveryCodeBtn,
@@ -1728,13 +1760,168 @@ body.filter-edit-lock #memberTable td.cell-editing{
   outline:2px solid #1737c9 !important;
 }
 
+
+/* 최종 보정: 필터 박스 상단은 JS에서 계산한 위치를 그대로 사용하고, 내용이 많아도 위로 이동 금지 */
+.multi-filter-panel{
+  bottom:auto !important;
+  transform:none !important;
+}
+
+
+
+/* 최종 보정: 필터박스 위치는 JS가 !important로 직접 지정하므로 CSS top:auto 충돌 제거 */
+.multi-filter-panel:not([hidden]){
+  position:fixed !important;
+  right:auto !important;
+  bottom:auto !important;
+  transform:none !important;
+  overflow-y:auto !important;
+}
+
+
+
+/* 최종 수정: 필터박스는 회색 제목행 아래 고정, 내용이 많으면 내부 스크롤만 사용 */
+.multi-filter-panel:not([hidden]){
+  position:fixed !important;
+  bottom:auto !important;
+  right:auto !important;
+  transform:none !important;
+  overflow-y:auto !important;
+}
+.multi-filter-action-row{
+  position:sticky !important;
+  top:0 !important;
+  z-index:3 !important;
+}
+
+
+/* 최종 수정: 엑셀식 필터 버튼 - 모두선택/모두해제 모두 표시 */
+.multi-filter-action-row .filter-select-all{
+  display:inline-block !important;
+}
+.multi-filter-action-row .filter-clear-all{
+  flex:1 1 0 !important;
+  width:auto !important;
+}
+
+
+/* 요청 수정: 엑셀형 필터 확인 버튼 - 확인을 눌러야 닫힘 */
+.multi-filter-action-row .filter-select-all{
+  display:inline-block !important;
+}
+.multi-filter-action-row .filter-select-all,
+.multi-filter-action-row .filter-clear-all{
+  flex:1 1 0 !important;
+  width:auto !important;
+}
+.multi-filter-confirm-row{
+  position:sticky !important;
+  top:30px !important;
+  z-index:3 !important;
+  background:#fff !important;
+  padding-bottom:4px !important;
+  margin-bottom:2px !important;
+}
+.multi-filter-confirm-row button{
+  width:100% !important;
+  height:26px !important;
+  border:0.5px solid #1737c9 !important;
+  border-radius:5px !important;
+  background:#1737c9 !important;
+  color:#fff !important;
+  font-size:12px !important;
+  font-weight:800 !important;
+  cursor:pointer !important;
+}
+@media(max-width:480px){
+  .multi-filter-confirm-row{top:22px !important;padding-bottom:3px !important;}
+  .multi-filter-confirm-row button{height:18px !important;font-size:7px !important;border-radius:2px !important;}
+}
+
+
+
+/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
+.toolbar button,
+.admin-tools button,
+.button-group-panel button,
+.style-tools button,
+.readonly-column-actions button,
+.multi-filter-action-row button{
+  border:0.5px solid rgba(15,23,42,.18) !important;
+  border-radius:8px !important;
+  background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%) !important;
+  color:#111827 !important;
+  font-weight:800 !important;
+  letter-spacing:-0.2px !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.75) !important;
+  transition:transform .08s ease, box-shadow .12s ease, background .12s ease !important;
+}
+.toolbar button:hover,
+.admin-tools button:hover,
+.button-group-panel button:hover,
+.style-tools button:hover,
+.readonly-column-actions button:hover,
+.multi-filter-action-row button:hover{
+  background:linear-gradient(180deg,#ffffff 0%,#eaf1ff 100%) !important;
+  border-color:rgba(23,55,201,.38) !important;
+  box-shadow:0 2px 6px rgba(23,55,201,.16), inset 0 1px 0 rgba(255,255,255,.85) !important;
+}
+.toolbar button:active,
+.admin-tools button:active,
+.button-group-panel button:active,
+.style-tools button:active,
+.readonly-column-actions button:active,
+.multi-filter-action-row button:active{
+  transform:translateY(1px) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.10) !important;
+}
+.grouped-toolbar .group-toggle-btn,
+#sortBtn,
+#clearSearchBtn,
+#selectRowBtn{
+  background:linear-gradient(180deg,#3157ff 0%,#1737c9 100%) !important;
+  border-color:#1737c9 !important;
+  color:#fff !important;
+}
+.grouped-toolbar .group-toggle-btn.is-open{
+  background:linear-gradient(180deg,#16a34a 0%,#0b7a28 100%) !important;
+  border-color:#0b7a28 !important;
+}
+#delRowBtn,#delColBtn,#resetBtn{
+  background:linear-gradient(180deg,#fff7f7 0%,#ffe4e6 100%) !important;
+  border-color:#fecdd3 !important;
+  color:#b91c1c !important;
+}
+#dataBackupBtn,#dataRestoreBtn,#addRowBtn,#addColBtn{
+  background:linear-gradient(180deg,#f0fdf4 0%,#dcfce7 100%) !important;
+  border-color:#bbf7d0 !important;
+  color:#166534 !important;
+}
+.member-table tr.row-selected > td{
+  background:#eaf6ff !important;
+}
+.member-table tr.row-selected > td.selected-cell{
+  outline:2px solid #1737c9 !important;
+  outline-offset:-2px !important;
+}
+@media(max-width:480px){
+  .toolbar button,
+  .admin-tools button,
+  .button-group-panel button,
+  .style-tools button,
+  .multi-filter-action-row button{
+    border-radius:3px !important;
+    letter-spacing:-0.1px !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
 
 <div id="adminGate">
   <div class="admin-card">
-    <h1>관리자 비밀번호</h1>
+    <h1>회원정보 파일</h1>
     <input id="adminPasswordInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="비밀번호 입력">
     <div class="admin-row">
       <button type="button" class="primary" id="adminLoginBtn">관리자 로그인</button>
@@ -1780,15 +1967,23 @@ body.filter-edit-lock #memberTable td.cell-editing{
       <button type="button" id="delRowBtn">행삭제</button>
       <button type="button" id="addColBtn">열추가</button>
       <button type="button" id="delColBtn">열삭제</button>
+      <button type="button" id="selectRowBtn" title="현재 선택한 칸의 행 전체 선택">행선택</button>
       <span class="style-tools" id="cellStyleTools">
-        <button type="button" id="cellBoldBtn" class="style-btn-bold" title="선택 칸 글자 굵게">굵게</button>
-        <button type="button" id="cellTextBlackBtn" class="style-btn-text-black" title="선택 칸 글자색 검정">검정</button>
-        <button type="button" id="cellTextRedBtn" class="style-btn-text-red" title="선택 칸 글자색 빨강">글자빨강</button>
-        <button type="button" id="cellTextBlueBtn" class="style-btn-text-blue" title="선택 칸 글자색 파랑">글자파랑</button>
-        <button type="button" id="cellBgWhiteBtn" class="style-btn-bg-white" title="선택 칸 배경 흰색">배경흰색</button>
-        <button type="button" id="cellBgYellowBtn" class="style-btn-bg-yellow" title="선택 칸 배경 노랑">배경노랑</button>
-        <button type="button" id="cellBgSkyBtn" class="style-btn-bg-sky" title="선택 칸 배경 하늘">배경하늘</button>
-        <button type="button" id="cellBgRedBtn" class="style-btn-bg-red" title="선택 칸 배경 빨강">배경빨강</button>
+        <span class="style-subgroup text-style-group" aria-label="글자 서식">
+          <span class="style-group-label">글자 :</span>
+          <button type="button" id="cellBoldBtn" class="style-btn-bold" title="선택 칸 글자 굵게">굵게</button>
+          <button type="button" id="cellTextBlackBtn" class="style-btn-text-black" title="선택 칸 글자색 검정">검정</button>
+          <button type="button" id="cellTextRedBtn" class="style-btn-text-red" title="선택 칸 글자색 빨강">빨강</button>
+          <button type="button" id="cellTextBlueBtn" class="style-btn-text-blue" title="선택 칸 글자색 파랑">파랑</button>
+          <button type="button" id="cellTextGrayBtn" class="style-btn-text-gray" title="선택 칸 글자색 회색">회색</button>
+        </span>
+        <span class="style-subgroup bg-style-group" aria-label="배경 서식">
+          <span class="style-group-label">배경 :</span>
+          <button type="button" id="cellBgWhiteBtn" class="style-btn-bg-white" title="선택 칸 배경 흰색">흰색</button>
+          <button type="button" id="cellBgYellowBtn" class="style-btn-bg-yellow" title="선택 칸 배경 노랑">노랑</button>
+          <button type="button" id="cellBgSkyBtn" class="style-btn-bg-sky" title="선택 칸 배경 하늘">하늘</button>
+          <button type="button" id="cellBgRedBtn" class="style-btn-bg-red" title="선택 칸 배경 빨강">빨강</button>
+        </span>
         <button type="button" id="cellStyleClearBtn" class="style-btn-clear" title="선택 칸 서식 해제">서식해제</button>
       </span>
     </span>
@@ -1871,6 +2066,7 @@ const firebaseConfig = {
     table.querySelectorAll(".selected-cell").forEach(cell=>{
       if(cell!==exceptCell) cell.classList.remove("selected-cell");
     });
+    table.querySelectorAll("tr.row-selected").forEach(tr=>tr.classList.remove("row-selected"));
     selectedCells.clear();
     if(exceptCell) selectedCells.add(exceptCell);
   }
@@ -1923,6 +2119,8 @@ const firebaseConfig = {
         cell.style.color = "#c51616";
       }else if(action === "text-blue"){
         cell.style.color = "#1737c9";
+      }else if(action === "text-gray"){
+        cell.style.color = "#eeeeee";
       }else if(action === "bg-white"){
         cell.style.backgroundColor = "#ffffff";
       }else if(action === "bg-yellow"){
@@ -1952,6 +2150,7 @@ const firebaseConfig = {
     bind("cellTextBlackBtn","text-black");
     bind("cellTextRedBtn","text-red");
     bind("cellTextBlueBtn","text-blue");
+    bind("cellTextGrayBtn","text-gray");
     bind("cellBgWhiteBtn","bg-white");
     bind("cellBgYellowBtn","bg-yellow");
     bind("cellBgSkyBtn","bg-sky");
@@ -2599,11 +2798,30 @@ const firebaseConfig = {
       .map(input=>input.value || "")
       .filter(value=>value !== "");
   }
+  function getFilterOptionCountFromHeader(th){
+    return Array.from(th?.querySelectorAll?.(".column-filter-check") || []).length;
+  }
+  function isColumnFilterActiveHeader(th){
+    const total=getFilterOptionCountFromHeader(th);
+    const selected=getSelectedFilterValuesFromHeader(th).length;
+    return th?.dataset?.filterActive === "1" || (total>0 && selected<total);
+  }
+  function updateColumnFilterHeaderState(th){
+    if(!th) return;
+    const total=getFilterOptionCountFromHeader(th);
+    const selected=getSelectedFilterValuesFromHeader(th).length;
+    const active=total>0 && selected<total;
+    th.dataset.filterActive=active ? "1" : "0";
+    const toggle=th.querySelector(".column-filter-toggle");
+    if(toggle) toggle.textContent=active ? `선택 ${selected}` : "전체";
+    th.classList.toggle("filter-active", active);
+  }
   function getActiveColumnFilters(){
     return Array.from(table.querySelectorAll("th.header-cell")).map(th=>({
       col:Number(th.dataset.col),
-      values:getSelectedFilterValuesFromHeader(th)
-    })).filter(item=>Number.isFinite(item.col) && item.values.length>0);
+      values:getSelectedFilterValuesFromHeader(th),
+      active:isColumnFilterActiveHeader(th)
+    })).filter(item=>Number.isFinite(item.col) && item.active);
   }
   const FILTER_COUNTER_TARGET_HEADERS = new Set(["직책","이름","성별","출생년도","거주지","버스타는곳","참석","가입:승인","승인결과"]);
   function normalizeFilterCounterTitle(title){
@@ -2654,7 +2872,12 @@ const firebaseConfig = {
     const headerRow=rowsArray()[0]; if(!headerRow)return;
     const previous={};
     Array.from(table.querySelectorAll("th.header-cell")).forEach(th=>{
-      if(th.dataset.col !== undefined) previous[th.dataset.col]=getSelectedFilterValuesFromHeader(th);
+      if(th.dataset.col !== undefined){
+        previous[th.dataset.col]={
+          active:isColumnFilterActiveHeader(th),
+          values:getSelectedFilterValuesFromHeader(th)
+        };
+      }
     });
     Array.from(headerRow.cells).forEach((th,idx)=>{
       const title=getHeaderTitle(th)||headers[idx]||`열${idx+1}`;
@@ -2670,17 +2893,21 @@ const firebaseConfig = {
       });
       values.sort((a,b)=>String(a).localeCompare(String(b),"ko-KR",{sensitivity:"base",numeric:true}));
       const allowedValues=new Set(values.map(v=>v?String(v):EMPTY_FILTER_VALUE));
-      const selectedValues=(previous[idx]||[]).filter(value=>allowedValues.has(value));
+      const prev=previous[idx];
+      const allValues=values.map(v=>v?String(v):EMPTY_FILTER_VALUE);
+      const selectedValues=(prev && prev.active) ? (prev.values||[]).filter(value=>allowedValues.has(value)) : allValues.slice();
       const selectedSet=new Set(selectedValues);
-      const activeText=selectedValues.length ? `선택 ${selectedValues.length}` : "전체";
+      const isActive=values.length>0 && selectedValues.length<values.length;
+      const activeText=isActive ? `선택 ${selectedValues.length}` : "전체";
       const optionsHtml=values.map((v,optionIndex)=>{
         const rawVal=v?String(v):EMPTY_FILTER_VALUE;
         const label=v?escapeHtml(v):"(빈칸)";
         const checked=selectedSet.has(rawVal)?"checked":"";
         return `<label class="multi-filter-option"><input type="checkbox" class="column-filter-check" data-col="${idx}" value="${escapeHtml(rawVal)}" ${checked}> <span>${label}</span></label>`;
       }).join("") || '<div class="multi-filter-option">선택 항목 없음</div>';
-      th.innerHTML=`<div class="header-filter-wrap"><div class="header-title">${escapeHtml(title)}</div><button type="button" class="column-filter-toggle" data-col="${idx}" title="${escapeHtml(title)} 필터 복수 선택">${activeText}</button><div class="filter-counter" data-col="${idx}" title="내용 있는 칸 수">0</div><div class="multi-filter-panel" data-col="${idx}" hidden><div class="multi-filter-action-row"><button type="button" class="filter-clear-all">전체해제</button></div>${optionsHtml}</div></div>`;
-      th.classList.toggle("filter-active",selectedValues.length>0);
+      th.innerHTML=`<div class="header-filter-wrap"><div class="header-title">${escapeHtml(title)}</div><button type="button" class="column-filter-toggle" data-col="${idx}" title="${escapeHtml(title)} 필터 복수 선택">${activeText}</button><div class="filter-counter" data-col="${idx}" title="내용 있는 칸 수">0</div><div class="multi-filter-panel" data-col="${idx}" hidden><div class="multi-filter-action-row"><button type="button" class="filter-select-all">모두선택</button><button type="button" class="filter-clear-all">모두해제</button></div><div class="multi-filter-confirm-row"><button type="button" class="filter-confirm-close">확인</button></div>${optionsHtml}</div></div>`;
+      th.dataset.filterActive=isActive ? "1" : "0";
+      th.classList.toggle("filter-active",isActive);
     });
     table.querySelectorAll(".column-filter-toggle").forEach(btn=>{
       btn.onmousedown=e=>e.stopPropagation();
@@ -2691,6 +2918,9 @@ const firebaseConfig = {
         const willOpen=panel.hidden;
         closeAllColumnFilterPanels(panel);
         panel.hidden=!willOpen;
+        if(willOpen && typeof scheduleFloatingFilterPosition === "function"){
+          scheduleFloatingFilterPosition();
+        }
       };
     });
     table.querySelectorAll(".multi-filter-panel").forEach(panel=>{
@@ -2712,39 +2942,51 @@ const firebaseConfig = {
           if(e) e.stopPropagation();
           const th=check.closest("th");
           const currentPanel=check.closest(".multi-filter-panel");
-          const selectedCount=getSelectedFilterValuesFromHeader(th).length;
-          const toggle=th.querySelector(".column-filter-toggle");
-          if(toggle) toggle.textContent=selectedCount ? `선택 ${selectedCount}` : "전체";
-          th.classList.toggle("filter-active",selectedCount>0);
+          updateColumnFilterHeaderState(th);
           applyAllFilters();
           /* 항목을 선택해도 필터창을 닫지 않고 계속 유지 */
           if(currentPanel){
             currentPanel.hidden=false;
-            requestAnimationFrame(()=>{currentPanel.hidden=false;});
+            requestAnimationFrame(()=>{
+              currentPanel.hidden=false;
+              if(typeof scheduleFloatingFilterPosition === "function") scheduleFloatingFilterPosition();
+            });
           }
         };
       });
       const selectAll=panel.querySelector(".filter-select-all");
       const clearAll=panel.querySelector(".filter-clear-all");
-      if(selectAll) selectAll.onclick=()=>{
+      const confirmClose=panel.querySelector(".filter-confirm-close");
+      if(confirmClose) confirmClose.onclick=(e)=>{
+        if(e){e.preventDefault();e.stopPropagation();}
+        const th=panel.closest("th");
+        updateColumnFilterHeaderState(th);
+        applyAllFilters();
+        panel.hidden=true;
+        if(th) th.classList.remove("filter-header-open");
+      };
+      if(selectAll) selectAll.onclick=(e)=>{
+        if(e){e.preventDefault();e.stopPropagation();}
         panel.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=true;});
         const th=panel.closest("th");
-        const selectedCount=getSelectedFilterValuesFromHeader(th).length;
-        const toggle=th.querySelector(".column-filter-toggle");
-        if(toggle) toggle.textContent=selectedCount ? `선택 ${selectedCount}` : "전체";
-        th.classList.toggle("filter-active",selectedCount>0);
+        updateColumnFilterHeaderState(th);
+        panel.hidden=false;
         applyAllFilters();
+        if(typeof scheduleFloatingFilterPosition === "function") scheduleFloatingFilterPosition();
       };
       if(clearAll) clearAll.onclick=(e)=>{
-        if(e) e.stopPropagation();
+        if(e){e.preventDefault();e.stopPropagation();}
         panel.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=false;});
         const th=panel.closest("th");
-        const toggle=th.querySelector(".column-filter-toggle");
-        if(toggle) toggle.textContent="전체";
-        th.classList.remove("filter-active");
-        applyAllFilters();
+        updateColumnFilterHeaderState(th);
         panel.hidden=false;
-        requestAnimationFrame(()=>{panel.hidden=false;});
+        applyAllFilters();
+        if(typeof scheduleFloatingFilterPosition === "function") scheduleFloatingFilterPosition();
+        panel.hidden=false;
+        requestAnimationFrame(()=>{
+          panel.hidden=false;
+          if(typeof scheduleFloatingFilterPosition === "function") scheduleFloatingFilterPosition();
+        });
       };
     });
     updateFilterCounters();
@@ -2759,10 +3001,7 @@ const firebaseConfig = {
         if(th){
           const selectedSet=new Set(item.values);
           th.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=selectedSet.has(check.value);});
-          const selectedCount=getSelectedFilterValuesFromHeader(th).length;
-          const toggle=th.querySelector(".column-filter-toggle");
-          if(toggle) toggle.textContent=selectedCount ? `선택 ${selectedCount}` : "전체";
-          th.classList.toggle("filter-active",selectedCount>0);
+          updateColumnFilterHeaderState(th);
         }
       });
       applyAllFilters();
@@ -2814,6 +3053,26 @@ const firebaseConfig = {
   function deleteRow(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); tr.remove(); selectedCell=null; selectedCells.clear(); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function addCol(){if(blockReadOnlyAction())return;const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="false";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function deleteCol(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; selectedCells.clear(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function selectCurrentRow(){
+    if(blockReadOnlyAction())return;
+    if(!selectedCell || !selectedCell.closest || !selectedCell.closest('#memberTable')){
+      alert('행 전체를 선택할 칸을 먼저 클릭하세요.');
+      return;
+    }
+    const tr=selectedCell.parentElement;
+    if(!tr || tr.rowIndex<1){
+      alert('제목 행은 전체 선택할 수 없습니다.');
+      return;
+    }
+    clearSelectedCellBorders();
+    tr.classList.add('row-selected');
+    Array.from(tr.cells).forEach(cell=>{
+      selectedCells.add(cell);
+      cell.classList.add('selected-cell');
+    });
+    selectedCell=tr.cells[0]||null;
+    setStatus('선택 행 전체가 선택되었습니다');
+  }
   function normalizePhoneText(v){let t=String(v||"").trim(); if(!t)return""; const digits=t.replace(/\D/g,""); if(digits.length===8)return"010 "+digits.slice(0,4)+" "+digits.slice(4); if(digits.length===10&&digits.startsWith("10"))return"0"+digits.slice(0,2)+" "+digits.slice(2,6)+" "+digits.slice(6); if(digits.length===11)return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7); return t}
   function getPhoneColumnIndexes(){return[5,6]}
   function scaleWholeTable(){
@@ -3080,13 +3339,13 @@ const firebaseConfig = {
     if(c)showAutocomplete(c);
   },true);
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(!isReadOnlyMode() && getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
-  document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol;
-  document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=false;});table.querySelectorAll("th.header-cell").forEach(th=>{th.classList.remove("filter-active");const btn=th.querySelector(".column-filter-toggle");if(btn)btn.textContent="전체";});closeAllColumnFilterPanels(); search()};
+  document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol; document.getElementById("selectRowBtn").onclick=selectCurrentRow;
+  document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=true;});table.querySelectorAll("th.header-cell").forEach(th=>{th.dataset.filterActive="0";th.classList.remove("filter-active");const btn=th.querySelector(".column-filter-toggle");if(btn)btn.textContent="전체";});closeAllColumnFilterPanels(); search()};
   bindCellStyleButtons();
   function handleOutsideFilterClose(e){
     if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();
+    /* 필터 박스는 확인 버튼을 눌렀을 때만 닫히도록 유지 */
     if(e.target.closest(".header-filter-wrap") || e.target.closest(".multi-filter-panel")) return;
-    closeAllColumnFilterPanels();
   }
   document.addEventListener("click",handleOutsideFilterClose);
   document.addEventListener("touchstart",handleOutsideFilterClose,{passive:true});
@@ -3497,7 +3756,7 @@ const firebaseConfig = {
     if(loginBtn)loginBtn.onclick=unlockWithPassword;
     if(readOnlyLoginBtn)readOnlyLoginBtn.onclick=unlockReadOnlyWithPassword;
     if(input){
-      input.placeholder="관리자/읽기전용";
+      input.placeholder="비밀번호 입력";
       input.addEventListener("keydown",(e)=>{if(e.key==="Enter")unlockWithPassword();});
       setTimeout(()=>input.focus(),80);
     }
@@ -3972,6 +4231,94 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
   padding:0 !important;
   border:0 !important;
 }
+
+
+/* 최종 보정: 필터박스 위치는 JS가 !important로 직접 지정하므로 CSS top:auto 충돌 제거 */
+.multi-filter-panel:not([hidden]){
+  position:fixed !important;
+  right:auto !important;
+  bottom:auto !important;
+  transform:none !important;
+  overflow-y:auto !important;
+}
+
+
+
+/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
+.toolbar button,
+.admin-tools button,
+.button-group-panel button,
+.style-tools button,
+.readonly-column-actions button,
+.multi-filter-action-row button{
+  border:0.5px solid rgba(15,23,42,.18) !important;
+  border-radius:8px !important;
+  background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%) !important;
+  color:#111827 !important;
+  font-weight:800 !important;
+  letter-spacing:-0.2px !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.75) !important;
+  transition:transform .08s ease, box-shadow .12s ease, background .12s ease !important;
+}
+.toolbar button:hover,
+.admin-tools button:hover,
+.button-group-panel button:hover,
+.style-tools button:hover,
+.readonly-column-actions button:hover,
+.multi-filter-action-row button:hover{
+  background:linear-gradient(180deg,#ffffff 0%,#eaf1ff 100%) !important;
+  border-color:rgba(23,55,201,.38) !important;
+  box-shadow:0 2px 6px rgba(23,55,201,.16), inset 0 1px 0 rgba(255,255,255,.85) !important;
+}
+.toolbar button:active,
+.admin-tools button:active,
+.button-group-panel button:active,
+.style-tools button:active,
+.readonly-column-actions button:active,
+.multi-filter-action-row button:active{
+  transform:translateY(1px) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.10) !important;
+}
+.grouped-toolbar .group-toggle-btn,
+#sortBtn,
+#clearSearchBtn,
+#selectRowBtn{
+  background:linear-gradient(180deg,#3157ff 0%,#1737c9 100%) !important;
+  border-color:#1737c9 !important;
+  color:#fff !important;
+}
+.grouped-toolbar .group-toggle-btn.is-open{
+  background:linear-gradient(180deg,#16a34a 0%,#0b7a28 100%) !important;
+  border-color:#0b7a28 !important;
+}
+#delRowBtn,#delColBtn,#resetBtn{
+  background:linear-gradient(180deg,#fff7f7 0%,#ffe4e6 100%) !important;
+  border-color:#fecdd3 !important;
+  color:#b91c1c !important;
+}
+#dataBackupBtn,#dataRestoreBtn,#addRowBtn,#addColBtn{
+  background:linear-gradient(180deg,#f0fdf4 0%,#dcfce7 100%) !important;
+  border-color:#bbf7d0 !important;
+  color:#166534 !important;
+}
+.member-table tr.row-selected > td{
+  background:#eaf6ff !important;
+}
+.member-table tr.row-selected > td.selected-cell{
+  outline:2px solid #1737c9 !important;
+  outline-offset:-2px !important;
+}
+@media(max-width:480px){
+  .toolbar button,
+  .admin-tools button,
+  .button-group-panel button,
+  .style-tools button,
+  .multi-filter-action-row button{
+    border-radius:3px !important;
+    letter-spacing:-0.1px !important;
+  }
+}
+
 </style>
 <script id="readonlyMobileForceFix">
 /* 최종 보강: 읽기전용 로그인 직후/모바일 리사이즈/표 재생성 후 열 숨김 재적용 */
@@ -4148,6 +4495,94 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
     line-height:9.5px !important;
   }
 }
+
+
+/* 최종 보정: 필터박스 위치는 JS가 !important로 직접 지정하므로 CSS top:auto 충돌 제거 */
+.multi-filter-panel:not([hidden]){
+  position:fixed !important;
+  right:auto !important;
+  bottom:auto !important;
+  transform:none !important;
+  overflow-y:auto !important;
+}
+
+
+
+/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
+.toolbar button,
+.admin-tools button,
+.button-group-panel button,
+.style-tools button,
+.readonly-column-actions button,
+.multi-filter-action-row button{
+  border:0.5px solid rgba(15,23,42,.18) !important;
+  border-radius:8px !important;
+  background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%) !important;
+  color:#111827 !important;
+  font-weight:800 !important;
+  letter-spacing:-0.2px !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.75) !important;
+  transition:transform .08s ease, box-shadow .12s ease, background .12s ease !important;
+}
+.toolbar button:hover,
+.admin-tools button:hover,
+.button-group-panel button:hover,
+.style-tools button:hover,
+.readonly-column-actions button:hover,
+.multi-filter-action-row button:hover{
+  background:linear-gradient(180deg,#ffffff 0%,#eaf1ff 100%) !important;
+  border-color:rgba(23,55,201,.38) !important;
+  box-shadow:0 2px 6px rgba(23,55,201,.16), inset 0 1px 0 rgba(255,255,255,.85) !important;
+}
+.toolbar button:active,
+.admin-tools button:active,
+.button-group-panel button:active,
+.style-tools button:active,
+.readonly-column-actions button:active,
+.multi-filter-action-row button:active{
+  transform:translateY(1px) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.10) !important;
+}
+.grouped-toolbar .group-toggle-btn,
+#sortBtn,
+#clearSearchBtn,
+#selectRowBtn{
+  background:linear-gradient(180deg,#3157ff 0%,#1737c9 100%) !important;
+  border-color:#1737c9 !important;
+  color:#fff !important;
+}
+.grouped-toolbar .group-toggle-btn.is-open{
+  background:linear-gradient(180deg,#16a34a 0%,#0b7a28 100%) !important;
+  border-color:#0b7a28 !important;
+}
+#delRowBtn,#delColBtn,#resetBtn{
+  background:linear-gradient(180deg,#fff7f7 0%,#ffe4e6 100%) !important;
+  border-color:#fecdd3 !important;
+  color:#b91c1c !important;
+}
+#dataBackupBtn,#dataRestoreBtn,#addRowBtn,#addColBtn{
+  background:linear-gradient(180deg,#f0fdf4 0%,#dcfce7 100%) !important;
+  border-color:#bbf7d0 !important;
+  color:#166534 !important;
+}
+.member-table tr.row-selected > td{
+  background:#eaf6ff !important;
+}
+.member-table tr.row-selected > td.selected-cell{
+  outline:2px solid #1737c9 !important;
+  outline-offset:-2px !important;
+}
+@media(max-width:480px){
+  .toolbar button,
+  .admin-tools button,
+  .button-group-panel button,
+  .style-tools button,
+  .multi-filter-action-row button{
+    border-radius:3px !important;
+    letter-spacing:-0.1px !important;
+  }
+}
+
 </style>
 
 
@@ -4204,6 +4639,94 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
   .admin-column-item{font-size:10px;padding:5px 6px;border-radius:6px;}
   .admin-column-actions button{height:24px;font-size:9px;padding:0 7px;}
 }
+
+
+/* 최종 보정: 필터박스 위치는 JS가 !important로 직접 지정하므로 CSS top:auto 충돌 제거 */
+.multi-filter-panel:not([hidden]){
+  position:fixed !important;
+  right:auto !important;
+  bottom:auto !important;
+  transform:none !important;
+  overflow-y:auto !important;
+}
+
+
+
+/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
+.toolbar button,
+.admin-tools button,
+.button-group-panel button,
+.style-tools button,
+.readonly-column-actions button,
+.multi-filter-action-row button{
+  border:0.5px solid rgba(15,23,42,.18) !important;
+  border-radius:8px !important;
+  background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%) !important;
+  color:#111827 !important;
+  font-weight:800 !important;
+  letter-spacing:-0.2px !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.75) !important;
+  transition:transform .08s ease, box-shadow .12s ease, background .12s ease !important;
+}
+.toolbar button:hover,
+.admin-tools button:hover,
+.button-group-panel button:hover,
+.style-tools button:hover,
+.readonly-column-actions button:hover,
+.multi-filter-action-row button:hover{
+  background:linear-gradient(180deg,#ffffff 0%,#eaf1ff 100%) !important;
+  border-color:rgba(23,55,201,.38) !important;
+  box-shadow:0 2px 6px rgba(23,55,201,.16), inset 0 1px 0 rgba(255,255,255,.85) !important;
+}
+.toolbar button:active,
+.admin-tools button:active,
+.button-group-panel button:active,
+.style-tools button:active,
+.readonly-column-actions button:active,
+.multi-filter-action-row button:active{
+  transform:translateY(1px) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.10) !important;
+}
+.grouped-toolbar .group-toggle-btn,
+#sortBtn,
+#clearSearchBtn,
+#selectRowBtn{
+  background:linear-gradient(180deg,#3157ff 0%,#1737c9 100%) !important;
+  border-color:#1737c9 !important;
+  color:#fff !important;
+}
+.grouped-toolbar .group-toggle-btn.is-open{
+  background:linear-gradient(180deg,#16a34a 0%,#0b7a28 100%) !important;
+  border-color:#0b7a28 !important;
+}
+#delRowBtn,#delColBtn,#resetBtn{
+  background:linear-gradient(180deg,#fff7f7 0%,#ffe4e6 100%) !important;
+  border-color:#fecdd3 !important;
+  color:#b91c1c !important;
+}
+#dataBackupBtn,#dataRestoreBtn,#addRowBtn,#addColBtn{
+  background:linear-gradient(180deg,#f0fdf4 0%,#dcfce7 100%) !important;
+  border-color:#bbf7d0 !important;
+  color:#166534 !important;
+}
+.member-table tr.row-selected > td{
+  background:#eaf6ff !important;
+}
+.member-table tr.row-selected > td.selected-cell{
+  outline:2px solid #1737c9 !important;
+  outline-offset:-2px !important;
+}
+@media(max-width:480px){
+  .toolbar button,
+  .admin-tools button,
+  .button-group-panel button,
+  .style-tools button,
+  .multi-filter-action-row button{
+    border-radius:3px !important;
+    letter-spacing:-0.1px !important;
+  }
+}
+
 </style>
 <script id="adminColumnViewScript">
 /* 관리자 모드: 필요한 열만 보기/숨김 설정 */
@@ -4335,44 +4858,74 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
     if(table){ new MutationObserver(scheduleApply).observe(table,{childList:true,subtree:true}); }
   }
 
-  /* 요청 수정: 필터 박스 위치를 화면 기준 fixed로 재배치하여 표 박스에 가려지지 않게 함 */
+  /* 요청 수정: 필터 내용이 많아도 박스 상단은 항상 회색 제목행 아래에 고정 */
   function positionFloatingFilterPanels(){
     document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(panel=>{
       const wrap = panel.closest(".header-filter-wrap");
       const toggle = wrap ? wrap.querySelector(".column-filter-toggle") : null;
+      const th = panel.closest("th");
       if(!toggle) return;
 
-      const rect = toggle.getBoundingClientRect();
-      const panelWidth = Math.max(panel.offsetWidth || 126, 126);
-      const panelHeight = panel.offsetHeight || 200;
-      let left = rect.left;
-      let top = rect.bottom + 2;
+      const colIndex = Number(panel.dataset.col);
+      const firstDataCell = Number.isFinite(colIndex) && table && table.rows && table.rows[1]
+        ? table.rows[1].cells[colIndex]
+        : null;
 
+      const toggleRect = toggle.getBoundingClientRect();
+      const headerRow = table && table.rows && table.rows[0] ? table.rows[0] : null;
+      const headerRowRect = headerRow ? headerRow.getBoundingClientRect() : toggleRect;
+      const thRect = th ? th.getBoundingClientRect() : headerRowRect;
+      const baseRect = firstDataCell ? firstDataCell.getBoundingClientRect() : thRect;
+      const panelWidth = Math.max(panel.offsetWidth || 126, 126);
+
+      /* 좌우 위치는 회원데이터 첫 칸 기준 유지 */
+      let left = baseRect.left;
       if(left + panelWidth > window.innerWidth - 6){
         left = Math.max(6, window.innerWidth - panelWidth - 6);
       }
-      if(top + panelHeight > window.innerHeight - 6){
-        top = Math.max(6, rect.top - panelHeight - 2);
-      }
+      left = Math.max(6, left);
 
-      panel.style.position = "fixed";
-      panel.style.left = left + "px";
-      panel.style.top = top + "px";
-      panel.style.zIndex = "2147483647";
+      /* 핵심 수정: 스크롤 상태에서 table.rows[1]의 실제 위치가 화면 위로 올라가도
+         그 값을 쓰지 않는다. 필터박스 상단은 항상 현재 화면에 보이는 회색 제목행의
+         아래쪽(= 회원데이터박스 첫칸 시작선)에 고정한다. */
+      const tableWrapRect = tableWrap ? tableWrap.getBoundingClientRect() : headerRowRect;
+      const visibleHeaderBottom = Math.max(headerRowRect.bottom, tableWrapRect.top);
+      const fixedTop = Math.max(6, visibleHeaderBottom + 2);
+
+      /* 내용이 많아도 top을 위로 보정하지 않고, 아래 공간만큼 높이만 줄여 내부 스크롤한다. */
+      const availableHeight = Math.max(44, window.innerHeight - fixedTop - 6);
+
+      /* 기존 CSS에 top:auto !important / max-height !important가 있어서
+         일반 inline style이 무시될 수 있으므로 setProperty(..., 'important')로 강제 */
+      panel.style.setProperty("position", "fixed", "important");
+      panel.style.setProperty("left", left + "px", "important");
+      panel.style.setProperty("top", fixedTop + "px", "important");
+      panel.style.setProperty("right", "auto", "important");
+      panel.style.setProperty("bottom", "auto", "important");
+      panel.style.setProperty("transform", "none", "important");
+      panel.style.setProperty("max-height", Math.min(280, availableHeight) + "px", "important");
+      panel.style.setProperty("height", "auto", "important");
+      panel.style.setProperty("overflow-y", "auto", "important");
+      panel.style.setProperty("z-index", "2147483647", "important");
     });
+  }
+
+  function scheduleFloatingFilterPosition(){
+    requestAnimationFrame(positionFloatingFilterPanels);
+    setTimeout(positionFloatingFilterPanels, 30);
+    setTimeout(positionFloatingFilterPanels, 120);
   }
 
   document.addEventListener("click", function(e){
     const toggle = e.target && e.target.closest ? e.target.closest(".column-filter-toggle") : null;
     if(toggle){
-      setTimeout(positionFloatingFilterPanels, 0);
-      setTimeout(positionFloatingFilterPanels, 60);
+      scheduleFloatingFilterPosition();
     }
   }, true);
 
   document.addEventListener("change", function(e){
     if(e.target && e.target.closest && e.target.closest(".multi-filter-panel")){
-      setTimeout(positionFloatingFilterPanels, 0);
+      scheduleFloatingFilterPosition();
     }
   }, true);
 
@@ -4468,6 +5021,165 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
     return FILTER_COUNTER_TARGET_HEADER_NAMES_PATCH.has(normalizeFilterCounterHeaderNameForPatch(text));
   }
 
+})();
+</script>
+
+
+<script id="forceFilterPanelBelowHeaderFix">
+(function(){
+  "use strict";
+
+  function getHeaderBottom(){
+    const table = document.getElementById("memberTable");
+    const tableWrap = document.getElementById("tableWrap");
+    const headerRow = table && table.rows && table.rows.length ? table.rows[0] : null;
+    const headerRect = headerRow ? headerRow.getBoundingClientRect() : null;
+    const wrapRect = tableWrap ? tableWrap.getBoundingClientRect() : null;
+
+    // 회색 제목행이 sticky 상태일 때도 현재 화면에 보이는 제목행 하단을 기준으로 고정
+    if(headerRect){
+      return Math.max(0, Math.round(headerRect.bottom + 2));
+    }
+    if(wrapRect){
+      return Math.max(0, Math.round(wrapRect.top + 80));
+    }
+    return 80;
+  }
+
+  function getPanelLeft(panel){
+    const th = panel.closest("th");
+    const toggle = th ? th.querySelector(".column-filter-toggle") : null;
+    const rect = toggle ? toggle.getBoundingClientRect() : (th ? th.getBoundingClientRect() : null);
+    const panelWidth = Math.max(panel.offsetWidth || 126, 126);
+    let left = rect ? rect.left : 6;
+    if(left + panelWidth > window.innerWidth - 6){
+      left = window.innerWidth - panelWidth - 6;
+    }
+    return Math.max(6, Math.round(left));
+  }
+
+  function forceFilterPanelBelowHeader(){
+    const top = getHeaderBottom();
+    const maxHeight = Math.max(50, window.innerHeight - top - 8);
+    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(panel=>{
+      const left = getPanelLeft(panel);
+      panel.style.setProperty("position", "fixed", "important");
+      panel.style.setProperty("top", top + "px", "important");
+      panel.style.setProperty("left", left + "px", "important");
+      panel.style.setProperty("right", "auto", "important");
+      panel.style.setProperty("bottom", "auto", "important");
+      panel.style.setProperty("transform", "none", "important");
+      panel.style.setProperty("height", "auto", "important");
+      panel.style.setProperty("max-height", Math.min(280, maxHeight) + "px", "important");
+      panel.style.setProperty("overflow-y", "auto", "important");
+      panel.style.setProperty("z-index", "2147483647", "important");
+    });
+  }
+
+  function scheduleForce(){
+    forceFilterPanelBelowHeader();
+    requestAnimationFrame(forceFilterPanelBelowHeader);
+    setTimeout(forceFilterPanelBelowHeader, 20);
+    setTimeout(forceFilterPanelBelowHeader, 80);
+    setTimeout(forceFilterPanelBelowHeader, 200);
+  }
+
+  // 기존 코드가 클릭 후 위치를 다시 잡아도 마지막에 이 보정이 이기도록 강제 실행
+  document.addEventListener("click", function(e){
+    if(e.target && e.target.closest && (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"))){
+      scheduleForce();
+    }
+  }, true);
+
+  document.addEventListener("change", function(e){
+    if(e.target && e.target.closest && e.target.closest(".multi-filter-panel")){
+      scheduleForce();
+    }
+  }, true);
+
+  window.addEventListener("scroll", scheduleForce, true);
+  window.addEventListener("resize", scheduleForce);
+  window.addEventListener("orientationchange", scheduleForce);
+
+  const table = document.getElementById("memberTable");
+  if(table){
+    new MutationObserver(scheduleForce).observe(table, {subtree:true, childList:true, attributes:true, attributeFilter:["hidden", "style", "class"]});
+  }
+
+  window.forceFilterPanelBelowHeader = scheduleForce;
+})();
+</script>
+
+
+
+<script id="checkboxStayOpenPatch">
+(function(){
+  "use strict";
+
+  let lastFilterCol = null;
+
+  function getPanelFromTarget(target){
+    return target && target.closest ? target.closest(".multi-filter-panel") : null;
+  }
+
+  function rememberPanel(panel){
+    if(!panel) return;
+    lastFilterCol = panel.getAttribute("data-col");
+  }
+
+  function reopenPanelByCol(col){
+    if(col === null || col === undefined) return;
+    var panel = document.querySelector('.multi-filter-panel[data-col="' + String(col).replace(/"/g, '\\"') + '"]');
+    if(!panel) return;
+    panel.hidden = false;
+    var th = panel.closest("th");
+    if(th) th.classList.add("filter-header-open");
+    if(typeof window.forceFilterPanelBelowHeader === "function") window.forceFilterPanelBelowHeader();
+    if(typeof window.scheduleFloatingFilterPosition === "function") window.scheduleFloatingFilterPosition();
+  }
+
+  function keepPanelOpen(target){
+    var panel = getPanelFromTarget(target);
+    if(panel){
+      rememberPanel(panel);
+      panel.hidden = false;
+      var col = panel.getAttribute("data-col");
+      requestAnimationFrame(function(){ reopenPanelByCol(col); });
+      setTimeout(function(){ reopenPanelByCol(col); }, 0);
+      setTimeout(function(){ reopenPanelByCol(col); }, 80);
+      setTimeout(function(){ reopenPanelByCol(col); }, 200);
+    }else if(lastFilterCol !== null){
+      requestAnimationFrame(function(){ reopenPanelByCol(lastFilterCol); });
+    }
+  }
+
+  ["mousedown","pointerdown","touchstart","click"].forEach(function(type){
+    document.addEventListener(type, function(e){
+      if(e.target && e.target.closest && e.target.closest(".column-filter-check")){
+        // 체크박스 자체 토글은 그대로 두고, 외부 클릭 닫힘 이벤트만 차단
+        e.stopPropagation();
+        keepPanelOpen(e.target);
+      }
+      if(e.target && e.target.closest && e.target.closest(".multi-filter-option")){
+        e.stopPropagation();
+        keepPanelOpen(e.target);
+      }
+    }, true);
+  });
+
+  document.addEventListener("change", function(e){
+    if(e.target && e.target.closest && e.target.closest(".column-filter-check")){
+      e.stopPropagation();
+      keepPanelOpen(e.target);
+    }
+  }, true);
+
+  document.addEventListener("input", function(e){
+    if(e.target && e.target.closest && e.target.closest(".column-filter-check")){
+      e.stopPropagation();
+      keepPanelOpen(e.target);
+    }
+  }, true);
 })();
 </script>
 
