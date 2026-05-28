@@ -1915,6 +1915,49 @@ body.filter-edit-lock #memberTable td.cell-editing{
   }
 }
 
+
+
+/* 요청 수정: PC에서는 브라우저 확대/축소와 무관하게 데이터박스를 화면 전체 기준으로 고정 */
+@media (min-width:481px){
+  html,body{
+    width:100% !important;
+    height:100% !important;
+    overflow:hidden !important;
+  }
+  body.unlocked{
+    padding:8px !important;
+  }
+  body.unlocked .app{
+    width:100vw !important;
+    max-width:100vw !important;
+    height:100vh !important;
+    max-height:100vh !important;
+    overflow:hidden !important;
+    margin:0 !important;
+  }
+  body.unlocked .toolbar{
+    width:calc(100vw - 16px) !important;
+    max-width:calc(100vw - 16px) !important;
+    flex:0 0 auto !important;
+  }
+  body.unlocked .table-wrap{
+    width:calc(100vw - 16px) !important;
+    max-width:calc(100vw - 16px) !important;
+    height:calc(100vh - 92px) !important;
+    max-height:calc(100vh - 92px) !important;
+    overflow:auto !important;
+  }
+  body.unlocked .scale-stage{
+    transform:none !important;
+    zoom:1 !important;
+    width:max-content !important;
+    min-width:max-content !important;
+  }
+  body.unlocked #memberTable{
+    width:max-content !important;
+  }
+}
+
 </style>
 </head>
 <body class="locked">
@@ -1968,6 +2011,9 @@ body.filter-edit-lock #memberTable td.cell-editing{
       <button type="button" id="addColBtn">열추가</button>
       <button type="button" id="delColBtn">열삭제</button>
       <button type="button" id="selectRowBtn" title="현재 선택한 칸의 행 전체 선택">행선택</button>
+      <button type="button" id="clearCellContentBtn" title="선택된 셀의 내용만 삭제">셀내용삭제</button>
+      <button type="button" id="copyCellContentBtn" title="선택된 셀 내용 복사">내용복사</button>
+      <button type="button" id="pasteCellContentBtn" title="선택된 셀부터 내용 붙여넣기">붙여넣기</button>
       <span class="style-tools" id="cellStyleTools">
         <span class="style-subgroup text-style-group" aria-label="글자 서식">
           <span class="style-group-label">글자 :</span>
@@ -3073,6 +3119,114 @@ const firebaseConfig = {
     selectedCell=tr.cells[0]||null;
     setStatus('선택 행 전체가 선택되었습니다');
   }
+  function getSelectedEditableCells(){
+    const cells=Array.from(selectedCells).filter(cell=>cell && cell.isConnected && cell.tagName && cell.tagName.toLowerCase()==="td");
+    if(cells.length) return cells;
+    return selectedCell && selectedCell.isConnected && selectedCell.tagName && selectedCell.tagName.toLowerCase()==="td" ? [selectedCell] : [];
+  }
+  function afterCellContentChanged(message, realtimeReason){
+    updateTotalCount();
+    refreshHeaderFiltersSoon();
+    autoSave();
+    if(!applyingRemoteData) pushRealtimeNow(realtimeReason||"cell-content-change",0);
+    scheduleScaleWholeTable();
+    setStatus(message||"셀 내용이 변경되었습니다");
+  }
+  function clearSelectedCellContents(){
+    if(blockReadOnlyAction())return;
+    const cells=getSelectedEditableCells();
+    if(!cells.length){alert("내용을 삭제할 셀을 먼저 선택하세요.");return;}
+    cells.forEach(cell=>{cell.innerHTML="";});
+    afterCellContentChanged("선택 셀 내용 삭제 완료","cell-content-clear");
+  }
+  function getSelectedCellsAsText(){
+    const cells=getSelectedEditableCells();
+    if(!cells.length)return "";
+    const rowMap=new Map();
+    cells.forEach(cell=>{
+      const rowIndex=cell.parentElement.rowIndex;
+      if(!rowMap.has(rowIndex))rowMap.set(rowIndex,[]);
+      rowMap.get(rowIndex).push(cell);
+    });
+    return Array.from(rowMap.keys()).sort((a,b)=>a-b).map(rowIndex=>{
+      return rowMap.get(rowIndex).sort((a,b)=>a.cellIndex-b.cellIndex).map(cell=>cell.innerText.replace(/\u00a0/g," ").trim()).join("\t");
+    }).join("\n");
+  }
+  async function copySelectedCellContents(){
+    const text=getSelectedCellsAsText();
+    if(!text){alert("복사할 셀을 먼저 선택하세요.");return;}
+    try{
+      await navigator.clipboard.writeText(text);
+      setStatus("선택 셀 내용 복사 완료");
+    }catch(e){
+      const ta=document.createElement("textarea");
+      ta.value=text;
+      ta.style.position="fixed";
+      ta.style.left="-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      try{document.execCommand("copy");setStatus("선택 셀 내용 복사 완료");}catch(err){alert("브라우저 권한 때문에 자동 복사에 실패했습니다. Ctrl+C를 사용하세요.");}
+      ta.remove();
+    }
+  }
+  function pasteTextToSelectedCell(text){
+    if(blockReadOnlyAction())return;
+    if(!selectedCell || !selectedCell.isConnected || selectedCell.tagName.toLowerCase()!=="td"){
+      alert("붙여넣기 시작 셀을 먼저 선택하세요.");
+      return;
+    }
+    const rows=String(text||"").replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n");
+    const startRow=selectedCell.parentElement.rowIndex;
+    const startCol=selectedCell.cellIndex;
+    rows.forEach((line,rOffset)=>{
+      const tr=table.rows[startRow+rOffset];
+      if(!tr)return;
+      line.split("\t").forEach((value,cOffset)=>{
+        const cell=tr.cells[startCol+cOffset];
+        if(cell && cell.tagName.toLowerCase()==="td") cell.innerText=value;
+      });
+    });
+    afterCellContentChanged("붙여넣기 완료","cell-content-paste");
+  }
+  async function pasteClipboardToSelectedCell(){
+    if(blockReadOnlyAction())return;
+    try{
+      const text=await navigator.clipboard.readText();
+      pasteTextToSelectedCell(text);
+    }catch(e){
+      alert("브라우저 권한 때문에 버튼 붙여넣기를 사용할 수 없습니다. 셀을 선택한 뒤 Ctrl+V를 사용하세요.");
+    }
+  }
+  function bindCellContentButtons(){
+    const clearBtn=document.getElementById("clearCellContentBtn");
+    const copyBtn=document.getElementById("copyCellContentBtn");
+    const pasteBtn=document.getElementById("pasteCellContentBtn");
+    if(clearBtn)clearBtn.onclick=clearSelectedCellContents;
+    if(copyBtn)copyBtn.onclick=copySelectedCellContents;
+    if(pasteBtn)pasteBtn.onclick=pasteClipboardToSelectedCell;
+    table.addEventListener("copy",e=>{
+      const text=getSelectedCellsAsText();
+      if(!text)return;
+      e.preventDefault();
+      e.clipboardData.setData("text/plain",text);
+      setStatus("선택 셀 내용 복사 완료");
+    });
+    table.addEventListener("paste",e=>{
+      if(blockReadOnlyAction())return;
+      const text=e.clipboardData && e.clipboardData.getData("text/plain");
+      if(!text)return;
+      e.preventDefault();
+      pasteTextToSelectedCell(text);
+    });
+    document.addEventListener("keydown",e=>{
+      if(e.key!=="Delete" && e.key!=="Backspace")return;
+      if(!selectedCell || isTableCellElement(document.activeElement))return;
+      if(e.target && ["INPUT","TEXTAREA"].includes(e.target.tagName))return;
+      e.preventDefault();
+      clearSelectedCellContents();
+    });
+  }
+
   function normalizePhoneText(v){let t=String(v||"").trim(); if(!t)return""; const digits=t.replace(/\D/g,""); if(digits.length===8)return"010 "+digits.slice(0,4)+" "+digits.slice(4); if(digits.length===10&&digits.startsWith("10"))return"0"+digits.slice(0,2)+" "+digits.slice(2,6)+" "+digits.slice(6); if(digits.length===11)return digits.slice(0,3)+" "+digits.slice(3,7)+" "+digits.slice(7); return t}
   function getPhoneColumnIndexes(){return[5,6]}
   function scaleWholeTable(){
@@ -3088,9 +3242,10 @@ const firebaseConfig = {
     }
     scaleStage.style.transform="none";
     scaleStage.style.height="auto";
+    const isPcView=window.matchMedia && window.matchMedia("(min-width:481px)").matches;
     const wrapW=tableWrap.clientWidth||window.innerWidth;
     const tableW=table.scrollWidth||table.offsetWidth;
-    const scale=Math.min(1,wrapW/tableW);
+    const scale=isPcView ? 1 : Math.min(1,wrapW/tableW);
     scaleStage.style.zoom=String(scale);
     scaleStage.style.width=tableW+"px";
     tableWrap.style.overflow="auto";
@@ -3341,6 +3496,7 @@ const firebaseConfig = {
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(!isReadOnlyMode() && getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
   document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol; document.getElementById("selectRowBtn").onclick=selectCurrentRow;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=true;});table.querySelectorAll("th.header-cell").forEach(th=>{th.dataset.filterActive="0";th.classList.remove("filter-active");const btn=th.querySelector(".column-filter-toggle");if(btn)btn.textContent="전체";});closeAllColumnFilterPanels(); search()};
+  bindCellContentButtons();
   bindCellStyleButtons();
   function handleOutsideFilterClose(e){
     if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();
@@ -3980,9 +4136,15 @@ const firebaseConfig = {
     cell.contentEditable = "true";
     cell.classList.add("cell-editing", "selected-cell", "phone-hold-editing");
     cell.style.fontWeight = "400";
+
+    // 기존 표 선택 로직(selectedCell)과 동기화해야 내용복사/붙여넣기 버튼도 바로 작동함
+    try{
+      cell.dispatchEvent(new MouseEvent("click", {bubbles:true, cancelable:true, view:window}));
+    }catch(error){}
+
     cell.focus();
     setCaretToEndSafe(cell);
-    showToast("편집 가능");
+    showToast("편집/복사/붙여넣기 가능");
   }
 
   function closePhoneDropdown(){
@@ -4101,6 +4263,9 @@ const firebaseConfig = {
     }
     const cell = getPhoneCell(e.target);
     if(!cell) return;
+    if(cell.classList.contains("phone-hold-editing") || cell.classList.contains("cell-editing") || cell.isContentEditable){
+      return; // 더블클릭으로 편집 중일 때는 커서 이동/복사/붙여넣기 기본 동작 허용
+    }
 
     e.stopPropagation();
     if(e.stopImmediatePropagation) e.stopImmediatePropagation();
@@ -4145,11 +4310,14 @@ const firebaseConfig = {
   }
 
   function blockPhoneDefaults(e){
-    if(getPhoneCell(e.target)){
-      e.preventDefault();
-      e.stopPropagation();
-      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+    const cell = getPhoneCell(e.target);
+    if(!cell) return;
+    if(cell.classList.contains("phone-hold-editing") || cell.classList.contains("cell-editing") || cell.isContentEditable){
+      return; // 편집 상태에서는 텍스트 선택/복사/붙여넣기 허용
     }
+    e.preventDefault();
+    e.stopPropagation();
+    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
   }
 
   function bindPhoneHold(){
@@ -4175,6 +4343,17 @@ const firebaseConfig = {
       document.addEventListener("mousemove", moveHold, true);
       document.addEventListener("mouseup", endHold, true);
     }
+
+    document.addEventListener("dblclick", function(e){
+      const cell = getPhoneCell(e.target);
+      if(!cell) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+      clearHoldTimer();
+      closePhoneDropdown();
+      enablePhoneEdit(cell);
+    }, true);
 
     document.addEventListener("click", function(e){
       const menu = document.getElementById("phoneDropdownMenu");
