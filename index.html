@@ -1959,6 +1959,26 @@ body.filter-edit-lock #memberTable td.cell-editing{
 }
 
 </style>
+
+<style id="refreshSessionNoFlashStyle">
+/* PC/모바일 새로고침 상태복원: 로그인 화면 깜빡임 방지 */
+html.member-refresh-unlocked body.locked #adminGate{display:none !important;}
+html.member-refresh-unlocked body.locked .app{display:block !important;}
+html.member-refresh-unlocked body.locked{overflow:auto !important;touch-action:pan-x pan-y pinch-zoom !important;}
+html.member-refresh-readonly body:not(.readonly-mode){ }
+</style>
+<script id="refreshSessionNoFlashEarly">
+(function(){
+  try{
+    if(localStorage.getItem("memberList.admin.sessionUnlocked.v1") === "1"){
+      document.documentElement.classList.add("member-refresh-unlocked");
+      if((localStorage.getItem("memberList.admin.sessionMode.v1") || "edit") === "readonly"){
+        document.documentElement.classList.add("member-refresh-readonly");
+      }
+    }
+  }catch(e){}
+})();
+</script>
 </head>
 <body class="locked">
 
@@ -3615,11 +3635,14 @@ const firebaseConfig = {
     document.body.classList.toggle("unlocked",!!isUnlocked);
     document.body.classList.toggle("readonly-mode",isReadOnly);
     document.body.classList.toggle("edit-mode",!!isUnlocked && !isReadOnly);
+    document.documentElement.classList.toggle("member-refresh-unlocked",!!isUnlocked);
+    document.documentElement.classList.toggle("member-refresh-readonly",isReadOnly);
     if(isUnlocked){
-      /* 보안 수정: 로그인 상태를 저장하지 않습니다.
-         화면을 나가거나 앱을 닫은 뒤 다시 열면 반드시 비밀번호를 입력해야 합니다. */
-      localStorage.removeItem(SESSION_KEY);
-      localStorage.removeItem(SESSION_MODE_KEY);
+      /* PC/모바일 새로고침 유지: 로그인/읽기전용 진입 상태를 저장해 새로고침 후 같은 화면으로 복귀합니다. */
+      try{
+        localStorage.setItem(SESSION_KEY,"1");
+        localStorage.setItem(SESSION_MODE_KEY,isReadOnly?"readonly":"edit");
+      }catch(e){}
       applyModeButtons(isReadOnly?"readonly":"edit");
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
     }else{
@@ -3637,8 +3660,16 @@ const firebaseConfig = {
   }
 
   function restoreUnlockedSession(){
-    /* 이전 버전에서 남아 있는 로그인 기록은 즉시 삭제합니다. */
-    forcePasswordGate();
+    try{
+      const saved=localStorage.getItem(SESSION_KEY);
+      const mode=localStorage.getItem(SESSION_MODE_KEY)||"edit";
+      if(saved==="1"){
+        setUnlockedState(true,mode==="readonly"?"readonly":"edit");
+        return true;
+      }
+    }catch(e){}
+    setUnlockedState(false);
+    return false;
   }
   function makeRecoveryCode(){
     const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -3895,11 +3926,14 @@ const firebaseConfig = {
   window.addEventListener("request-admin-group-open",openAdminGroupWithPassword);
 
   function bindAdmin(){
-    localStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(SESSION_MODE_KEY);
-    setViewportLockedForAdmin(true);
-    document.body.classList.add("locked");
-    document.body.classList.remove("unlocked","readonly-mode","edit-mode");
+    let hasSavedSession=false;
+    try{hasSavedSession=localStorage.getItem(SESSION_KEY)==="1";}catch(e){}
+    if(!hasSavedSession){
+      setViewportLockedForAdmin(true);
+      document.body.classList.add("locked");
+      document.body.classList.remove("unlocked","readonly-mode","edit-mode");
+      document.documentElement.classList.remove("member-refresh-unlocked","member-refresh-readonly");
+    }
     const loginBtn=$("adminLoginBtn");
     const readOnlyLoginBtn=$("readOnlyLoginBtn");
     const input=$("adminPasswordInput");
@@ -3923,12 +3957,8 @@ const firebaseConfig = {
     if(systemChangeBtn)systemChangeBtn.onclick=changeSystemAdminPassword;
     if(resetBtn)resetBtn.onclick=resetPassword;
 
-    /* 화면 이탈/앱 종료/뒤로가기 복귀 대비: 다음 진입 때는 무조건 비밀번호 입력 */
-    window.addEventListener("pagehide",forcePasswordGate);
-    window.addEventListener("beforeunload",forcePasswordGate);
-    document.addEventListener("visibilitychange",()=>{
-      if(document.visibilityState==="hidden") forcePasswordGate();
-    });
+    /* PC/모바일 새로고침 방지: pagehide/beforeunload/visibilitychange에서 로그인 상태를 삭제하지 않습니다.
+       로그아웃 버튼을 누를 때만 저장된 화면 상태를 삭제합니다. */
 
     initAdminFirebaseSync();
     restoreUnlockedSession();
