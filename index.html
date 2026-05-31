@@ -1731,6 +1731,49 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
   .excel-filter-popup input[type="checkbox"]{width:12px !important;height:12px !important;}
 }
 
+
+/* 요청 수정: PC 필터 크기는 원상복구, 모바일에서만 50% 축소 + 화면 비율 반응형 */
+@media(max-width:480px){
+  .excel-filter-popup{
+    width:clamp(66px, 26vw, 90px) !important;
+    max-width:50vw !important;
+    max-height:min(160px, 45vh) !important;
+    padding:2px !important;
+    border-radius:3px !important;
+    border-width:0.5px !important;
+    box-shadow:0 2px 8px rgba(0,0,0,.18) !important;
+  }
+  .excel-filter-popup .filter-actions,
+  .excel-filter-popup .filter-confirm-row{
+    gap:1px !important;
+    margin-bottom:2px !important;
+  }
+  .excel-filter-popup .filter-actions{top:0 !important;}
+  .excel-filter-popup .filter-confirm-row{top:15px !important;}
+  .excel-filter-popup button{
+    height:12px !important;
+    min-height:12px !important;
+    font-size:5px !important;
+    line-height:10px !important;
+    border-radius:2px !important;
+    padding:0 1px !important;
+    border-width:0.5px !important;
+  }
+  .excel-filter-popup .filter-list{gap:1px !important;}
+  .excel-filter-popup label{
+    min-height:10px !important;
+    font-size:5px !important;
+    line-height:1.15 !important;
+    gap:1px !important;
+  }
+  .excel-filter-popup input[type="checkbox"]{
+    width:7px !important;
+    height:7px !important;
+    transform:none !important;
+  }
+}
+
+
 </style>
 
 <style id="refreshSessionNoFlashStyle">
@@ -2725,7 +2768,7 @@ const firebaseConfig = {
       const values = getColumnFilterValues(idx);
       const selected = getActiveFilterSet(idx, values);
       if(btn) btn.textContent = active ? `${selected.size}개` : "전체";
-      if(counter) counter.textContent = String(rowsArray().slice(1).filter(row=>row.style.display!=="none" && !row.classList.contains("hidden-by-search") && cellText(row.cells[getHeaderIndexByText("이름",1)])).length || "");
+      if(counter) counter.textContent = String(rowsArray().slice(1).filter(row=>row.style.display!=="none" && !row.classList.contains("hidden-by-search") && row.cells[idx] && cellText(row.cells[idx])).length || "");
     });
   }
 
