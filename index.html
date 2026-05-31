@@ -5594,5 +5594,131 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
 })();
 </script>
 
+
+
+<script id="filterMobileClickedHeaderPositionOnlyPatch">
+(function(){
+  "use strict";
+
+  /* 필터 전용 수정: 모바일에서도 PC처럼 '클릭한 제목 셀 바로 아래'에 체크박스 박스 출력 */
+  var lastFilterToggle = null;
+
+  function isMobileView(){
+    return window.matchMedia && window.matchMedia("(max-width:480px)").matches;
+  }
+
+  function getOpenPanels(){
+    return Array.prototype.slice.call(document.querySelectorAll(".multi-filter-panel:not([hidden])"));
+  }
+
+  function getPanelToggle(panel){
+    var th = panel ? panel.closest("th") : null;
+    var toggle = th ? th.querySelector(".column-filter-toggle") : null;
+    if(!toggle && lastFilterToggle){
+      var col = panel ? panel.getAttribute("data-col") : null;
+      if(col === lastFilterToggle.getAttribute("data-col")) toggle = lastFilterToggle;
+    }
+    return toggle;
+  }
+
+  function placeOnePanel(panel){
+    if(!panel || panel.hidden) return;
+
+    var table = document.getElementById("memberTable");
+    var tableWrap = document.getElementById("tableWrap");
+    var th = panel.closest("th");
+    var toggle = getPanelToggle(panel);
+    if(!th && toggle) th = toggle.closest("th");
+    if(!th) return;
+
+    var thRect = th.getBoundingClientRect();
+    var toggleRect = toggle ? toggle.getBoundingClientRect() : thRect;
+    var wrapRect = tableWrap ? tableWrap.getBoundingClientRect() : null;
+
+    var panelWidth = Math.max(panel.offsetWidth || 126, 126);
+
+    /* 좌우: 클릭한 제목 셀 기준. 화면 좌측/상단 메뉴 기준 사용 금지 */
+    var left = Math.round(thRect.left);
+    if(!Number.isFinite(left)) left = Math.round(toggleRect.left || 6);
+    if(left < 4) left = 4;
+    if(left + panelWidth > window.innerWidth - 4){
+      left = Math.max(4, Math.round(window.innerWidth - panelWidth - 4));
+    }
+
+    /* 상하: 제목 셀 바로 아래. 모바일에서 headerRow 좌표가 상단 메뉴 쪽으로 잡히는 문제 방지 */
+    var top = Math.round(thRect.bottom + 2);
+    if(wrapRect){
+      var minDataTop = Math.round(wrapRect.top + Math.max(28, thRect.height || 44) + 2);
+      top = Math.max(top, minDataTop);
+    }
+    if(!Number.isFinite(top) || top < 0){
+      top = Math.round(toggleRect.bottom + 2);
+    }
+
+    var maxHeight = Math.max(60, window.innerHeight - top - 6);
+
+    panel.style.setProperty("position", "fixed", "important");
+    panel.style.setProperty("left", left + "px", "important");
+    panel.style.setProperty("top", top + "px", "important");
+    panel.style.setProperty("right", "auto", "important");
+    panel.style.setProperty("bottom", "auto", "important");
+    panel.style.setProperty("transform", "none", "important");
+    panel.style.setProperty("max-height", Math.min(280, maxHeight) + "px", "important");
+    panel.style.setProperty("height", "auto", "important");
+    panel.style.setProperty("overflow-y", "auto", "important");
+    panel.style.setProperty("z-index", "2147483647", "important");
+
+    th.classList.add("filter-header-open");
+  }
+
+  function placeOpenPanels(){
+    getOpenPanels().forEach(placeOnePanel);
+  }
+
+  function schedulePlace(){
+    placeOpenPanels();
+    requestAnimationFrame(placeOpenPanels);
+    setTimeout(placeOpenPanels, 20);
+    setTimeout(placeOpenPanels, 80);
+    setTimeout(placeOpenPanels, 180);
+    setTimeout(placeOpenPanels, 360);
+  }
+
+  document.addEventListener("click", function(e){
+    var toggle = e.target && e.target.closest ? e.target.closest(".column-filter-toggle") : null;
+    if(toggle){
+      lastFilterToggle = toggle;
+      schedulePlace();
+      return;
+    }
+    if(e.target && e.target.closest && e.target.closest(".multi-filter-panel")){
+      schedulePlace();
+    }
+  }, true);
+
+  document.addEventListener("touchend", function(e){
+    var toggle = e.target && e.target.closest ? e.target.closest(".column-filter-toggle") : null;
+    if(toggle){
+      lastFilterToggle = toggle;
+      schedulePlace();
+    }
+  }, true);
+
+  document.addEventListener("change", function(e){
+    if(e.target && e.target.closest && e.target.closest(".multi-filter-panel")){
+      schedulePlace();
+    }
+  }, true);
+
+  window.addEventListener("scroll", schedulePlace, true);
+  window.addEventListener("resize", schedulePlace);
+  window.addEventListener("orientationchange", schedulePlace);
+
+  /* 기존 필터 위치 보정 함수가 다시 좌표를 바꿔도 마지막에 이 보정이 적용되도록 공개 함수도 필터 전용으로 덮어씀 */
+  window.forceFilterPanelBelowHeader = schedulePlace;
+  window.scheduleFloatingFilterPosition = schedulePlace;
+})();
+</script>
+
 </body>
 </html>
