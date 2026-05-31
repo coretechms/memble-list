@@ -2224,7 +2224,7 @@ const firebaseConfig = {
     bind("cellStyleClearBtn","clear");
   }
 
-  /* 셀 터치: 0.3초 후 선택 / 0.5초 이상 길게 누르면 편집 가능 */
+  /* 셀 터치: 모바일은 길게 누름 편집 / PC는 더블클릭 편집 */
   let longPressTimer=null;
   let touchSelectTimer=null;
   let suppressNextTouchClickUntil=0;
@@ -2258,6 +2258,52 @@ const firebaseConfig = {
     setCaretToEnd(cell);
     isCellEditing=true;
     setStatus("길게 누름: 입력 가능");
+  }
+  /* 요청 수정: PC Enter / 모바일 키보드 이동 누르면 우측 셀로 이동하고, 숨김 셀은 건너뛰며, 편집 중이면 이동한 셀도 즉시 편집 가능 */
+  function isVisibleEditableBodyCell(cell){
+    if(!isEditableBodyCell(cell))return false;
+    const style=window.getComputedStyle(cell);
+    if(style.display==="none" || style.visibility==="hidden")return false;
+    const row=cell.parentElement;
+    if(!row)return false;
+    const rowStyle=window.getComputedStyle(row);
+    if(rowStyle.display==="none" || rowStyle.visibility==="hidden")return false;
+    const rects=cell.getClientRects();
+    if(!rects || !rects.length)return false;
+    const rect=cell.getBoundingClientRect();
+    return rect.width>0 && rect.height>0;
+  }
+  function getRightEditableBodyCell(cell){
+    if(!isEditableBodyCell(cell))return null;
+    const row=cell.parentElement;
+    if(!row)return null;
+    for(let col=cell.cellIndex+1; col<row.cells.length; col++){
+      const next=row.cells[col];
+      if(isVisibleEditableBodyCell(next))return next;
+    }
+    return null;
+  }
+  function moveRightCellByEnter(cell){
+    if(blockReadOnlyAction())return false;
+    if(!isEditableBodyCell(cell))return false;
+    const wasEditing=cell.classList.contains("cell-editing") || cell.isContentEditable;
+    const next=getRightEditableBodyCell(cell);
+    if(!next)return true;
+    if(wasEditing){
+      if(!applyingRemoteData){
+        autoSave();
+        pushRealtimeNow("cell-enter-right-move",0);
+      }
+      lockCellEditing(cell);
+      enableLongPressCellEditing(next);
+    }else{
+      lockAllCellEditing(next);
+      next.contentEditable="false";
+      setCurrentSelectedCell(next);
+      next.focus();
+    }
+    setStatus(wasEditing ? "우측 셀로 이동: 바로 편집 가능" : "우측 셀 선택");
+    return true;
   }
   function scheduleCellTouchSelection(cell,immediate=false){
     clearTimeout(touchSelectTimer);
@@ -3414,6 +3460,13 @@ const firebaseConfig = {
     lockAllCellEditing(c);
     c.contentEditable="false";
     c.classList.remove("cell-editing");
+
+    /* 요청 수정: PC에서는 길게 누름 편집 금지, 더블클릭으로만 편집 진입 */
+    if(!isTouchPointer){
+      cancelLongPressTimer();
+      return;
+    }
+
     clearTimeout(longPressTimer);
     longPressTimer=setTimeout(()=>{
       if(touchMovedAsScroll)return;
@@ -3421,6 +3474,18 @@ const firebaseConfig = {
       enableLongPressCellEditing(c);
       longPressTimer=null;
     },LONG_PRESS_EDIT_MS);
+  },true);
+
+  /* 요청 수정: PC 모드 글자 편집은 더블클릭으로 진입 */
+  table.addEventListener("dblclick",e=>{
+    const c=e.target.closest&&e.target.closest("td");
+    if(!c || !isEditableBodyCell(c))return;
+    if(e.pointerType && (e.pointerType==="touch" || e.pointerType==="pen"))return;
+    e.preventDefault();
+    e.stopPropagation();
+    cancelLongPressTimer();
+    cancelTouchSelectTimer();
+    enableLongPressCellEditing(c);
   },true);
   table.addEventListener("pointermove",e=>{
     if(!longPressTimer&&!touchSelectTimer)return;
@@ -3497,10 +3562,18 @@ const firebaseConfig = {
     setCurrentSelectedCell(c);
   });
   table.addEventListener("keydown",e=>{
+    const activeCell=e.target&&e.target.closest?e.target.closest("#memberTable td"):null;
+    if(e.key==="Enter" && activeCell){
+      e.preventDefault();
+      e.stopPropagation();
+      hideAutocomplete();
+      moveRightCellByEnter(activeCell);
+      return;
+    }
     if(autocompleteBox.style.display!=="none"&&autocompleteItems.length){
       if(e.key==="ArrowDown"){e.preventDefault();moveAutocomplete(1);return;}
       if(e.key==="ArrowUp"){e.preventDefault();moveAutocomplete(-1);return;}
-      if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();fillAutocomplete(autocompleteItems[autocompleteIndex]);return;}
+      if(e.key==="Tab"){e.preventDefault();fillAutocomplete(autocompleteItems[autocompleteIndex]);return;}
       if(e.key==="Escape"){hideAutocomplete();return;}
     }
   },true);
@@ -3644,6 +3717,7 @@ const firebaseConfig = {
         localStorage.setItem(SESSION_MODE_KEY,isReadOnly?"readonly":"edit");
       }catch(e){}
       applyModeButtons(isReadOnly?"readonly":"edit");
+      if(exitGuardReady)setTimeout(pushMemberListStayState,0);
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
     }else{
       localStorage.removeItem(SESSION_KEY);
@@ -3670,6 +3744,51 @@ const firebaseConfig = {
     }catch(e){}
     setUnlockedState(false);
     return false;
+  }
+
+  /* 요청 수정: 새로고침/모바일 뒤로가기에서 현재 회원정보 화면을 벗어나지 않도록 고정 */
+  const EXIT_GUARD_STATE_KEY = "memberListStayGuard";
+  let exitGuardReady = false;
+
+  function isSessionUnlocked(){
+    try{return localStorage.getItem(SESSION_KEY)==="1";}catch(e){return document.body.classList.contains("unlocked");}
+  }
+
+  function pushMemberListStayState(){
+    try{
+      if(!history.state || history.state[EXIT_GUARD_STATE_KEY]!==true){
+        history.replaceState(Object.assign({}, history.state||{}, {[EXIT_GUARD_STATE_KEY]:true}), document.title, location.href);
+      }
+      history.pushState({[EXIT_GUARD_STATE_KEY]:true, memberListLock:"stay"}, document.title, location.href);
+    }catch(e){}
+  }
+
+  function setupMemberListExitGuard(){
+    if(exitGuardReady)return;
+    exitGuardReady=true;
+    pushMemberListStayState();
+    window.addEventListener("popstate",function(){
+      /* 뒤로가기는 외부 회원관리/이전 페이지로 나가지 않고 현재 화면을 유지합니다. */
+      if(isSessionUnlocked()){
+        setTimeout(()=>{
+          pushMemberListStayState();
+          restoreUnlockedSession();
+          window.dispatchEvent(new Event("resize"));
+        },0);
+      }else{
+        setTimeout(()=>{
+          pushMemberListStayState();
+          setUnlockedState(false);
+          resetViewToMinimumForLogin();
+          const input=$("adminPasswordInput");
+          if(input)input.focus();
+        },0);
+      }
+    });
+    window.addEventListener("pageshow",function(){
+      pushMemberListStayState();
+      if(isSessionUnlocked())restoreUnlockedSession();
+    });
   }
   function makeRecoveryCode(){
     const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -3833,6 +3952,7 @@ const firebaseConfig = {
     }catch(e){}
   }
   function logout(){
+    /* 로그아웃 버튼을 누른 경우에만 세션을 종료하고, 외부 페이지가 아닌 이 파일의 로그인 화면으로 이동합니다. */
     setUnlockedState(false);
     resetViewToMinimumForLogin();
     const input=$("adminPasswordInput");
@@ -3960,6 +4080,7 @@ const firebaseConfig = {
     /* PC/모바일 새로고침 방지: pagehide/beforeunload/visibilitychange에서 로그인 상태를 삭제하지 않습니다.
        로그아웃 버튼을 누를 때만 저장된 화면 상태를 삭제합니다. */
 
+    setupMemberListExitGuard();
     initAdminFirebaseSync();
     restoreUnlockedSession();
   }
@@ -4286,7 +4407,24 @@ const firebaseConfig = {
     return e.touches && e.touches[0] ? e.touches[0] : e;
   }
 
+  function isMobilePhoneMenuMode(){
+    try{
+      return window.matchMedia && (
+        window.matchMedia("(max-width: 480px)").matches ||
+        window.matchMedia("(pointer: coarse)").matches
+      );
+    }catch(error){
+      return (window.innerWidth || 9999) <= 480;
+    }
+  }
+
   function startHold(e){
+    /* 요청 수정: 전화/문자 박스는 모바일에서만 표시, PC에서는 더블클릭 편집만 허용 */
+    if(!isMobilePhoneMenuMode()){
+      closePhoneDropdown();
+      cancelHold();
+      return;
+    }
     if(isMultiTouch(e)){
       cancelHold();
       return;
@@ -4342,6 +4480,9 @@ const firebaseConfig = {
   function blockPhoneDefaults(e){
     const cell = getPhoneCell(e.target);
     if(!cell) return;
+    if(!isMobilePhoneMenuMode()){
+      return; // PC에서는 전화/문자 박스 차단, 더블클릭 편집 기본 흐름 유지
+    }
     if(cell.classList.contains("phone-hold-editing") || cell.classList.contains("cell-editing") || cell.isContentEditable){
       return; // 편집 상태에서는 텍스트 선택/복사/붙여넣기 허용
     }
@@ -4392,7 +4533,10 @@ const firebaseConfig = {
     }, true);
 
     document.addEventListener("scroll", closePhoneDropdown, true);
-    window.addEventListener("resize", closePhoneDropdown, true);
+    window.addEventListener("resize", function(){
+      closePhoneDropdown();
+      cancelHold();
+    }, true);
 
     document.addEventListener("input", function(e){
       const cell = getPhoneCell(e.target);
@@ -4424,6 +4568,20 @@ const firebaseConfig = {
 })();
 </script>
 
+
+
+<style id="phoneDropdownMobileOnlyStyle">
+/* 요청 수정: 전화/문자 박스는 모바일에서만 표시, PC에서는 출력 차단 */
+@media (min-width:481px) and (pointer:fine){
+  #phoneDropdownMenu,
+  .phone-dropdown-menu,
+  .phone-action-dropdown,
+  .phone-action-dialog,
+  .phone-action-cell-menu{
+    display:none !important;
+  }
+}
+</style>
 
 
 <style id="readonlyMobileForceStyle">
@@ -5087,8 +5245,9 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
       const baseRect = firstDataCell ? firstDataCell.getBoundingClientRect() : thRect;
       const panelWidth = Math.max(panel.offsetWidth || 126, 126);
 
-      /* 좌우 위치는 회원데이터 첫 칸 기준 유지 */
-      let left = baseRect.left;
+      /* 요청 수정: 모바일에서는 전체 화면 중앙이 아니라 필터를 누른 열의 좌우 위치에서 표시 */
+      const isMobileFilterView = window.matchMedia && window.matchMedia("(max-width:480px)").matches;
+      let left = isMobileFilterView ? toggleRect.left : baseRect.left;
       if(left + panelWidth > window.innerWidth - 6){
         left = Math.max(6, window.innerWidth - panelWidth - 6);
       }
@@ -5394,3 +5553,60 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
 
 </body>
 </html>
+<style id="phoneDropdownMenu20PercentFinal">
+/* 요청 수정: 전화번호 길게누름 전화/문자 박스 20% 확대 최종 보정 */
+.phone-dropdown-menu{
+  min-width:48px !important;
+  max-width:70px !important;
+  padding:3px !important;
+  border-radius:5px !important;
+}
+.phone-dropdown-menu .phone-dropdown-name{
+  font-size:5px !important;
+  padding:2px 3px !important;
+  line-height:1.15 !important;
+  max-width:65px !important;
+}
+.phone-dropdown-menu button{
+  height:12px !important;
+  min-height:12px !important;
+  font-size:6px !important;
+  line-height:10px !important;
+  padding:0 3px !important;
+  border-radius:4px !important;
+}
+.phone-dropdown-menu button.call{
+  height:14px !important;
+  min-height:14px !important;
+  font-size:7px !important;
+  line-height:12px !important;
+}
+@media(max-width:480px){
+  .phone-dropdown-menu{
+    min-width:43px !important;
+    max-width:64px !important;
+    padding:3px !important;
+    border-radius:5px !important;
+  }
+  .phone-dropdown-menu .phone-dropdown-name{
+    font-size:5px !important;
+    padding:2px 3px !important;
+    line-height:1.15 !important;
+    max-width:60px !important;
+  }
+  .phone-dropdown-menu button{
+    height:12px !important;
+    min-height:12px !important;
+    font-size:6px !important;
+    line-height:10px !important;
+    padding:0 3px !important;
+    border-radius:4px !important;
+  }
+  .phone-dropdown-menu button.call{
+    height:14px !important;
+    min-height:14px !important;
+    font-size:7px !important;
+    line-height:12px !important;
+  }
+}
+</style>
