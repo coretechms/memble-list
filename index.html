@@ -2286,15 +2286,25 @@ const firebaseConfig = {
   }
   function busSeatJoinResultLabel(member){
     const direct=String(member?.approvalResult || member?.joinStatus || "").trim();
-    if(direct) return direct;
-    const status=String(member?.status||"");
-    if(status==="active") return member?.adminAccess ? "관리자" : "승인";
+    const status=String(member?.status||"").trim();
+
+    /* 재가입 승인 보정:
+       과거에 삭제된 회원이라도 bus-seat에서 새로 승인되면
+       예전 approvalResult/joinStatus 값인 "삭제"가 남아 있어도
+       최종 멤버리스트에는 반드시 "승인"으로 복구한다. */
+    const approvedNow = member?.approved === true || status === "active" || status === "approved";
+    if(approvedNow){
+      return member?.adminAccess ? "관리자" : "승인";
+    }
+
+    if(direct && direct !== "삭제") return direct;
     if(status==="blocked") return "차단";
     if(status==="withdrawn") return "탈퇴";
     if(status==="deleted") return "삭제";
     if(status==="rejected") return "거절";
     if(status==="pending") return "가입대기";
-    return member?.approved ? "승인" : "가입대기";
+    if(direct === "삭제") return "삭제";
+    return "가입대기";
   }
   function getHeaderIndex(label,fallback=-1){
     const row=rowsArray()[0];
