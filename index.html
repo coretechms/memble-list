@@ -5197,10 +5197,8 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
       const baseRect = firstDataCell ? firstDataCell.getBoundingClientRect() : thRect;
       const panelWidth = Math.max(panel.offsetWidth || 126, 126);
 
-      /* 요청 수정: 모바일에서는 필터박스 좌우 위치만 필터를 누른 열 기준으로 표시
-         상하 위치(fixedTop)는 기존 로직을 그대로 유지한다. */
-      const isMobileFilterView = window.matchMedia && window.matchMedia("(max-width:480px)").matches;
-      let left = isMobileFilterView ? thRect.left : baseRect.left;
+      /* 좌우 위치는 회원데이터 첫 칸 기준 유지 */
+      let left = baseRect.left;
       if(left + panelWidth > window.innerWidth - 6){
         left = Math.max(6, window.innerWidth - panelWidth - 6);
       }
