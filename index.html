@@ -1847,7 +1847,6 @@ html.member-refresh-readonly body:not(.readonly-mode){ }
       <button type="button" id="resetBtn">초기화</button>
       <button type="button" id="dataBackupBtn">자료백업</button>
       <button type="button" id="dataRestoreBtn">자료복구</button>
-      <button type="button" id="resetFirebaseJoinCodesBtn" title="현재 화면의 멤버리스트를 기준으로 Firebase와 joinCodes를 재설정">현재데이터기준저장</button>
       <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
     </span>
 
@@ -2176,12 +2175,9 @@ const firebaseConfig = {
       try{
         firebaseDb.ref(MEMBER_LIST_DELETED_JOIN_PATH).on("value",(snap)=>{
           deletedJoinCodeMap = snap.exists() && snap.val() && typeof snap.val()==="object" ? snap.val() : {};
-          deletedJoinMarkerReady = true;
-          flushPendingBusSeatApprovedMemberSync();
         });
       }catch(e){
         console.warn("Deleted join marker watch failed", e);
-        deletedJoinMarkerReady = true;
       }
       firebaseReady = true;
       setRealtimeStatus("Firebase 초기화 완료",true);
@@ -2206,7 +2202,7 @@ const firebaseConfig = {
           const payload=buildFirebasePayload("initial-create");
           firebaseRef.set(payload).then(()=>{
             firebaseInitialLoaded = true;
-            ensureCurrentMasterBaseline();
+            flushPendingBusSeatApprovedMemberSync();
             setRealtimeStatus("초기 데이터 생성 완료",true);
           }).catch((error)=>{
             console.error("Firebase initial create failed",error);
@@ -2229,7 +2225,7 @@ const firebaseConfig = {
         if(remoteClientId && remoteClientId===CLIENT_ID){
           saveToAllKeys(data);
           firebaseInitialLoaded = true;
-          ensureCurrentMasterBaseline();
+          flushPendingBusSeatApprovedMemberSync();
           setRealtimeStatus("저장 완료",true);
           return;
         }
@@ -2240,7 +2236,7 @@ const firebaseConfig = {
         applyingRemoteData=false;
         pendingRemoteData=null;
         firebaseInitialLoaded = true;
-        ensureCurrentMasterBaseline();
+        flushPendingBusSeatApprovedMemberSync();
         setRealtimeStatus("실시간반영",true);
       },(error)=>{
         console.error("Firebase realtime read failed",error);
@@ -2304,67 +2300,9 @@ const firebaseConfig = {
   };
   const BUS_SEAT_APPROVED_JOIN_PATH = "memberList/joinCodes";
   const MEMBER_LIST_DELETED_JOIN_PATH = "memberList/deletedJoinCodes";
-  /* 현재 멤버리스트 데이터 통일 기준
-     - 과거 joinCodes 승인자료가 새로고침 때 삭제 회원을 되살리는 것을 막기 위해
-       이 파일을 적용한 시점의 멤버리스트를 기준 원본으로 고정한다.
-     - 기준시각 이후의 새 가입 승인만 멤버리스트에 병합한다. */
-  const MEMBER_LIST_CURRENT_MASTER_PATH = "memberList/currentDataMaster/v20260601";
-  let currentMasterCutoffAt = 0;
-  let currentMasterReady = false;
   let deletedJoinCodeMap = {};
-  let deletedJoinMarkerReady = false;
   let busSeatMemberSourceReady = false;
   let busSeatMemberSourceRef = null;
-
-  function getApprovedJoinTime(member){
-    return Number(member?.approvedAt || member?.updatedAt || member?.createdAt || member?.joinApprovedAt || 0);
-  }
-
-  function isOldJoinCodeBeforeCurrentMaster(member){
-    if(!currentMasterReady || !currentMasterCutoffAt) return false;
-    const t = getApprovedJoinTime(member);
-    // 승인시간이 없거나 기준시각 이전이면 과거 승인자료로 보고 자동 병합하지 않는다.
-    return !t || t <= currentMasterCutoffAt;
-  }
-
-  function ensureCurrentMasterBaseline(){
-    if(!firebaseDb || currentMasterReady) return Promise.resolve();
-    const ref = firebaseDb.ref(MEMBER_LIST_CURRENT_MASTER_PATH);
-    return ref.once("value").then(snap=>{
-      const val = snap.exists() ? snap.val() : null;
-      const cutoff = Number(val && val.cutoffAt || 0);
-      if(cutoff){
-        currentMasterCutoffAt = cutoff;
-        currentMasterReady = true;
-        syncDeletedStatusRowsToTombstone("current-master-existing-deleted");
-        setStatus("현재 멤버리스트 기준 데이터 사용중");
-        flushPendingBusSeatApprovedMemberSync();
-        return;
-      }
-      currentMasterCutoffAt = Date.now();
-      currentMasterReady = true;
-      const payload = {
-        mode:"current-member-list-is-master",
-        cutoffAt:currentMasterCutoffAt,
-        cutoffAtISO:new Date(currentMasterCutoffAt).toISOString(),
-        note:"이 시각 이전 joinCodes 승인자료는 과거자료로 보고 자동 재등록하지 않음",
-        clientId:CLIENT_ID
-      };
-      return ref.set(payload).then(()=>{
-        syncDeletedStatusRowsToTombstone("current-master-created-deleted");
-        setStatus("현재 멤버리스트를 기준 데이터로 통일했습니다");
-        flushPendingBusSeatApprovedMemberSync();
-      });
-    }).catch(err=>{
-      console.warn("Current master baseline init failed", err);
-      // 기준값 저장 실패 시 안전상 과거 joinCodes 병합을 막는다.
-      currentMasterCutoffAt = Date.now();
-      currentMasterReady = true;
-      syncDeletedStatusRowsToTombstone("current-master-fallback-deleted");
-      setStatus("현재 기준 설정 실패: 과거 승인자료 자동병합 차단");
-      flushPendingBusSeatApprovedMemberSync();
-    });
-  }
 
   function normalizeIncomingPhone344(value){
     const digits=String(value||"").replace(/\D/g,"").slice(0,11);
@@ -2503,50 +2441,6 @@ const firebaseConfig = {
       console.warn("Deleted member marker save failed", e);
     }
   }
-
-  /* 영구 삭제 방지 기준
-     - 현재 멤버리스트에서 승인결과가 "삭제"인 행도 tombstone으로 저장한다.
-     - 행삭제 버튼으로 제거한 경우뿐 아니라, 삭제 상태가 저장된 기존 자료도 새로고침 때 되살아나지 않는다.
-     - 단, 삭제시각 이후 새 가입승인(approvedAt/updatedAt/createdAt)이 들어오면 정상 재가입으로 복구한다. */
-  function buildDeletedMarkerFromRow(row, reason){
-    if(!row) return null;
-    const nameIdx=getHeaderIndex("이 름",1);
-    const phoneIdx=getHeaderIndex("연락처",5);
-    const uidIdx=getHeaderIndex("회원UID",20);
-    const resultIdx=getHeaderIndex("승인결과",22);
-    const result=normalizeCompareText(getCellPlain(row,resultIdx));
-    if(result!=="삭제") return null;
-    const name=getCellPlain(row,nameIdx);
-    const phone=getCellPlain(row,phoneIdx);
-    const code=getCellPlain(row,uidIdx);
-    if(!name && !phone && !code) return null;
-    const codeKey=code ? makeDeletedJoinKey("code:"+code) : "";
-    const identityKey=makeDeletedJoinKey(makeDeletedIdentityKey(name,phone));
-    const old=(codeKey && deletedJoinCodeMap && deletedJoinCodeMap[codeKey]) ||
-              (identityKey && deletedJoinCodeMap && deletedJoinCodeMap[identityKey]) || null;
-    const deletedAt=Number(old && old.deletedAt || 0) || Date.now();
-    return {deletedAt, deletedAtISO:new Date(deletedAt).toISOString(), name, phone, code, reason:reason||"deleted-status-row"};
-  }
-  function syncDeletedStatusRowsToTombstone(reason="scan-deleted-status"){
-    try{
-      if(!firebaseDb) return;
-      const updates={};
-      rowsArray().slice(1).forEach(row=>{
-        const marker=buildDeletedMarkerFromRow(row, reason);
-        if(!marker) return;
-        if(marker.code) updates[makeDeletedJoinKey("code:"+marker.code)] = marker;
-        if(marker.name || marker.phone) updates[makeDeletedJoinKey(makeDeletedIdentityKey(marker.name,marker.phone))] = marker;
-      });
-      const keys=Object.keys(updates);
-      if(!keys.length) return;
-      keys.forEach(k=>{ deletedJoinCodeMap[k]=updates[k]; });
-      firebaseDb.ref(MEMBER_LIST_DELETED_JOIN_PATH).update(updates).catch(e=>{
-        console.warn("Deleted status tombstone sync failed", e);
-      });
-    }catch(e){
-      console.warn("Deleted status tombstone scan failed", e);
-    }
-  }
   function findRowByMemberCode(memberCode){
     const code=String(memberCode||"").trim();
     if(!code) return null;
@@ -2638,12 +2532,6 @@ const firebaseConfig = {
     const code=String(member.code||"").trim();
     if(!code) return false;
 
-    // 현재 멤버리스트를 기준 원본으로 통일한 뒤에는
-    // 기준시각 이전의 과거 joinCodes 승인자료가 삭제 회원을 다시 만들지 못하게 차단한다.
-    if(member?.__fromApprovedJoinCodes && isOldJoinCodeBeforeCurrentMaster(member)){
-      return false;
-    }
-
     const idx={
       name:getHeaderIndex("이 름",1),
       gender:getHeaderIndex("성별",2),
@@ -2667,7 +2555,6 @@ const firebaseConfig = {
     if(deletedMarker && !isApprovalNewerThanDeleted(member,deletedMarker)){
       return false;
     }
-    // 새 승인일이 삭제일보다 최신이면 정상 재가입으로 보고 tombstone 차단을 통과시킨다.
 
     const joinDate=formatMemberJoinDate(member.approvedAt||member.createdAt||member.updatedAt);
     const resultLabel=busSeatJoinResultLabel(member);
@@ -2737,160 +2624,9 @@ const firebaseConfig = {
       setStatus("bus-seat 가입/승인 결과를 멤버리스트에 반영했습니다");
     }
   }
-  function buildCurrentJoinCodesFromTable(masterAt){
-    const idx={
-      name:getHeaderIndex("이 름",1),
-      gender:getHeaderIndex("성별",2),
-      birth:getHeaderIndex("출생년도",3),
-      phone:getHeaderIndex("연락처",5),
-      dong:getHeaderIndex("거주지",8),
-      approval:getHeaderIndex("가입:승인",19),
-      uid:getHeaderIndex("회원UID",20),
-      joinDate:getHeaderIndex("가입일",21),
-      result:getHeaderIndex("승인결과",22)
-    };
-    const map={};
-    rowsArray().slice(1).forEach(row=>{
-      const code=String(getCellPlain(row,idx.uid)||"").trim();
-      const name=String(getCellPlain(row,idx.name)||"").trim();
-      const phone=String(getCellPlain(row,idx.phone)||"").trim();
-      const result=String(getCellPlain(row,idx.result)||"").trim();
-      const approval=String(getCellPlain(row,idx.approval)||"").trim();
-      if(!code || (!name && !phone)) return;
-      if(result==="삭제" || result==="탈퇴" || result==="차단") return;
-      if(result && result!=="승인" && result!=="관리자" && approval!=="승인") return;
-      const approvedAt = masterAt || Date.now();
-      map[code]={
-        code,
-        name,
-        gender:getCellPlain(row,idx.gender),
-        birthYear:getCellPlain(row,idx.birth),
-        phone,
-        phoneDigits:String(phone||"").replace(/\D/g,""),
-        dong:getCellPlain(row,idx.dong),
-        status:"approved",
-        joinStatus:"승인",
-        approvalResult: result==="관리자" ? "관리자" : "승인",
-        approved:true,
-        approvedAt,
-        updatedAt:approvedAt,
-        joinedAtText:getCellPlain(row,idx.joinDate),
-        source:"member-list-current-master-reset"
-      };
-    });
-    return map;
-  }
-
-  function buildDeletedMarkersFromCurrentTable(masterAt){
-    const updates={};
-    rowsArray().slice(1).forEach(row=>{
-      const marker=buildDeletedMarkerFromRow(row,"current-master-reset");
-      if(!marker) return;
-      marker.deletedAt = Number(marker.deletedAt || masterAt || Date.now());
-      marker.deletedAtISO = new Date(marker.deletedAt).toISOString();
-      if(marker.code) updates[makeDeletedJoinKey("code:"+marker.code)] = marker;
-      if(marker.name || marker.phone) updates[makeDeletedJoinKey(makeDeletedIdentityKey(marker.name,marker.phone))] = marker;
-    });
-    return updates;
-  }
-
-  function getBusSeatSourceDbForReset(){
-    try{
-      const appName="busSeatApprovedMemberSource";
-      const sourceApp=(firebase.apps||[]).find(app=>app.name===appName) || firebase.initializeApp(BUS_SEAT_MEMBER_SOURCE_CONFIG,appName);
-      return firebase.database(sourceApp);
-    }catch(e){
-      console.warn("bus-seat joinCodes reset DB init failed", e);
-      return null;
-    }
-  }
-
-  async function backupJoinCodesBeforeReset(masterAt, currentJoinCodes, deletedMarkers){
-    const backupPayload={
-      backedUpAt:masterAt,
-      backedUpAtISO:new Date(masterAt).toISOString(),
-      reason:"before-current-master-reset",
-      clientId:CLIENT_ID,
-      newJoinCodesCount:Object.keys(currentJoinCodes||{}).length,
-      newDeletedMarkersCount:Object.keys(deletedMarkers||{}).length
-    };
-    const jobs=[];
-    try{
-      jobs.push(firebaseDb.ref("memberList/resetBackup/"+masterAt+"/member-b458f/meta").set(backupPayload));
-      jobs.push(firebaseDb.ref(BUS_SEAT_APPROVED_JOIN_PATH).once("value").then(snap=>firebaseDb.ref("memberList/resetBackup/"+masterAt+"/member-b458f/joinCodes").set(snap.val()||{})));
-      jobs.push(firebaseDb.ref(MEMBER_LIST_DELETED_JOIN_PATH).once("value").then(snap=>firebaseDb.ref("memberList/resetBackup/"+masterAt+"/member-b458f/deletedJoinCodes").set(snap.val()||{})));
-    }catch(e){ console.warn("member-b458f backup prepare failed", e); }
-    const sourceDb=getBusSeatSourceDbForReset();
-    if(sourceDb){
-      try{
-        jobs.push(sourceDb.ref("memberList/resetBackup/"+masterAt+"/bus-seat-eb86c/meta").set(backupPayload));
-        jobs.push(sourceDb.ref(BUS_SEAT_APPROVED_JOIN_PATH).once("value").then(snap=>sourceDb.ref("memberList/resetBackup/"+masterAt+"/bus-seat-eb86c/joinCodes").set(snap.val()||{})));
-        jobs.push(sourceDb.ref(MEMBER_LIST_DELETED_JOIN_PATH).once("value").then(snap=>sourceDb.ref("memberList/resetBackup/"+masterAt+"/bus-seat-eb86c/deletedJoinCodes").set(snap.val()||{})));
-      }catch(e){ console.warn("bus-seat backup prepare failed", e); }
-    }
-    await Promise.allSettled(jobs);
-    return sourceDb;
-  }
-
-  async function resetFirebaseAndJoinCodesToCurrentTable(){
-    if(blockReadOnlyAction()) return;
-    if(!firebaseDb || !firebaseRef){
-      alert("Firebase 연결이 준비되지 않았습니다. 실시간 연결 후 다시 실행하세요.");
-      return;
-    }
-    const ok1=confirm("현재 화면의 멤버리스트를 최종 기준 데이터로 저장하고, 기존 joinCodes 승인자료를 현재 회원 기준으로 초기화합니다. 실행 전 자동 백업을 남깁니다. 계속할까요?");
-    if(!ok1) return;
-    const ok2=confirm("주의: 과거 joinCodes 자료는 현재 화면 기준으로 교체됩니다. 삭제했던 예전 회원이 다시 살아나는 것을 막기 위한 작업입니다. 정말 실행할까요?");
-    if(!ok2) return;
-
-    const masterAt=Date.now();
-    const currentData=collectData();
-    const currentJoinCodes=buildCurrentJoinCodesFromTable(masterAt);
-    const deletedMarkers=buildDeletedMarkersFromCurrentTable(masterAt);
-    const masterPayload={
-      mode:"current-member-list-is-master-reset",
-      cutoffAt:masterAt,
-      cutoffAtISO:new Date(masterAt).toISOString(),
-      joinCodesCount:Object.keys(currentJoinCodes).length,
-      deletedMarkersCount:Object.keys(deletedMarkers).length,
-      note:"현재 화면의 멤버리스트를 기준으로 memberList/main 및 joinCodes를 재설정함",
-      clientId:CLIENT_ID
-    };
-
-    setRealtimeStatus("현재 데이터 기준 초기화 준비중",false);
-    try{
-      const sourceDb=await backupJoinCodesBeforeReset(masterAt,currentJoinCodes,deletedMarkers);
-      const jobs=[];
-      jobs.push(firebaseRef.set(buildFirebasePayload("current-master-reset-main")));
-      jobs.push(firebaseDb.ref(BUS_SEAT_APPROVED_JOIN_PATH).set(currentJoinCodes));
-      jobs.push(firebaseDb.ref(MEMBER_LIST_DELETED_JOIN_PATH).set(deletedMarkers));
-      jobs.push(firebaseDb.ref(MEMBER_LIST_CURRENT_MASTER_PATH).set(masterPayload));
-      if(sourceDb){
-        jobs.push(sourceDb.ref(BUS_SEAT_APPROVED_JOIN_PATH).set(currentJoinCodes));
-        jobs.push(sourceDb.ref(MEMBER_LIST_DELETED_JOIN_PATH).set(deletedMarkers));
-        jobs.push(sourceDb.ref(MEMBER_LIST_CURRENT_MASTER_PATH).set(masterPayload));
-      }
-      await Promise.all(jobs);
-      latestApprovedJoinMaps={"member-b458f":currentJoinCodes,"bus-seat-eb86c":currentJoinCodes};
-      pendingBusSeatJoinCodeMap=null;
-      deletedJoinCodeMap=deletedMarkers;
-      currentMasterCutoffAt=masterAt;
-      currentMasterReady=true;
-      firebaseLastSaveAt=Date.now();
-      saveToAllKeys(currentData);
-      setRealtimeStatus("현재 데이터 기준 Firebase/joinCodes 초기화 완료",true);
-      setStatus("현재 멤버리스트 기준으로 Firebase와 joinCodes를 통일했습니다");
-      alert("완료: 현재 화면 데이터가 기준 원본으로 저장되었고 joinCodes가 현재 회원 기준으로 초기화되었습니다.");
-    }catch(error){
-      console.error("Current data master reset failed", error);
-      setRealtimeStatus("현재 데이터 기준 초기화 실패: "+(error&&error.code?error.code:"오류"),false);
-      alert("초기화 실패: "+(error&&error.message?error.message:"Firebase 저장 오류"));
-    }
-  }
-
 
   function flushPendingBusSeatApprovedMemberSync(){
-    if(!firebaseInitialLoaded || !currentMasterReady || !deletedJoinMarkerReady || !pendingBusSeatJoinCodeMap) return;
+    if(!firebaseInitialLoaded || !pendingBusSeatJoinCodeMap) return;
     const pending = pendingBusSeatJoinCodeMap;
     pendingBusSeatJoinCodeMap = null;
     syncApprovedMembersFromBusSeat(pending);
@@ -2930,9 +2666,9 @@ const firebaseConfig = {
       setStatus(sourceKey + " 승인정보 없음");
       return;
     }
-    if(!firebaseInitialLoaded || !currentMasterReady || !deletedJoinMarkerReady){
+    if(!firebaseInitialLoaded){
       pendingBusSeatJoinCodeMap = merged;
-      setStatus("현재 기준/삭제기록 확정 후 새 가입정보만 병합 대기");
+      setStatus("기존 멤버리스트 데이터 로딩 후 가입정보 병합 대기");
       return;
     }
     syncApprovedMembersFromBusSeat(merged);
@@ -3112,7 +2848,6 @@ const firebaseConfig = {
   function autoSave(){
     clearTimeout(window.__autoSaveTimer);
     window.__autoSaveTimer=setTimeout(()=>{
-      syncDeletedStatusRowsToTombstone("autosave-deleted-status");
       const latestData = collectData();
       saveToAllKeys(latestData);
       /* 수정 즉시 Firebase에도 저장한다. 기존 3초 지연 저장은 F5 새로고침 시 원복 원인이었다. */
@@ -3123,7 +2858,6 @@ const firebaseConfig = {
     clearTimeout(window.__realtimeInputSaveTimer);
     window.__realtimeInputSaveTimer=setTimeout(()=>{
       if(applyingRemoteData)return;
-      syncDeletedStatusRowsToTombstone("autosave-final-deleted-status");
       const latestData = collectData();
       saveToAllKeys(latestData);
       pushRealtimeNow("autosave-input-final",0);
@@ -3816,7 +3550,7 @@ const firebaseConfig = {
     if(c)showAutocomplete(c);
   },true);
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(!isReadOnlyMode() && getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}} if(!isReadOnlyMode() && c.tagName && c.tagName.toLowerCase()==="td"){ autoSave(); pushRealtimeNow("cell-blur-save",0); }},true);
-  document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]); const resetFirebaseJoinCodesBtn=document.getElementById("resetFirebaseJoinCodesBtn"); if(resetFirebaseJoinCodesBtn) resetFirebaseJoinCodesBtn.onclick=resetFirebaseAndJoinCodesToCurrentTable;  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol; document.getElementById("selectRowBtn").onclick=selectCurrentRow;
+  document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol; document.getElementById("selectRowBtn").onclick=selectCurrentRow;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value=""; search()};
   bindCellContentButtons();
   bindCellStyleButtons();
