@@ -3717,6 +3717,7 @@ const firebaseConfig = {
         localStorage.setItem(SESSION_MODE_KEY,isReadOnly?"readonly":"edit");
       }catch(e){}
       applyModeButtons(isReadOnly?"readonly":"edit");
+      if(exitGuardReady)setTimeout(pushMemberListStayState,0);
       setTimeout(()=>window.dispatchEvent(new Event("resize")),80);
     }else{
       localStorage.removeItem(SESSION_KEY);
@@ -3743,6 +3744,51 @@ const firebaseConfig = {
     }catch(e){}
     setUnlockedState(false);
     return false;
+  }
+
+  /* 요청 수정: 새로고침/모바일 뒤로가기에서 현재 회원정보 화면을 벗어나지 않도록 고정 */
+  const EXIT_GUARD_STATE_KEY = "memberListStayGuard";
+  let exitGuardReady = false;
+
+  function isSessionUnlocked(){
+    try{return localStorage.getItem(SESSION_KEY)==="1";}catch(e){return document.body.classList.contains("unlocked");}
+  }
+
+  function pushMemberListStayState(){
+    try{
+      if(!history.state || history.state[EXIT_GUARD_STATE_KEY]!==true){
+        history.replaceState(Object.assign({}, history.state||{}, {[EXIT_GUARD_STATE_KEY]:true}), document.title, location.href);
+      }
+      history.pushState({[EXIT_GUARD_STATE_KEY]:true, memberListLock:"stay"}, document.title, location.href);
+    }catch(e){}
+  }
+
+  function setupMemberListExitGuard(){
+    if(exitGuardReady)return;
+    exitGuardReady=true;
+    pushMemberListStayState();
+    window.addEventListener("popstate",function(){
+      /* 뒤로가기는 외부 회원관리/이전 페이지로 나가지 않고 현재 화면을 유지합니다. */
+      if(isSessionUnlocked()){
+        setTimeout(()=>{
+          pushMemberListStayState();
+          restoreUnlockedSession();
+          window.dispatchEvent(new Event("resize"));
+        },0);
+      }else{
+        setTimeout(()=>{
+          pushMemberListStayState();
+          setUnlockedState(false);
+          resetViewToMinimumForLogin();
+          const input=$("adminPasswordInput");
+          if(input)input.focus();
+        },0);
+      }
+    });
+    window.addEventListener("pageshow",function(){
+      pushMemberListStayState();
+      if(isSessionUnlocked())restoreUnlockedSession();
+    });
   }
   function makeRecoveryCode(){
     const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -3906,6 +3952,7 @@ const firebaseConfig = {
     }catch(e){}
   }
   function logout(){
+    /* 로그아웃 버튼을 누른 경우에만 세션을 종료하고, 외부 페이지가 아닌 이 파일의 로그인 화면으로 이동합니다. */
     setUnlockedState(false);
     resetViewToMinimumForLogin();
     const input=$("adminPasswordInput");
@@ -4033,6 +4080,7 @@ const firebaseConfig = {
     /* PC/모바일 새로고침 방지: pagehide/beforeunload/visibilitychange에서 로그인 상태를 삭제하지 않습니다.
        로그아웃 버튼을 누를 때만 저장된 화면 상태를 삭제합니다. */
 
+    setupMemberListExitGuard();
     initAdminFirebaseSync();
     restoreUnlockedSession();
   }
@@ -5197,8 +5245,9 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
       const baseRect = firstDataCell ? firstDataCell.getBoundingClientRect() : thRect;
       const panelWidth = Math.max(panel.offsetWidth || 126, 126);
 
-      /* 좌우 위치는 회원데이터 첫 칸 기준 유지 */
-      let left = baseRect.left;
+      /* 요청 수정: 모바일에서는 전체 화면 중앙이 아니라 필터를 누른 열의 좌우 위치에서 표시 */
+      const isMobileFilterView = window.matchMedia && window.matchMedia("(max-width:480px)").matches;
+      let left = isMobileFilterView ? toggleRect.left : baseRect.left;
       if(left + panelWidth > window.innerWidth - 6){
         left = Math.max(6, window.innerWidth - panelWidth - 6);
       }
