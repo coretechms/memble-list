@@ -2285,26 +2285,35 @@ const firebaseConfig = {
     }catch(e){ return ""; }
   }
   function busSeatJoinResultLabel(member){
-    const direct=String(member?.approvalResult || member?.joinStatus || "").trim();
     const status=String(member?.status||"").trim();
+    const approvalResult=String(member?.approvalResult||"").trim();
+    const joinStatus=String(member?.joinStatus||"").trim();
+    const approvalText=String(member?.approval||member?.result||member?.statusText||"").trim();
+    const approvedAt=Number(member?.approvedAt||0);
 
-    /* 재가입 승인 보정:
-       과거에 삭제된 회원이라도 bus-seat에서 새로 승인되면
-       예전 approvalResult/joinStatus 값인 "삭제"가 남아 있어도
-       최종 멤버리스트에는 반드시 "승인"으로 복구한다. */
-    const approvedNow = member?.approved === true || status === "active" || status === "approved";
-    if(approvedNow){
-      return member?.adminAccess ? "관리자" : "승인";
+    /* 재가입 승인 최종 보정
+       과거 삭제 이력이 남아 있어도 bus-seat에서 새 승인 신호가 들어오면
+       승인결과는 반드시 "승인"으로 덮어쓴다.
+       특히 approvalResult="삭제"가 과거값으로 남고 joinStatus="승인"만 새로 들어오는 경우를 처리한다. */
+    const approvalSignals=[status, approvalResult, joinStatus, approvalText].map(v=>String(v||"").trim());
+    const hasApprovedSignal =
+      member?.approved === true ||
+      approvedAt > 0 ||
+      approvalSignals.some(v=>["승인","관리자","active","approved","approve","approval","완료","승인완료"].includes(v));
+
+    if(hasApprovedSignal){
+      return member?.adminAccess || approvalSignals.includes("관리자") ? "관리자" : "승인";
     }
 
-    if(direct && direct !== "삭제") return direct;
-    if(status==="blocked") return "차단";
-    if(status==="withdrawn") return "탈퇴";
-    if(status==="deleted") return "삭제";
-    if(status==="rejected") return "거절";
-    if(status==="pending") return "가입대기";
-    if(direct === "삭제") return "삭제";
-    return "가입대기";
+    const deleteSignals=[status, approvalResult, joinStatus, approvalText];
+    if(deleteSignals.includes("blocked") || deleteSignals.includes("차단")) return "차단";
+    if(deleteSignals.includes("withdrawn") || deleteSignals.includes("탈퇴")) return "탈퇴";
+    if(deleteSignals.includes("deleted") || deleteSignals.includes("삭제")) return "삭제";
+    if(deleteSignals.includes("rejected") || deleteSignals.includes("거절")) return "거절";
+    if(deleteSignals.includes("pending") || deleteSignals.includes("가입대기")) return "가입대기";
+
+    const direct=approvalResult || joinStatus || approvalText;
+    return direct || "가입대기";
   }
   function getHeaderIndex(label,fallback=-1){
     const row=rowsArray()[0];
@@ -2392,7 +2401,7 @@ const firebaseConfig = {
     const incomingPhone=normalizeIncomingPhone344(member.phone||member.phoneDigits||"");
     const joinDate=formatMemberJoinDate(member.approvedAt||member.createdAt||member.updatedAt);
     const resultLabel=busSeatJoinResultLabel(member);
-    const isDeletedRecord = String(member.status || "") === "deleted" || resultLabel === "삭제";
+    const isDeletedRecord = resultLabel === "삭제";
 
     /* 등록 기준
        1) 이름+전화번호가 모두 기존 자료와 같으면 동일인으로 판단한다.
