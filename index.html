@@ -5772,6 +5772,129 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
   window.addEventListener("scroll", scheduleMobilePanels, true);
 })();
 </script>
+
+
+<style id="mobileFilterExactClickedColumnFinalStyle">
+/* 최종 보정: 모바일 필터박스는 누른 제목 셀 바로 아래 좌표에 고정 출력 */
+@media(max-width:480px){
+  #memberTable .multi-filter-panel:not([hidden]){
+    position:fixed !important;
+    right:auto !important;
+    bottom:auto !important;
+    transform:none !important;
+    z-index:2147483647 !important;
+    overflow-y:auto !important;
+  }
+}
+</style>
+<script id="mobileFilterExactClickedColumnFinalPatch">
+/*
+  모바일 필터 위치 최종 보정
+  - 화면 전체 좌측/상단 메뉴 기준 금지
+  - 필터를 누른 th.header-cell의 실제 화면 좌표 기준
+  - top = 누른 제목 셀 하단
+  - left = 누른 제목 셀 왼쪽
+  - PC는 기존 로직 유지
+*/
+(function(){
+  "use strict";
+
+  var prevSchedule = window.scheduleFloatingFilterPosition;
+  var prevForce = window.forceFilterPanelBelowHeader;
+
+  function isMobile(){
+    return !!(window.matchMedia && window.matchMedia("(max-width:480px)").matches);
+  }
+
+  function getOpenPanels(){
+    return Array.prototype.slice.call(document.querySelectorAll(".multi-filter-panel:not([hidden])"));
+  }
+
+  function findAnchorCell(panel){
+    if(!panel || !panel.closest) return null;
+    return panel.closest("th.header-cell") || panel.closest("th");
+  }
+
+  function placeOneMobilePanel(panel){
+    var th = findAnchorCell(panel);
+    if(!th || !th.getBoundingClientRect) return;
+
+    var rect = th.getBoundingClientRect();
+    var tableWrap = document.getElementById("tableWrap") || document.querySelector(".table-wrap");
+    var wrapRect = tableWrap && tableWrap.getBoundingClientRect ? tableWrap.getBoundingClientRect() : null;
+
+    /* 핵심: 누른 제목셀 자체 좌표 사용. 화면 폭 기준 중앙/좌측 보정 금지 */
+    var left = Math.round(rect.left);
+    var top = Math.round(rect.bottom + 2);
+
+    /* 왼쪽으로 완전히 밀린 경우만 최소 보정. 오른쪽은 보정하지 않음: 누른 열 기준 유지 */
+    if(left < 0) left = 0;
+
+    /* 데이터박스보다 위로 올라가는 경우만 제목행 아래로 보정 */
+    if(wrapRect && top < wrapRect.top){
+      top = Math.round(wrapRect.top + 2);
+    }
+
+    var bottomLimit = wrapRect ? wrapRect.bottom : window.innerHeight;
+    var maxHeight = Math.max(60, Math.round(bottomLimit - top - 6));
+
+    th.classList.add("filter-header-open");
+    panel.style.setProperty("position", "fixed", "important");
+    panel.style.setProperty("left", left + "px", "important");
+    panel.style.setProperty("top", top + "px", "important");
+    panel.style.setProperty("right", "auto", "important");
+    panel.style.setProperty("bottom", "auto", "important");
+    panel.style.setProperty("transform", "none", "important");
+    panel.style.setProperty("height", "auto", "important");
+    panel.style.setProperty("max-height", Math.min(280, maxHeight) + "px", "important");
+    panel.style.setProperty("overflow-y", "auto", "important");
+    panel.style.setProperty("z-index", "2147483647", "important");
+  }
+
+  function placeMobilePanels(){
+    getOpenPanels().forEach(placeOneMobilePanel);
+  }
+
+  function runPreviousForPc(){
+    if(typeof prevSchedule === "function") return prevSchedule();
+    if(typeof prevForce === "function") return prevForce();
+  }
+
+  function scheduleFinalFilterPosition(){
+    if(!isMobile()){
+      runPreviousForPc();
+      return;
+    }
+    placeMobilePanels();
+    requestAnimationFrame(placeMobilePanels);
+    setTimeout(placeMobilePanels, 10);
+    setTimeout(placeMobilePanels, 40);
+    setTimeout(placeMobilePanels, 120);
+    setTimeout(placeMobilePanels, 260);
+  }
+
+  window.scheduleFloatingFilterPosition = scheduleFinalFilterPosition;
+  window.forceFilterPanelBelowHeader = scheduleFinalFilterPosition;
+
+  function shouldReposition(e){
+    return e && e.target && e.target.closest &&
+      (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"));
+  }
+
+  ["click","touchstart","touchend","pointerdown","pointerup","change"].forEach(function(type){
+    document.addEventListener(type, function(e){
+      if(shouldReposition(e)) scheduleFinalFilterPosition();
+    }, true);
+    document.addEventListener(type, function(e){
+      if(shouldReposition(e)) scheduleFinalFilterPosition();
+    }, false);
+  });
+
+  window.addEventListener("resize", scheduleFinalFilterPosition);
+  window.addEventListener("orientationchange", scheduleFinalFilterPosition);
+  window.addEventListener("scroll", scheduleFinalFilterPosition, true);
+})();
+</script>
 </body>
 </html>
 <style id="phoneDropdownMenu20PercentFinal">
