@@ -2543,30 +2543,84 @@ const firebaseConfig = {
     syncApprovedMembersFromBusSeat(pending);
   }
 
+  /* 회원관리(bus-seat) ↔ 멤버리스트 승인정보 동기화
+     - 현재 회원관리 파일이 member-b458f를 쓰는 경우와 과거 bus-seat-eb86c를 쓰는 경우를 모두 감시한다.
+     - 두 경로 중 어느 쪽에 승인 데이터가 있어도 멤버리스트에 병합한다.
+     - 메인 회원명부 저장 경로(memberList/main)는 그대로 유지한다. */
+  let latestApprovedJoinMaps = {};
+  function mergeApprovedJoinCodeMaps(){
+    const merged = {};
+    Object.keys(latestApprovedJoinMaps).forEach(sourceKey=>{
+      const map = latestApprovedJoinMaps[sourceKey];
+      if(!map || typeof map !== "object") return;
+      Object.keys(map).forEach(code=>{
+        const member = map[code] || {};
+        const finalCode = String(member.code || code || "").trim();
+        if(!finalCode) return;
+        // 같은 코드가 양쪽 DB에 있으면 더 최근 updatedAt/approvedAt/createdAt 값을 우선한다.
+        const prev = merged[finalCode];
+        const prevTime = Number(prev?.updatedAt || prev?.approvedAt || prev?.createdAt || 0);
+        const nextTime = Number(member?.updatedAt || member?.approvedAt || member?.createdAt || 0);
+        if(!prev || nextTime >= prevTime){
+          merged[finalCode] = {...member, code: finalCode, __sourceKey: sourceKey};
+        }
+      });
+    });
+    return merged;
+  }
+  function handleApprovedJoinSnapshot(sourceKey, snap){
+    const value = snap && snap.exists && snap.exists() ? (snap.val() || {}) : {};
+    latestApprovedJoinMaps[sourceKey] = value;
+    const merged = mergeApprovedJoinCodeMaps();
+    const count = Object.keys(merged).length;
+    if(!count){
+      setStatus(sourceKey + " 승인정보 없음");
+      return;
+    }
+    if(!firebaseInitialLoaded){
+      pendingBusSeatJoinCodeMap = merged;
+      setStatus("기존 멤버리스트 데이터 로딩 후 가입정보 병합 대기");
+      return;
+    }
+    syncApprovedMembersFromBusSeat(merged);
+  }
+  function attachApprovedJoinListener(sourceKey, db){
+    if(!db) return false;
+    const ref = db.ref(BUS_SEAT_APPROVED_JOIN_PATH);
+    ref.on("value", snap=>handleApprovedJoinSnapshot(sourceKey, snap), error=>{
+      console.error(sourceKey + " 승인 회원 읽기 실패", error);
+      setStatus(sourceKey + " 승인 회원 읽기 실패");
+    });
+    return true;
+  }
   function initBusSeatApprovedMemberSync(){
     try{
       if(!window.firebase) return;
-      const appName="busSeatApprovedMemberSource";
-      const sourceApp=(firebase.apps||[]).find(app=>app.name===appName) || firebase.initializeApp(BUS_SEAT_MEMBER_SOURCE_CONFIG,appName);
-      const sourceDb=firebase.database(sourceApp);
-      busSeatMemberSourceRef=sourceDb.ref(BUS_SEAT_APPROVED_JOIN_PATH);
-      busSeatMemberSourceReady=true;
-      busSeatMemberSourceRef.on("value",snap=>{
-        if(!snap.exists()) return;
-        const nextJoinCodeMap = snap.val() || {};
-        if(!firebaseInitialLoaded){
-          pendingBusSeatJoinCodeMap = nextJoinCodeMap;
-          setStatus("기존 멤버리스트 데이터 로딩 후 가입정보 병합 대기");
-          return;
-        }
-        syncApprovedMembersFromBusSeat(nextJoinCodeMap);
-      },error=>{
-        console.error("bus-seat 승인 회원 읽기 실패",error);
-        setStatus("bus-seat 승인 회원 읽기 실패");
-      });
+      let attached = 0;
+
+      // 1) 현재 멤버리스트와 같은 DB(member-b458f)도 감시한다.
+      if(firebaseDb && attachApprovedJoinListener("member-b458f", firebaseDb)) attached++;
+
+      // 2) 과거/별도 bus-seat DB(bus-seat-eb86c)도 감시한다.
+      try{
+        const appName="busSeatApprovedMemberSource";
+        const sourceApp=(firebase.apps||[]).find(app=>app.name===appName) || firebase.initializeApp(BUS_SEAT_MEMBER_SOURCE_CONFIG,appName);
+        const sourceDb=firebase.database(sourceApp);
+        busSeatMemberSourceRef=sourceDb.ref(BUS_SEAT_APPROVED_JOIN_PATH);
+        busSeatMemberSourceReady=true;
+        if(attachApprovedJoinListener("bus-seat-eb86c", sourceDb)) attached++;
+      }catch(legacyError){
+        console.warn("bus-seat-eb86c 승인 회원 감시 초기화 실패", legacyError);
+      }
+
+      if(attached){
+        setStatus("회원관리 승인정보 감시 시작("+attached+"개 DB)");
+      }else{
+        setStatus("회원관리 승인정보 감시 실패");
+      }
     }catch(error){
-      console.error("bus-seat 승인 회원 자동등록 초기화 실패",error);
-      setStatus("bus-seat 승인 회원 자동등록 실패");
+      console.error("회원관리 승인 회원 자동등록 초기화 실패",error);
+      setStatus("회원관리 승인 회원 자동등록 실패");
     }
   }
 
@@ -3609,10 +3663,25 @@ const firebaseConfig = {
     },120);
   }
   async function seedAdminSyncIfEmpty(){
-    // 자동 초기 생성 금지: Firebase 비밀번호가 비어 있을 때 기본값으로 덮어쓰면
-    // 로컬스토리지 삭제 후 모든 비밀번호가 초기화되는 문제가 발생합니다.
-    setRealtimeBoxMsg("Firebase 비밀번호 없음",false);
-    setGateMsg("Firebase에 비밀번호 데이터가 없습니다. 기존 DB 값을 확인하세요.","#b45309");
+    // Firebase에 비밀번호 노드가 없을 때만 1회 생성합니다.
+    // 우선순위: 기존 로컬 캐시값 → 기본 초기값.
+    // 한 번 Firebase에 생성된 뒤에는 로컬스토리지를 지워도 Firebase 값이 기준입니다.
+    try{
+      if(!adminPasswordHash) adminPasswordHash=await getDefaultHash();
+      if(!readOnlyPasswordHash) readOnlyPasswordHash=await getDefaultReadOnlyHash();
+      if(!systemAdminPasswordHash) systemAdminPasswordHash=adminPasswordHash;
+      if(!adminRecoveryHash) adminRecoveryHash="";
+      saveLocalAdminCache();
+      if(adminRef){
+        await adminRef.set(buildAdminPayload("firebase-empty-initial-seed"));
+        setRealtimeBoxMsg("비밀번호 DB 생성완료",true);
+        setGateMsg("Firebase 비밀번호 데이터가 없어 1회 생성했습니다.","#0b7a28");
+      }
+    }catch(error){
+      console.error("Admin password initial seed failed",error);
+      setRealtimeBoxMsg("비밀번호 DB 생성 실패",false);
+      setGateMsg("Firebase 비밀번호 데이터 생성 실패. DB 권한을 확인하세요.","#b45309");
+    }
   }
   async function initAdminFirebaseSync(){
     await loadLocalAdminCache();
@@ -3628,6 +3697,19 @@ const firebaseConfig = {
       adminDb.ref(".info/connected").on("value",snap=>{
         if(snap.val()===true)setRealtimeBoxMsg("연결됨",true);
       });
+      try{
+        const currentSnap=await adminRef.once("value");
+        if(!normalizeAdminPayload(currentSnap.val())){
+          const legacySnap=await adminDb.ref(ADMIN_SYNC_LEGACY_PATH).once("value");
+          const legacyPayload=normalizeAdminPayload(legacySnap.val());
+          if(legacyPayload){
+            await adminRef.set(Object.assign({}, legacySnap.val(), {migratedFrom:ADMIN_SYNC_LEGACY_PATH, migratedAt:Date.now(), migratedAtISO:new Date().toISOString()}));
+            setRealtimeBoxMsg("비밀번호 경로 이전완료",true);
+          }
+        }
+      }catch(migrateError){
+        console.error("Admin password legacy migration failed",migrateError);
+      }
       adminRef.on("value",async snap=>{
         const payload=normalizeAdminPayload(snap.val());
         if(!payload){
