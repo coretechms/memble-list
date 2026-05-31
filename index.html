@@ -30,13 +30,6 @@
 }
 @media(max-width:480px){.table-wrap{max-height:calc(100vh - 128px) !important;}}
 
-/* 제목행 필터 */
-.member-table th.header-cell{padding:2px 3px !important;height:44px !important;min-height:44px !important;vertical-align:top !important;}
-.header-filter-wrap{display:flex;flex-direction:column;gap:2px;align-items:stretch;justify-content:center;min-width:42px;}
-.header-title{font-weight:700;line-height:16px;text-align:center;white-space:nowrap;pointer-events:none;}
-.column-filter{width:100%;height:20px;min-width:42px;border:1px solid #777;border-radius:3px;background:#fff;font-size:11px;font-family:inherit;padding:0 1px;}
-.filter-active .header-title{color:#1737c9;}.filter-active .column-filter{border-color:#1737c9;background:#eef2ff;}
-
 @media print{.table-wrap{max-height:none !important;overflow:visible !important}.member-table th.header-cell{position:static !important;box-shadow:none !important}}
 
 /* 셀 글자 자동완성 */
@@ -359,25 +352,6 @@ button,
     display:block !important;
     clear:both !important;
     margin-top:6px !important;
-  }
-}
-
-
-/* 모바일 필터 드롭다운 V자 표시 70% 축소 */
-@media(max-width:480px){
-  .column-filter{
-    -webkit-appearance:none !important;
-    appearance:none !important;
-    background-color:#fff !important;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='3' viewBox='0 0 4 3'%3E%3Cpath d='M0 0l2 3 2-3z' fill='%23333'/%3E%3C/svg%3E") !important;
-    background-repeat:no-repeat !important;
-    background-position:right 1px center !important;
-    background-size:4px 3px !important;
-    padding-right:5px !important;
-  }
-  .filter-active .column-filter{
-    background-color:#eef2ff !important;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='3' viewBox='0 0 4 3'%3E%3Cpath d='M0 0l2 3 2-3z' fill='%231737c9'/%3E%3C/svg%3E") !important;
   }
 }
 
@@ -924,174 +898,6 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
     -webkit-print-color-adjust:exact;
     print-color-adjust:exact;
   }
-}
-
-
-/* 요청 수정: 열 필터 다중 선택 */
-.column-filter[multiple]{
-  height:54px !important;
-  min-height:54px !important;
-  overflow:auto !important;
-  padding:1px !important;
-  line-height:16px !important;
-}
-.member-table th.header-cell{
-  height:78px !important;
-  min-height:78px !important;
-}
-.column-filter[multiple] option{
-  padding:1px 2px !important;
-}
-@media(max-width:480px){
-  .column-filter[multiple]{
-    height:32px !important;
-    min-height:32px !important;
-    font-size:5px !important;
-    line-height:9px !important;
-  }
-  .member-table th.header-cell{
-    height:48px !important;
-    min-height:48px !important;
-  }
-}
-
-
-/* 요청 수정: 열 필터 복수 선택 체크박스 방식 */
-.member-table th.header-cell{
-  position:sticky !important;
-  overflow:visible !important;
-}
-.header-filter-wrap{
-  position:relative !important;
-}
-.column-filter-toggle{
-  width:100%;
-  height:20px;
-  min-width:42px;
-  border:1px solid #777;
-  border-radius:3px;
-  background:#fff;
-  font-size:11px;
-  font-family:inherit;
-  padding:0 3px;
-  cursor:pointer;
-  line-height:18px;
-}
-.filter-active .column-filter-toggle{
-  border-color:#1737c9 !important;
-  background:#eef2ff !important;
-  color:#1737c9 !important;
-  font-weight:700 !important;
-}
-.multi-filter-panel{
-  position:absolute;
-  top:39px;
-  left:0;
-  z-index:999999;
-  min-width:150px;
-  max-width:260px;
-  max-height:240px;
-  overflow:auto;
-  padding:6px;
-  border:1px solid #1737c9;
-  border-radius:8px;
-  background:#fff;
-  box-shadow:0 6px 18px rgba(0,0,0,.22);
-  text-align:left;
-}
-.multi-filter-panel[hidden]{
-  display:none !important;
-}
-.multi-filter-action-row{
-  display:flex;
-  gap:4px;
-  margin-bottom:5px;
-}
-.multi-filter-action-row button{
-  flex:1;
-  height:22px;
-  border:0.5px solid #999;
-  border-radius:5px;
-  background:#f4f4f4;
-  font-size:10px;
-  cursor:pointer;
-}
-.multi-filter-option{
-  display:flex;
-  align-items:center;
-  gap:5px;
-  padding:3px 2px;
-  font-size:11px;
-  line-height:1.25;
-  white-space:nowrap;
-  color:#111;
-}
-.multi-filter-option input{
-  width:auto !important;
-  height:auto !important;
-  min-width:0 !important;
-  margin:0 !important;
-  padding:0 !important;
-}
-@media(max-width:480px){
-  .column-filter-toggle{height:12px !important;font-size:5px !important;line-height:10px !important;padding:0 1px !important;border-radius:1px !important;}
-  .multi-filter-panel{top:25px;min-width:95px;max-height:170px;padding:3px;border-radius:4px;}
-  .multi-filter-action-row{gap:2px;margin-bottom:3px;}
-  .multi-filter-action-row button{height:14px;font-size:5px;border-radius:2px;padding:0 1px;}
-  .multi-filter-option{font-size:6px;gap:2px;padding:2px 1px;}
-}
-
-
-/* 요청 수정: 필터 글자 확대 + 체크 후 필터창 유지 */
-.column-filter-toggle{
-  font-size:9px !important;
-  font-weight:700 !important;
-}
-.multi-filter-panel{
-  font-size:14px !important;
-  min-width:126px !important;
-  max-height:280px !important;
-}
-.multi-filter-action-row button{
-  height:26px !important;
-  font-size:12px !important;
-  font-weight:700 !important;
-}
-.multi-filter-option{
-  font-size:14px !important;
-  line-height:1.45 !important;
-  padding:5px 4px !important;
-  cursor:pointer !important;
-}
-.multi-filter-option input{
-  width:16px !important;
-  height:16px !important;
-  margin-right:4px !important;
-}
-@media(max-width:480px){
-  .column-filter-toggle{font-size:7px !important;height:14px !important;line-height:12px !important;}
-  .multi-filter-panel{font-size:8px !important;min-width:120px !important;max-height:200px !important;padding:5px !important;}
-  .multi-filter-action-row button{height:18px !important;font-size:7px !important;}
-  .multi-filter-option{font-size:8px !important;line-height:1.45 !important;padding:4px 2px !important;}
-  .multi-filter-option input{width:12px !important;height:12px !important;margin-right:3px !important;}
-}
-
-
-/* 요청 수정: 필터 상단은 전체해제만 표시 + 체크 후 필터창 유지 */
-.multi-filter-action-row{
-  display:flex !important;
-  position:sticky !important;
-  top:0 !important;
-  z-index:2 !important;
-  background:#fff !important;
-  padding-bottom:4px !important;
-}
-.multi-filter-action-row .filter-select-all{
-  display:none !important;
-}
-.multi-filter-action-row .filter-clear-all{
-  flex:1 1 100% !important;
-  width:100% !important;
 }
 
 
@@ -1684,169 +1490,12 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
 
 
 
-/* 요청 수정: 필터셀 아래쪽 카운터 숫자 표시 */
-.filter-counter{
-  margin-top:2px !important;
-  min-height:14px !important;
-  line-height:14px !important;
-  font-size:10px !important;
-  font-weight:800 !important;
-  color:#0b7a28 !important;
-  text-align:center !important;
-  white-space:nowrap !important;
-  pointer-events:none !important;
-}
-.filter-active .filter-counter{
-  color:#1737c9 !important;
-}
-@media(max-width:480px){
-  .filter-counter{
-    margin-top:1px !important;
-    min-height:8px !important;
-    line-height:8px !important;
-    font-size:5px !important;
-  }
-}
-
-
-/* 요청 수정: 필터 박스가 전체 박스 내부 overflow에 가려지지 않도록 최상위 고정 레이어로 표시 */
-.multi-filter-panel{
-  position:fixed !important;
-  z-index:2147483647 !important;
-  top:auto !important;
-  left:auto !important;
-  max-height:min(280px, calc(100vh - 12px)) !important;
-  overflow:auto !important;
-}
-.member-table th.header-cell,
-.header-filter-wrap{
-  overflow:visible !important;
-}
-
-
-/* 요청 수정: 열린 필터 박스가 우측/좌측 제목 열에 가려지지 않도록 열린 제목셀을 최상위로 올림 */
-.member-table th.header-cell:has(.multi-filter-panel:not([hidden])),
-.member-table tr:first-child th:has(.multi-filter-panel:not([hidden])){
-  z-index:2147483646 !important;
-  overflow:visible !important;
-}
-.member-table th.header-cell:has(.multi-filter-panel:not([hidden])) .multi-filter-panel,
-.member-table tr:first-child th:has(.multi-filter-panel:not([hidden])) .multi-filter-panel{
-  z-index:2147483647 !important;
-}
-.multi-filter-panel{
-  isolation:isolate !important;
-}
-
-
-/* :has 미지원/보조용: JS 클래스 방식으로 열린 필터 셀 최상위 처리 */
-.member-table th.header-cell.filter-header-open,
-.member-table tr:first-child th.filter-header-open{
-  z-index:2147483646 !important;
-  overflow:visible !important;
-}
-.member-table th.header-cell.filter-header-open .multi-filter-panel,
-.member-table tr:first-child th.filter-header-open .multi-filter-panel{
-  z-index:2147483647 !important;
-}
-
-
-/* 요청 수정: 필터 편집 잠금 중 현재 편집 행은 숨김 처리 금지 */
-body.filter-edit-lock #memberTable tr:has(td.cell-editing),
-body.filter-edit-lock #memberTable tr:focus-within{
-  display:table-row !important;
-}
-body.filter-edit-lock #memberTable td.cell-editing{
-  outline:2px solid #1737c9 !important;
-}
-
-
-/* 최종 보정: 필터 박스 상단은 JS에서 계산한 위치를 그대로 사용하고, 내용이 많아도 위로 이동 금지 */
-.multi-filter-panel{
-  bottom:auto !important;
-  transform:none !important;
-}
-
-
-
-/* 최종 보정: 필터박스 위치는 JS가 !important로 직접 지정하므로 CSS top:auto 충돌 제거 */
-.multi-filter-panel:not([hidden]){
-  position:fixed !important;
-  right:auto !important;
-  bottom:auto !important;
-  transform:none !important;
-  overflow-y:auto !important;
-}
-
-
-
-/* 최종 수정: 필터박스는 회색 제목행 아래 고정, 내용이 많으면 내부 스크롤만 사용 */
-.multi-filter-panel:not([hidden]){
-  position:fixed !important;
-  bottom:auto !important;
-  right:auto !important;
-  transform:none !important;
-  overflow-y:auto !important;
-}
-.multi-filter-action-row{
-  position:sticky !important;
-  top:0 !important;
-  z-index:3 !important;
-}
-
-
-/* 최종 수정: 엑셀식 필터 버튼 - 모두선택/모두해제 모두 표시 */
-.multi-filter-action-row .filter-select-all{
-  display:inline-block !important;
-}
-.multi-filter-action-row .filter-clear-all{
-  flex:1 1 0 !important;
-  width:auto !important;
-}
-
-
-/* 요청 수정: 엑셀형 필터 확인 버튼 - 확인을 눌러야 닫힘 */
-.multi-filter-action-row .filter-select-all{
-  display:inline-block !important;
-}
-.multi-filter-action-row .filter-select-all,
-.multi-filter-action-row .filter-clear-all{
-  flex:1 1 0 !important;
-  width:auto !important;
-}
-.multi-filter-confirm-row{
-  position:sticky !important;
-  top:30px !important;
-  z-index:3 !important;
-  background:#fff !important;
-  padding-bottom:4px !important;
-  margin-bottom:2px !important;
-}
-.multi-filter-confirm-row button{
-  width:100% !important;
-  height:26px !important;
-  border:0.5px solid #1737c9 !important;
-  border-radius:5px !important;
-  background:#1737c9 !important;
-  color:#fff !important;
-  font-size:12px !important;
-  font-weight:800 !important;
-  cursor:pointer !important;
-}
-@media(max-width:480px){
-  .multi-filter-confirm-row{top:22px !important;padding-bottom:3px !important;}
-  .multi-filter-confirm-row button{height:18px !important;font-size:7px !important;border-radius:2px !important;}
-}
-
-
-
 /* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
 .toolbar button,
 .admin-tools button,
 .button-group-panel button,
 .style-tools button,
-.readonly-column-actions button,
-.multi-filter-action-row button{
+.readonly-column-actions button{
   border:0.5px solid rgba(15,23,42,.18) !important;
   border-radius:8px !important;
   background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%) !important;
@@ -1860,8 +1509,7 @@ body.filter-edit-lock #memberTable td.cell-editing{
 .admin-tools button:hover,
 .button-group-panel button:hover,
 .style-tools button:hover,
-.readonly-column-actions button:hover,
-.multi-filter-action-row button:hover{
+.readonly-column-actions button:hover:hover{
   background:linear-gradient(180deg,#ffffff 0%,#eaf1ff 100%) !important;
   border-color:rgba(23,55,201,.38) !important;
   box-shadow:0 2px 6px rgba(23,55,201,.16), inset 0 1px 0 rgba(255,255,255,.85) !important;
@@ -1870,8 +1518,7 @@ body.filter-edit-lock #memberTable td.cell-editing{
 .admin-tools button:active,
 .button-group-panel button:active,
 .style-tools button:active,
-.readonly-column-actions button:active,
-.multi-filter-action-row button:active{
+.readonly-column-actions button:active:active{
   transform:translateY(1px) !important;
   box-shadow:0 1px 2px rgba(15,23,42,.10) !important;
 }
@@ -1908,8 +1555,7 @@ body.filter-edit-lock #memberTable td.cell-editing{
   .toolbar button,
   .admin-tools button,
   .button-group-panel button,
-  .style-tools button,
-  .multi-filter-action-row button{
+  .style-tools button{
     border-radius:3px !important;
     letter-spacing:-0.1px !important;
   }
@@ -1956,6 +1602,133 @@ body.filter-edit-lock #memberTable td.cell-editing{
   body.unlocked #memberTable{
     width:max-content !important;
   }
+}
+
+
+
+/* 엑셀식 열 필터: PC/모바일 동일 위치(선택한 제목 셀 바로 아래) */
+.header-filter-wrap{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:2px !important;
+  align-items:stretch !important;
+  justify-content:center !important;
+  min-width:42px !important;
+  position:relative !important;
+}
+.header-title{
+  font-weight:700 !important;
+  line-height:16px !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+  pointer-events:none !important;
+}
+.excel-filter-btn{
+  width:100% !important;
+  height:20px !important;
+  min-width:42px !important;
+  border:1px solid #777 !important;
+  border-radius:3px !important;
+  background:#fff !important;
+  color:#111 !important;
+  font-family:inherit !important;
+  font-size:11px !important;
+  font-weight:700 !important;
+  line-height:18px !important;
+  padding:0 2px !important;
+  cursor:pointer !important;
+}
+.filter-active .header-title{color:#1737c9 !important;}
+.filter-active .excel-filter-btn{border-color:#1737c9 !important;background:#eef2ff !important;color:#1737c9 !important;}
+.filter-counter{
+  margin-top:1px !important;
+  min-height:12px !important;
+  line-height:12px !important;
+  font-size:9px !important;
+  font-weight:800 !important;
+  color:#0b7a28 !important;
+  text-align:center !important;
+  white-space:nowrap !important;
+  pointer-events:none !important;
+}
+.excel-filter-popup{
+  position:fixed !important;
+  z-index:2147483647 !important;
+  width:160px !important;
+  max-width:42vw !important;
+  max-height:320px !important;
+  overflow:auto !important;
+  background:#fff !important;
+  border:1px solid #8aa0d6 !important;
+  border-radius:8px !important;
+  box-shadow:0 4px 16px rgba(0,0,0,.22) !important;
+  padding:6px !important;
+  text-align:left !important;
+  font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif !important;
+}
+.excel-filter-popup[hidden]{display:none !important;}
+.excel-filter-popup .filter-actions,
+.excel-filter-popup .filter-confirm-row{
+  display:flex !important;
+  gap:4px !important;
+  margin-bottom:6px !important;
+  position:sticky !important;
+  background:#fff !important;
+  z-index:2 !important;
+}
+.excel-filter-popup .filter-actions{top:0 !important;}
+.excel-filter-popup .filter-confirm-row{top:34px !important;}
+.excel-filter-popup button{
+  flex:1 !important;
+  height:28px !important;
+  border:1px solid #999 !important;
+  border-radius:6px !important;
+  background:#f4f4f4 !important;
+  color:#111 !important;
+  font-size:12px !important;
+  font-weight:700 !important;
+  line-height:26px !important;
+  padding:0 4px !important;
+  cursor:pointer !important;
+}
+.excel-filter-popup .filter-confirm-row button{
+  background:#1737c9 !important;
+  color:#fff !important;
+  border-color:#1737c9 !important;
+}
+.excel-filter-popup .filter-list{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:3px !important;
+}
+.excel-filter-popup label{
+  display:flex !important;
+  align-items:center !important;
+  gap:5px !important;
+  min-height:24px !important;
+  font-size:12px !important;
+  font-weight:700 !important;
+  line-height:1.25 !important;
+  white-space:nowrap !important;
+  color:#111 !important;
+}
+.excel-filter-popup input[type="checkbox"]{
+  width:16px !important;
+  height:16px !important;
+  margin:0 !important;
+  flex:0 0 auto !important;
+}
+@media(max-width:480px){
+  .member-table th.header-cell{height:54px !important;min-height:54px !important;overflow:visible !important;}
+  .header-title{font-size:8px !important;line-height:10px !important;}
+  .excel-filter-btn{height:14px !important;min-width:42px !important;font-size:7px !important;line-height:12px !important;padding:0 1px !important;border-radius:2px !important;}
+  .filter-counter{min-height:8px !important;line-height:8px !important;font-size:5px !important;}
+  .excel-filter-popup{width:120px !important;max-width:48vw !important;max-height:260px !important;padding:4px !important;border-radius:6px !important;}
+  .excel-filter-popup .filter-actions,.excel-filter-popup .filter-confirm-row{gap:3px !important;margin-bottom:4px !important;}
+  .excel-filter-popup .filter-confirm-row{top:26px !important;}
+  .excel-filter-popup button{height:22px !important;font-size:9px !important;line-height:20px !important;border-radius:4px !important;padding:0 2px !important;}
+  .excel-filter-popup label{min-height:18px !important;font-size:8px !important;gap:3px !important;}
+  .excel-filter-popup input[type="checkbox"]{width:12px !important;height:12px !important;}
 }
 
 </style>
@@ -2173,7 +1946,7 @@ const firebaseConfig = {
     const classes = String(cell.className || "")
       .split(/\s+/)
       .filter(Boolean)
-      .filter(cls => !["selected-cell", "cell-editing", "found-row", "hidden-by-search", "filter-active"].includes(cls));
+      .filter(cls => !["selected-cell", "cell-editing", "found-row", "hidden-by-search"].includes(cls));
     return rIdx === 0 ? "header-cell" : classes.join(" ");
   }
 
@@ -2294,7 +2067,6 @@ const firebaseConfig = {
   let autocompleteCell=null;
   let autocompleteItems=[];
   let autocompleteIndex=-1;
-  const EMPTY_FILTER_VALUE="__EMPTY__";
   const headers=["직 책","이 름","성별","출생년도","주민번호","연락처","비상연락처<br>( 가족 )","구","거주지","집","배우자","닉네임","버스타는곳","참석  ○ △ Χ","연관검색","연관검색","연관검색","전임직책","전임총무","가입:승인","회원UID","가입일","승인결과"];
   const colWidths=[72,78,45,57,78,118,118,54,86,133,72,94,141,86,70,110,62,70,94,86,170,94,86];
   const approvalHeaders=["가입:승인","회원UID","가입일","승인결과"];
@@ -2868,242 +2640,190 @@ const firebaseConfig = {
   function escapeHtml(v){
     return String(v??"").replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[ch]));
   }
-  function getSelectedFilterValuesFromHeader(th){
-    return Array.from(th?.querySelectorAll?.(".column-filter-check:checked") || [])
-      .map(input=>input.value || "")
-      .filter(value=>value !== "");
+
+  const excelColumnFilters = new Map();
+  let excelFilterPopup = null;
+  let excelFilterColumn = null;
+
+  function getColumnFilterValues(colIdx){
+    const seen = new Set();
+    const values = [];
+    rowsArray().slice(1).forEach(row=>{
+      if(!row || !row.cells || !row.cells[colIdx]) return;
+      const raw = cellText(row.cells[colIdx]);
+      const key = raw;
+      if(seen.has(key)) return;
+      seen.add(key);
+      values.push(key);
+    });
+    values.sort((a,b)=>{
+      if(a==="") return -1;
+      if(b==="") return 1;
+      return String(a).localeCompare(String(b),"ko-KR",{numeric:true,sensitivity:"base"});
+    });
+    return values;
   }
-  function getFilterOptionCountFromHeader(th){
-    return Array.from(th?.querySelectorAll?.(".column-filter-check") || []).length;
+
+  function getActiveFilterSet(colIdx, values){
+    const saved = excelColumnFilters.get(colIdx);
+    if(saved instanceof Set) return new Set([...saved].filter(v=>values.includes(v)));
+    return new Set(values);
   }
-  function isColumnFilterActiveHeader(th){
-    const total=getFilterOptionCountFromHeader(th);
-    const selected=getSelectedFilterValuesFromHeader(th).length;
-    return th?.dataset?.filterActive === "1" || (total>0 && selected<total);
+
+  function ensureExcelFilterPopup(){
+    if(excelFilterPopup && excelFilterPopup.isConnected) return excelFilterPopup;
+    excelFilterPopup = document.createElement("div");
+    excelFilterPopup.className = "excel-filter-popup";
+    excelFilterPopup.hidden = true;
+    document.body.appendChild(excelFilterPopup);
+    excelFilterPopup.addEventListener("click", e=>e.stopPropagation());
+    return excelFilterPopup;
   }
-  function updateColumnFilterHeaderState(th){
-    if(!th) return;
-    const total=getFilterOptionCountFromHeader(th);
-    const selected=getSelectedFilterValuesFromHeader(th).length;
-    const active=total>0 && selected<total;
-    th.dataset.filterActive=active ? "1" : "0";
-    const toggle=th.querySelector(".column-filter-toggle");
-    if(toggle) toggle.textContent=active ? `선택 ${selected}` : "전체";
-    th.classList.toggle("filter-active", active);
+
+  function positionExcelFilterPopup(th, popup){
+    const rect = th.getBoundingClientRect();
+    popup.hidden = false;
+    popup.style.display = "block";
+    const popupWidth = popup.offsetWidth || 160;
+    const popupHeight = popup.offsetHeight || 260;
+    let left = rect.left;
+    let top = rect.bottom + 2;
+    if(left + popupWidth > window.innerWidth - 4){
+      left = window.innerWidth - popupWidth - 4;
+    }
+    if(left < 4) left = 4;
+    const minTop = rect.bottom + 2;
+    if(top + popupHeight > window.innerHeight - 4){
+      const tryTop = window.innerHeight - popupHeight - 4;
+      top = Math.max(minTop, tryTop);
+    }
+    popup.style.left = left + "px";
+    popup.style.top = top + "px";
   }
-  function getActiveColumnFilters(){
-    return Array.from(table.querySelectorAll("th.header-cell")).map(th=>({
-      col:Number(th.dataset.col),
-      values:getSelectedFilterValuesFromHeader(th),
-      active:isColumnFilterActiveHeader(th)
-    })).filter(item=>Number.isFinite(item.col) && item.active);
+
+  function hideExcelFilterPopup(){
+    if(!excelFilterPopup) return;
+    excelFilterPopup.hidden = true;
+    excelFilterPopup.style.display = "none";
+    excelFilterColumn = null;
   }
-  const FILTER_COUNTER_TARGET_HEADERS = new Set(["직책","이름","성별","출생년도","거주지","버스타는곳","참석","가입:승인","승인결과"]);
-  function normalizeFilterCounterTitle(title){
-    return String(title || "").replace(/\s+/g,"").trim();
+
+  function isFilterActive(colIdx){
+    const values = getColumnFilterValues(colIdx);
+    const selected = excelColumnFilters.get(colIdx);
+    return selected instanceof Set && selected.size < values.length;
   }
-  function isFilterCounterTargetColumn(colIndex){
+
+  function updateFilterHeaderState(){
     const headerRow = rowsArray()[0];
-    const th = headerRow && headerRow.cells ? headerRow.cells[colIndex] : null;
-    const title = normalizeFilterCounterTitle(
-      (th && (th.dataset.headerTitle || getHeaderTitle(th) || th.innerText)) || headers[colIndex] || ""
-    );
-    return FILTER_COUNTER_TARGET_HEADERS.has(title);
-  }
-  function getVisibleDataRowsCount(){
-    return rowsArray().filter((row,idx)=>idx>=1 && !row.classList.contains("hidden-by-search")).length;
-  }
-  function getVisibleFilledCellCount(colIndex){
-    let count = 0;
-    rowsArray().forEach((row,idx)=>{
-      if(idx < 1) return;
-      if(row.classList.contains("hidden-by-search")) return;
-      const value = cellText(row.cells[colIndex]);
-      if(value !== "") count++;
+    if(!headerRow) return;
+    Array.from(headerRow.cells).forEach((th,idx)=>{
+      const active = isFilterActive(idx);
+      th.classList.toggle("filter-active", active);
+      const btn = th.querySelector(".excel-filter-btn");
+      const counter = th.querySelector(".filter-counter");
+      const values = getColumnFilterValues(idx);
+      const selected = getActiveFilterSet(idx, values);
+      if(btn) btn.textContent = active ? `${selected.size}개` : "전체";
+      if(counter) counter.textContent = String(rowsArray().slice(1).filter(row=>row.style.display!=="none" && !row.classList.contains("hidden-by-search") && cellText(row.cells[getHeaderIndexByText("이름",1)])).length || "");
     });
-    return count;
   }
-  function updateFilterCounters(){
-    table.querySelectorAll(".filter-counter").forEach(counter=>{
-      const colIndex = Number(counter.dataset.col);
-      if(!Number.isFinite(colIndex) || !isFilterCounterTargetColumn(colIndex)){
-        counter.textContent = "";
-        counter.title = "";
-        counter.style.display = "none";
-        return;
+
+  function buildExcelFilterPopup(th, colIdx){
+    const popup = ensureExcelFilterPopup();
+    const values = getColumnFilterValues(colIdx);
+    const selected = getActiveFilterSet(colIdx, values);
+    const title = th.dataset.headerTitle || getHeaderTitle(th) || `열${colIdx+1}`;
+    const listHtml = values.map((value,i)=>{
+      const label = value === "" ? "(빈칸)" : value;
+      return `<label><input type="checkbox" data-value="${escapeHtml(value)}" ${selected.has(value)?"checked":""}> <span>${escapeHtml(label)}</span></label>`;
+    }).join("");
+    popup.innerHTML = `
+      <div class="filter-actions">
+        <button type="button" class="filter-select-all">모두선택</button>
+        <button type="button" class="filter-clear-all">모두해제</button>
+      </div>
+      <div class="filter-confirm-row"><button type="button" class="filter-confirm">확인</button></div>
+      <div class="filter-list">${listHtml || '<label><input type="checkbox" checked disabled> <span>(값 없음)</span></label>'}</div>
+    `;
+    popup.querySelector(".filter-select-all")?.addEventListener("click",()=>{
+      popup.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb=>cb.checked=true);
+    });
+    popup.querySelector(".filter-clear-all")?.addEventListener("click",()=>{
+      popup.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach(cb=>cb.checked=false);
+    });
+    popup.querySelector(".filter-confirm")?.addEventListener("click",()=>{
+      const next = new Set();
+      popup.querySelectorAll('input[type="checkbox"][data-value]').forEach(cb=>{ if(cb.checked) next.add(cb.dataset.value || ""); });
+      if(next.size >= values.length){
+        excelColumnFilters.delete(colIdx);
+      }else{
+        excelColumnFilters.set(colIdx,next);
       }
-      const filledCount = getVisibleFilledCellCount(colIndex);
-      counter.style.display = "";
-      counter.textContent = String(filledCount);
-      counter.title = "내용 있는 칸 수: " + filledCount + "명";
+      applyAllFilters();
+      hideExcelFilterPopup();
     });
+    excelFilterColumn = colIdx;
+    positionExcelFilterPopup(th, popup);
   }
-  function closeAllColumnFilterPanels(exceptPanel=null){
-    table.querySelectorAll(".multi-filter-panel").forEach(panel=>{
-      if(panel!==exceptPanel) panel.hidden=true;
-    });
-  }
+
   function setupHeaderFilters(){
     const headerRow=rowsArray()[0]; if(!headerRow)return;
-    const previous={};
-    Array.from(table.querySelectorAll("th.header-cell")).forEach(th=>{
-      if(th.dataset.col !== undefined){
-        previous[th.dataset.col]={
-          active:isColumnFilterActiveHeader(th),
-          values:getSelectedFilterValuesFromHeader(th)
-        };
+    Array.from(headerRow.cells).forEach((th,idx)=>{
+      const title=th.dataset.headerTitle||th.querySelector?.(".header-title")?.innerText||th.innerText||headers[idx]||`열${idx+1}`;
+      th.dataset.headerTitle=title;
+      th.contentEditable="false";
+      th.className="header-cell";
+      th.innerHTML=`<div class="header-filter-wrap"><div class="header-title">${escapeHtml(title)}</div><button type="button" class="excel-filter-btn">전체</button><div class="filter-counter"></div></div>`;
+      const btn=th.querySelector(".excel-filter-btn");
+      if(btn){
+        btn.addEventListener("click",e=>{
+          e.preventDefault();
+          e.stopPropagation();
+          if(excelFilterPopup && !excelFilterPopup.hidden && excelFilterColumn===idx){
+            hideExcelFilterPopup();
+            return;
+          }
+          buildExcelFilterPopup(th,idx);
+        });
       }
     });
-    Array.from(headerRow.cells).forEach((th,idx)=>{
-      const title=getHeaderTitle(th)||headers[idx]||`열${idx+1}`;
-      th.dataset.headerTitle=title;
-      th.dataset.col=String(idx);
-      th.contentEditable="false";
-      th.classList.add("header-cell");
-      const values=[]; const seen=new Set();
-      rowsArray().slice(1).forEach(row=>{
-        const text=cellText(row.cells[idx]);
-        const key=text||EMPTY_FILTER_VALUE;
-        if(!seen.has(key)){seen.add(key); values.push(text);}
-      });
-      values.sort((a,b)=>String(a).localeCompare(String(b),"ko-KR",{sensitivity:"base",numeric:true}));
-      const allowedValues=new Set(values.map(v=>v?String(v):EMPTY_FILTER_VALUE));
-      const prev=previous[idx];
-      const allValues=values.map(v=>v?String(v):EMPTY_FILTER_VALUE);
-      const selectedValues=(prev && prev.active) ? (prev.values||[]).filter(value=>allowedValues.has(value)) : allValues.slice();
-      const selectedSet=new Set(selectedValues);
-      const isActive=values.length>0 && selectedValues.length<values.length;
-      const activeText=isActive ? `선택 ${selectedValues.length}` : "전체";
-      const optionsHtml=values.map((v,optionIndex)=>{
-        const rawVal=v?String(v):EMPTY_FILTER_VALUE;
-        const label=v?escapeHtml(v):"(빈칸)";
-        const checked=selectedSet.has(rawVal)?"checked":"";
-        return `<label class="multi-filter-option"><input type="checkbox" class="column-filter-check" data-col="${idx}" value="${escapeHtml(rawVal)}" ${checked}> <span>${label}</span></label>`;
-      }).join("") || '<div class="multi-filter-option">선택 항목 없음</div>';
-      th.innerHTML=`<div class="header-filter-wrap"><div class="header-title">${escapeHtml(title)}</div><button type="button" class="column-filter-toggle" data-col="${idx}" title="${escapeHtml(title)} 필터 복수 선택">${activeText}</button><div class="filter-counter" data-col="${idx}" title="내용 있는 칸 수">0</div><div class="multi-filter-panel" data-col="${idx}" hidden><div class="multi-filter-action-row"><button type="button" class="filter-select-all">모두선택</button><button type="button" class="filter-clear-all">모두해제</button></div><div class="multi-filter-confirm-row"><button type="button" class="filter-confirm-close">확인</button></div>${optionsHtml}</div></div>`;
-      th.dataset.filterActive=isActive ? "1" : "0";
-      th.classList.toggle("filter-active",isActive);
-    });
-    table.querySelectorAll(".column-filter-toggle").forEach(btn=>{
-      btn.onmousedown=e=>e.stopPropagation();
-      btn.onclick=e=>{
-        e.preventDefault();
-        e.stopPropagation();
-        const panel=btn.parentElement.querySelector(".multi-filter-panel");
-        const willOpen=panel.hidden;
-        closeAllColumnFilterPanels(panel);
-        panel.hidden=!willOpen;
-        if(willOpen && typeof scheduleFloatingFilterPosition === "function"){
-          scheduleFloatingFilterPosition();
-        }
-      };
-    });
-    table.querySelectorAll(".multi-filter-panel").forEach(panel=>{
-      panel.onmousedown=e=>e.stopPropagation();
-      panel.onclick=e=>e.stopPropagation();
-      panel.ontouchstart=e=>e.stopPropagation();
-      panel.onpointerdown=e=>e.stopPropagation();
-      panel.querySelectorAll(".multi-filter-option").forEach(label=>{
-        label.onmousedown=e=>e.stopPropagation();
-        label.onclick=e=>e.stopPropagation();
-        label.ontouchstart=e=>e.stopPropagation();
-        label.onpointerdown=e=>e.stopPropagation();
-      });
-      panel.querySelectorAll(".column-filter-check").forEach(check=>{
-        check.onclick=e=>e.stopPropagation();
-        check.onmousedown=e=>e.stopPropagation();
-        check.ontouchstart=e=>e.stopPropagation();
-        check.onchange=(e)=>{
-          if(e) e.stopPropagation();
-          const th=check.closest("th");
-          const currentPanel=check.closest(".multi-filter-panel");
-          updateColumnFilterHeaderState(th);
-          applyAllFilters();
-          /* 항목을 선택해도 필터창을 닫지 않고 계속 유지 */
-          if(currentPanel){
-            currentPanel.hidden=false;
-            requestAnimationFrame(()=>{
-              currentPanel.hidden=false;
-              if(typeof scheduleFloatingFilterPosition === "function") scheduleFloatingFilterPosition();
-            });
-          }
-        };
-      });
-      const selectAll=panel.querySelector(".filter-select-all");
-      const clearAll=panel.querySelector(".filter-clear-all");
-      const confirmClose=panel.querySelector(".filter-confirm-close");
-      if(confirmClose) confirmClose.onclick=(e)=>{
-        if(e){e.preventDefault();e.stopPropagation();}
-        const th=panel.closest("th");
-        updateColumnFilterHeaderState(th);
-        applyAllFilters();
-        panel.hidden=true;
-        if(th) th.classList.remove("filter-header-open");
-      };
-      if(selectAll) selectAll.onclick=(e)=>{
-        if(e){e.preventDefault();e.stopPropagation();}
-        panel.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=true;});
-        const th=panel.closest("th");
-        updateColumnFilterHeaderState(th);
-        panel.hidden=false;
-        applyAllFilters();
-        if(typeof scheduleFloatingFilterPosition === "function") scheduleFloatingFilterPosition();
-      };
-      if(clearAll) clearAll.onclick=(e)=>{
-        if(e){e.preventDefault();e.stopPropagation();}
-        panel.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=false;});
-        const th=panel.closest("th");
-        updateColumnFilterHeaderState(th);
-        panel.hidden=false;
-        applyAllFilters();
-        if(typeof scheduleFloatingFilterPosition === "function") scheduleFloatingFilterPosition();
-        panel.hidden=false;
-        requestAnimationFrame(()=>{
-          panel.hidden=false;
-          if(typeof scheduleFloatingFilterPosition === "function") scheduleFloatingFilterPosition();
-        });
-      };
-    });
-    updateFilterCounters();
+    updateFilterHeaderState();
   }
+
   function refreshHeaderFiltersSoon(){
-    clearTimeout(window.__filterRefreshTimer);
-    window.__filterRefreshTimer=setTimeout(()=>{
-      const active=getActiveColumnFilters();
-      setupHeaderFilters();
-      active.forEach(item=>{
-        const th=table.querySelector(`th.header-cell[data-col="${item.col}"]`);
-        if(th){
-          const selectedSet=new Set(item.values);
-          th.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=selectedSet.has(check.value);});
-          updateColumnFilterHeaderState(th);
-        }
-      });
-      applyAllFilters();
-    },300);
+    setupHeaderFilters();
   }
+
+  document.addEventListener("click",()=>hideExcelFilterPopup());
+  window.addEventListener("resize",()=>hideExcelFilterPopup());
+  tableWrap?.addEventListener("scroll",()=>hideExcelFilterPopup(),{passive:true});
   function applyAllFilters(){
     const nameInput=document.getElementById("nameSearch"), nickInput=document.getElementById("nickSearch");
     const nameQ=normalize(nameInput.value); const nickQ=normalize(nickInput.value);
     const nameCol=getHeaderIndexByText("이름",1), nickCol=getHeaderIndexByText("닉네임",11);
-    const activeFilters=getActiveColumnFilters(); let found=0, visibleCount=0;
+    let found=0;
     rowsArray().forEach((row,idx)=>{
-      row.classList.remove("found-row"); if(idx<1){row.classList.remove("hidden-by-search");return;}
+      row.classList.remove("found-row");
+      if(idx<1){row.classList.remove("hidden-by-search");return;}
       const name=normalize(row.cells[nameCol]?.innerText); const nick=normalize(row.cells[nickCol]?.innerText);
       let visible=(!nameQ||name.includes(nameQ))&&(!nickQ||nick.includes(nickQ));
-      if(visible&&activeFilters.length){
-        visible=activeFilters.every(item=>{
-          const text=cellText(row.cells[item.col]);
-          const key=text||EMPTY_FILTER_VALUE;
-          return item.values.includes(key);
-        });
+      if(visible && excelColumnFilters.size){
+        for(const [colIdx,selected] of excelColumnFilters.entries()){
+          if(!(selected instanceof Set)) continue;
+          const value=cellText(row.cells[colIdx]);
+          if(!selected.has(value)){ visible=false; break; }
+        }
       }
       row.classList.toggle("hidden-by-search",!visible);
-      if(visible){visibleCount++; if(nameQ||nickQ){found++; row.classList.add("found-row");}}
+      if(visible && (nameQ||nickQ)){found++; row.classList.add("found-row");}
     });
-    updateFilterCounters();
-    const hasSearch=!!(nameQ||nickQ), hasFilter=activeFilters.length>0;
-    if(hasSearch&&hasFilter)setStatus(`검색/필터 결과 ${visibleCount}명`); else if(hasSearch)setStatus(`검색 결과 ${found}명`); else if(hasFilter)setStatus(`필터 결과 ${visibleCount}명`); else setStatus("검색/필터 해제");
+    const hasSearch=!!(nameQ||nickQ);
+    const hasColumnFilter=excelColumnFilters.size>0;
+    if(hasSearch)setStatus(`검색 결과 ${found}명`);
+    else if(hasColumnFilter)setStatus("필터 적용");
+    else setStatus("검색 해제");
+    updateFilterHeaderState();
     scheduleScaleWholeTable();
   }
 
@@ -3539,16 +3259,14 @@ const firebaseConfig = {
   },true);
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(!isReadOnlyMode() && getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
   document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol; document.getElementById("selectRowBtn").onclick=selectCurrentRow;
-  document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value="";table.querySelectorAll(".column-filter-check").forEach(check=>{check.checked=true;});table.querySelectorAll("th.header-cell").forEach(th=>{th.dataset.filterActive="0";th.classList.remove("filter-active");const btn=th.querySelector(".column-filter-toggle");if(btn)btn.textContent="전체";});closeAllColumnFilterPanels(); search()};
+  document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value=""; search()};
   bindCellContentButtons();
   bindCellStyleButtons();
-  function handleOutsideFilterClose(e){
+  function handleOutsideClick(e){
     if(!autocompleteBox.contains(e.target)&&!e.target.closest("td,th"))hideAutocomplete();
-    /* 필터 박스는 확인 버튼을 눌렀을 때만 닫히도록 유지 */
-    if(e.target.closest(".header-filter-wrap") || e.target.closest(".multi-filter-panel")) return;
   }
-  document.addEventListener("click",handleOutsideFilterClose);
-  document.addEventListener("touchstart",handleOutsideFilterClose,{passive:true});
+  document.addEventListener("click",handleOutsideClick);
+  document.addEventListener("touchstart",handleOutsideClick,{passive:true});
   tableWrap.addEventListener("scroll",()=>{hideAutocomplete();});
   window.addEventListener("resize",()=>{hideAutocomplete();scheduleScaleWholeTable();}); window.addEventListener("orientationchange",()=>setTimeout(scaleWholeTable,300));
   applyData(loadBestSaved()||defaultData());
@@ -4463,27 +4181,12 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
   max-width:0 !important;
   padding:0 !important;
   border:0 !important;
-}
-
-
-/* 최종 보정: 필터박스 위치는 JS가 !important로 직접 지정하므로 CSS top:auto 충돌 제거 */
-.multi-filter-panel:not([hidden]){
-  position:fixed !important;
-  right:auto !important;
-  bottom:auto !important;
-  transform:none !important;
-  overflow-y:auto !important;
-}
-
-
-
-/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
+}/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
 .toolbar button,
 .admin-tools button,
 .button-group-panel button,
 .style-tools button,
-.readonly-column-actions button,
-.multi-filter-action-row button{
+.readonly-column-actions button{
   border:0.5px solid rgba(15,23,42,.18) !important;
   border-radius:8px !important;
   background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%) !important;
@@ -4497,8 +4200,7 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
 .admin-tools button:hover,
 .button-group-panel button:hover,
 .style-tools button:hover,
-.readonly-column-actions button:hover,
-.multi-filter-action-row button:hover{
+.readonly-column-actions button:hover:hover{
   background:linear-gradient(180deg,#ffffff 0%,#eaf1ff 100%) !important;
   border-color:rgba(23,55,201,.38) !important;
   box-shadow:0 2px 6px rgba(23,55,201,.16), inset 0 1px 0 rgba(255,255,255,.85) !important;
@@ -4507,8 +4209,7 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
 .admin-tools button:active,
 .button-group-panel button:active,
 .style-tools button:active,
-.readonly-column-actions button:active,
-.multi-filter-action-row button:active{
+.readonly-column-actions button:active:active{
   transform:translateY(1px) !important;
   box-shadow:0 1px 2px rgba(15,23,42,.10) !important;
 }
@@ -4545,8 +4246,7 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
   .toolbar button,
   .admin-tools button,
   .button-group-panel button,
-  .style-tools button,
-  .multi-filter-action-row button{
+  .style-tools button{
     border-radius:3px !important;
     letter-spacing:-0.1px !important;
   }
@@ -4727,27 +4427,12 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
     font-size:5.75px !important;
     line-height:9.5px !important;
   }
-}
-
-
-/* 최종 보정: 필터박스 위치는 JS가 !important로 직접 지정하므로 CSS top:auto 충돌 제거 */
-.multi-filter-panel:not([hidden]){
-  position:fixed !important;
-  right:auto !important;
-  bottom:auto !important;
-  transform:none !important;
-  overflow-y:auto !important;
-}
-
-
-
-/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
+}/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
 .toolbar button,
 .admin-tools button,
 .button-group-panel button,
 .style-tools button,
-.readonly-column-actions button,
-.multi-filter-action-row button{
+.readonly-column-actions button{
   border:0.5px solid rgba(15,23,42,.18) !important;
   border-radius:8px !important;
   background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%) !important;
@@ -4761,8 +4446,7 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
 .admin-tools button:hover,
 .button-group-panel button:hover,
 .style-tools button:hover,
-.readonly-column-actions button:hover,
-.multi-filter-action-row button:hover{
+.readonly-column-actions button:hover:hover{
   background:linear-gradient(180deg,#ffffff 0%,#eaf1ff 100%) !important;
   border-color:rgba(23,55,201,.38) !important;
   box-shadow:0 2px 6px rgba(23,55,201,.16), inset 0 1px 0 rgba(255,255,255,.85) !important;
@@ -4771,8 +4455,7 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
 .admin-tools button:active,
 .button-group-panel button:active,
 .style-tools button:active,
-.readonly-column-actions button:active,
-.multi-filter-action-row button:active{
+.readonly-column-actions button:active:active{
   transform:translateY(1px) !important;
   box-shadow:0 1px 2px rgba(15,23,42,.10) !important;
 }
@@ -4809,8 +4492,7 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
   .toolbar button,
   .admin-tools button,
   .button-group-panel button,
-  .style-tools button,
-  .multi-filter-action-row button{
+  .style-tools button{
     border-radius:3px !important;
     letter-spacing:-0.1px !important;
   }
@@ -4871,27 +4553,12 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
   .admin-column-list{grid-template-columns:1fr;gap:4px;}
   .admin-column-item{font-size:10px;padding:5px 6px;border-radius:6px;}
   .admin-column-actions button{height:24px;font-size:9px;padding:0 7px;}
-}
-
-
-/* 최종 보정: 필터박스 위치는 JS가 !important로 직접 지정하므로 CSS top:auto 충돌 제거 */
-.multi-filter-panel:not([hidden]){
-  position:fixed !important;
-  right:auto !important;
-  bottom:auto !important;
-  transform:none !important;
-  overflow-y:auto !important;
-}
-
-
-
-/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
+}/* 요청 수정: 버튼 디자인 개선 + 행 전체 선택 강조 */
 .toolbar button,
 .admin-tools button,
 .button-group-panel button,
 .style-tools button,
-.readonly-column-actions button,
-.multi-filter-action-row button{
+.readonly-column-actions button{
   border:0.5px solid rgba(15,23,42,.18) !important;
   border-radius:8px !important;
   background:linear-gradient(180deg,#ffffff 0%,#f1f5f9 100%) !important;
@@ -4905,8 +4572,7 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
 .admin-tools button:hover,
 .button-group-panel button:hover,
 .style-tools button:hover,
-.readonly-column-actions button:hover,
-.multi-filter-action-row button:hover{
+.readonly-column-actions button:hover:hover{
   background:linear-gradient(180deg,#ffffff 0%,#eaf1ff 100%) !important;
   border-color:rgba(23,55,201,.38) !important;
   box-shadow:0 2px 6px rgba(23,55,201,.16), inset 0 1px 0 rgba(255,255,255,.85) !important;
@@ -4915,8 +4581,7 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
 .admin-tools button:active,
 .button-group-panel button:active,
 .style-tools button:active,
-.readonly-column-actions button:active,
-.multi-filter-action-row button:active{
+.readonly-column-actions button:active:active{
   transform:translateY(1px) !important;
   box-shadow:0 1px 2px rgba(15,23,42,.10) !important;
 }
@@ -4953,8 +4618,7 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
   .toolbar button,
   .admin-tools button,
   .button-group-panel button,
-  .style-tools button,
-  .multi-filter-action-row button{
+  .style-tools button{
     border-radius:3px !important;
     letter-spacing:-0.1px !important;
   }
@@ -5091,332 +4755,8 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
     if(table){ new MutationObserver(scheduleApply).observe(table,{childList:true,subtree:true}); }
   }
 
-  /* 요청 수정: 필터 내용이 많아도 박스 상단은 항상 회색 제목행 아래에 고정 */
-  function positionFloatingFilterPanels(){
-    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(panel=>{
-      const wrap = panel.closest(".header-filter-wrap");
-      const toggle = wrap ? wrap.querySelector(".column-filter-toggle") : null;
-      const th = panel.closest("th");
-      if(!toggle) return;
-
-      const colIndex = Number(panel.dataset.col);
-      const firstDataCell = Number.isFinite(colIndex) && table && table.rows && table.rows[1]
-        ? table.rows[1].cells[colIndex]
-        : null;
-
-      const toggleRect = toggle.getBoundingClientRect();
-      const headerRow = table && table.rows && table.rows[0] ? table.rows[0] : null;
-      const headerRowRect = headerRow ? headerRow.getBoundingClientRect() : toggleRect;
-      const thRect = th ? th.getBoundingClientRect() : headerRowRect;
-      const baseRect = firstDataCell ? firstDataCell.getBoundingClientRect() : thRect;
-      const panelWidth = Math.max(panel.offsetWidth || 126, 126);
-
-      /* 좌우 위치는 회원데이터 첫 칸 기준 유지 */
-      let left = baseRect.left;
-      if(left + panelWidth > window.innerWidth - 6){
-        left = Math.max(6, window.innerWidth - panelWidth - 6);
-      }
-      left = Math.max(6, left);
-
-      /* 핵심 수정: 스크롤 상태에서 table.rows[1]의 실제 위치가 화면 위로 올라가도
-         그 값을 쓰지 않는다. 필터박스 상단은 항상 현재 화면에 보이는 회색 제목행의
-         아래쪽(= 회원데이터박스 첫칸 시작선)에 고정한다. */
-      const tableWrapRect = tableWrap ? tableWrap.getBoundingClientRect() : headerRowRect;
-      const visibleHeaderBottom = Math.max(headerRowRect.bottom, tableWrapRect.top);
-      const fixedTop = Math.max(6, visibleHeaderBottom + 2);
-
-      /* 내용이 많아도 top을 위로 보정하지 않고, 아래 공간만큼 높이만 줄여 내부 스크롤한다. */
-      const availableHeight = Math.max(44, window.innerHeight - fixedTop - 6);
-
-      /* 기존 CSS에 top:auto !important / max-height !important가 있어서
-         일반 inline style이 무시될 수 있으므로 setProperty(..., 'important')로 강제 */
-      panel.style.setProperty("position", "fixed", "important");
-      panel.style.setProperty("left", left + "px", "important");
-      panel.style.setProperty("top", fixedTop + "px", "important");
-      panel.style.setProperty("right", "auto", "important");
-      panel.style.setProperty("bottom", "auto", "important");
-      panel.style.setProperty("transform", "none", "important");
-      panel.style.setProperty("max-height", Math.min(280, availableHeight) + "px", "important");
-      panel.style.setProperty("height", "auto", "important");
-      panel.style.setProperty("overflow-y", "auto", "important");
-      panel.style.setProperty("z-index", "2147483647", "important");
-    });
-  }
-
-  function scheduleFloatingFilterPosition(){
-    requestAnimationFrame(positionFloatingFilterPanels);
-    setTimeout(positionFloatingFilterPanels, 30);
-    setTimeout(positionFloatingFilterPanels, 120);
-  }
-
-  document.addEventListener("click", function(e){
-    const toggle = e.target && e.target.closest ? e.target.closest(".column-filter-toggle") : null;
-    if(toggle){
-      scheduleFloatingFilterPosition();
-    }
-  }, true);
-
-  document.addEventListener("change", function(e){
-    if(e.target && e.target.closest && e.target.closest(".multi-filter-panel")){
-      scheduleFloatingFilterPosition();
-    }
-  }, true);
-
-  window.addEventListener("scroll", positionFloatingFilterPanels, true);
-  window.addEventListener("resize", positionFloatingFilterPanels);
-  if(tableWrap){
-    tableWrap.addEventListener("scroll", positionFloatingFilterPanels, true);
-  }
-
-
-  /* 요청 수정: 필터가 열린 제목셀에 클래스를 부여해 인접 열보다 앞으로 표시 */
-  function markOpenFilterHeaderCells(){
-    document.querySelectorAll(".filter-header-open").forEach(el=>el.classList.remove("filter-header-open"));
-    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(panel=>{
-      const th = panel.closest("th");
-      if(th) th.classList.add("filter-header-open");
-    });
-  }
-
-  document.addEventListener("click", function(){
-    setTimeout(markOpenFilterHeaderCells, 0);
-    setTimeout(markOpenFilterHeaderCells, 80);
-  }, true);
-
-  document.addEventListener("change", function(){
-    setTimeout(markOpenFilterHeaderCells, 0);
-  }, true);
-
-  /* 요청 수정: 필터 실행 중 셀 편집 시 행이 즉시 사라지지 않도록 필터 재적용 잠금 */
-  let filterApplyLockedByEditing = false;
-  let filterApplyAfterEditingTimer = null;
-
-  function lockFilterApplyWhileEditing(){
-    filterApplyLockedByEditing = true;
-    document.body.classList.add("filter-edit-lock");
-  }
-
-  function unlockFilterApplyAfterEditing(){
-    clearTimeout(filterApplyAfterEditingTimer);
-    filterApplyAfterEditingTimer = setTimeout(()=>{
-      filterApplyLockedByEditing = false;
-      document.body.classList.remove("filter-edit-lock");
-      if(typeof applyColumnFilters === "function"){
-        applyColumnFilters();
-      }else if(typeof applyFilters === "function"){
-        applyFilters();
-      }else if(typeof updateFilterCounters === "function"){
-        updateFilterCounters();
-      }
-    }, 250);
-  }
-
-  document.addEventListener("focusin", function(e){
-    const cell = e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
-    if(cell){
-      lockFilterApplyWhileEditing();
-    }
-  }, true);
-
-  document.addEventListener("input", function(e){
-    const cell = e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
-    if(cell){
-      lockFilterApplyWhileEditing();
-      cell.classList.remove("hidden-by-search");
-      const row = cell.closest("tr");
-      if(row) row.classList.remove("hidden-by-search");
-    }
-  }, true);
-
-  document.addEventListener("focusout", function(e){
-    const cell = e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
-    if(cell){
-      unlockFilterApplyAfterEditing();
-    }
-  }, true);
-
-  document.addEventListener("keydown", function(e){
-    if(e.key === "Enter"){
-      const cell = e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
-      if(cell){
-        unlockFilterApplyAfterEditing();
-      }
-    }
-  }, true);
-
-
-  /* 요청 수정 보강: 카운터 표시 대상 열에 성별/출생년도 포함 */
-  const FILTER_COUNTER_TARGET_HEADER_NAMES_PATCH = new Set(["직책","이름","성별","출생년도","거주지","버스타는곳","참석","가입:승인","승인결과"]);
-  function normalizeFilterCounterHeaderNameForPatch(text){
-    return String(text || "").replace(/\s+/g, " ").trim();
-  }
-  function isAllowedFilterCounterHeaderForPatch(text){
-    return FILTER_COUNTER_TARGET_HEADER_NAMES_PATCH.has(normalizeFilterCounterHeaderNameForPatch(text));
-  }
-
 })();
 </script>
-
-
-<script id="forceFilterPanelBelowHeaderFix">
-(function(){
-  "use strict";
-
-  function getHeaderBottom(){
-    const table = document.getElementById("memberTable");
-    const tableWrap = document.getElementById("tableWrap");
-    const headerRow = table && table.rows && table.rows.length ? table.rows[0] : null;
-    const headerRect = headerRow ? headerRow.getBoundingClientRect() : null;
-    const wrapRect = tableWrap ? tableWrap.getBoundingClientRect() : null;
-
-    // 회색 제목행이 sticky 상태일 때도 현재 화면에 보이는 제목행 하단을 기준으로 고정
-    if(headerRect){
-      return Math.max(0, Math.round(headerRect.bottom + 2));
-    }
-    if(wrapRect){
-      return Math.max(0, Math.round(wrapRect.top + 80));
-    }
-    return 80;
-  }
-
-  function getPanelLeft(panel){
-    const th = panel.closest("th");
-    const toggle = th ? th.querySelector(".column-filter-toggle") : null;
-    const rect = toggle ? toggle.getBoundingClientRect() : (th ? th.getBoundingClientRect() : null);
-    const panelWidth = Math.max(panel.offsetWidth || 126, 126);
-    let left = rect ? rect.left : 6;
-    if(left + panelWidth > window.innerWidth - 6){
-      left = window.innerWidth - panelWidth - 6;
-    }
-    return Math.max(6, Math.round(left));
-  }
-
-  function forceFilterPanelBelowHeader(){
-    const top = getHeaderBottom();
-    const maxHeight = Math.max(50, window.innerHeight - top - 8);
-    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(panel=>{
-      const left = getPanelLeft(panel);
-      panel.style.setProperty("position", "fixed", "important");
-      panel.style.setProperty("top", top + "px", "important");
-      panel.style.setProperty("left", left + "px", "important");
-      panel.style.setProperty("right", "auto", "important");
-      panel.style.setProperty("bottom", "auto", "important");
-      panel.style.setProperty("transform", "none", "important");
-      panel.style.setProperty("height", "auto", "important");
-      panel.style.setProperty("max-height", Math.min(280, maxHeight) + "px", "important");
-      panel.style.setProperty("overflow-y", "auto", "important");
-      panel.style.setProperty("z-index", "2147483647", "important");
-    });
-  }
-
-  function scheduleForce(){
-    forceFilterPanelBelowHeader();
-    requestAnimationFrame(forceFilterPanelBelowHeader);
-    setTimeout(forceFilterPanelBelowHeader, 20);
-    setTimeout(forceFilterPanelBelowHeader, 80);
-    setTimeout(forceFilterPanelBelowHeader, 200);
-  }
-
-  // 기존 코드가 클릭 후 위치를 다시 잡아도 마지막에 이 보정이 이기도록 강제 실행
-  document.addEventListener("click", function(e){
-    if(e.target && e.target.closest && (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"))){
-      scheduleForce();
-    }
-  }, true);
-
-  document.addEventListener("change", function(e){
-    if(e.target && e.target.closest && e.target.closest(".multi-filter-panel")){
-      scheduleForce();
-    }
-  }, true);
-
-  window.addEventListener("scroll", scheduleForce, true);
-  window.addEventListener("resize", scheduleForce);
-  window.addEventListener("orientationchange", scheduleForce);
-
-  const table = document.getElementById("memberTable");
-  if(table){
-    new MutationObserver(scheduleForce).observe(table, {subtree:true, childList:true, attributes:true, attributeFilter:["hidden", "style", "class"]});
-  }
-
-  window.forceFilterPanelBelowHeader = scheduleForce;
-})();
-</script>
-
-
-
-<script id="checkboxStayOpenPatch">
-(function(){
-  "use strict";
-
-  let lastFilterCol = null;
-
-  function getPanelFromTarget(target){
-    return target && target.closest ? target.closest(".multi-filter-panel") : null;
-  }
-
-  function rememberPanel(panel){
-    if(!panel) return;
-    lastFilterCol = panel.getAttribute("data-col");
-  }
-
-  function reopenPanelByCol(col){
-    if(col === null || col === undefined) return;
-    var panel = document.querySelector('.multi-filter-panel[data-col="' + String(col).replace(/"/g, '\\"') + '"]');
-    if(!panel) return;
-    panel.hidden = false;
-    var th = panel.closest("th");
-    if(th) th.classList.add("filter-header-open");
-    if(typeof window.forceFilterPanelBelowHeader === "function") window.forceFilterPanelBelowHeader();
-    if(typeof window.scheduleFloatingFilterPosition === "function") window.scheduleFloatingFilterPosition();
-  }
-
-  function keepPanelOpen(target){
-    var panel = getPanelFromTarget(target);
-    if(panel){
-      rememberPanel(panel);
-      panel.hidden = false;
-      var col = panel.getAttribute("data-col");
-      requestAnimationFrame(function(){ reopenPanelByCol(col); });
-      setTimeout(function(){ reopenPanelByCol(col); }, 0);
-      setTimeout(function(){ reopenPanelByCol(col); }, 80);
-      setTimeout(function(){ reopenPanelByCol(col); }, 200);
-    }else if(lastFilterCol !== null){
-      requestAnimationFrame(function(){ reopenPanelByCol(lastFilterCol); });
-    }
-  }
-
-  ["mousedown","pointerdown","touchstart","click"].forEach(function(type){
-    document.addEventListener(type, function(e){
-      if(e.target && e.target.closest && e.target.closest(".column-filter-check")){
-        // 체크박스 자체 토글은 그대로 두고, 외부 클릭 닫힘 이벤트만 차단
-        e.stopPropagation();
-        keepPanelOpen(e.target);
-      }
-      if(e.target && e.target.closest && e.target.closest(".multi-filter-option")){
-        e.stopPropagation();
-        keepPanelOpen(e.target);
-      }
-    }, true);
-  });
-
-  document.addEventListener("change", function(e){
-    if(e.target && e.target.closest && e.target.closest(".column-filter-check")){
-      e.stopPropagation();
-      keepPanelOpen(e.target);
-    }
-  }, true);
-
-  document.addEventListener("input", function(e){
-    if(e.target && e.target.closest && e.target.closest(".column-filter-check")){
-      e.stopPropagation();
-      keepPanelOpen(e.target);
-    }
-  }, true);
-})();
-</script>
-
-
 <script id="memberListFinalRequestedFixes">
 (function(){
   "use strict";
@@ -5536,172 +4876,6 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
   document.addEventListener("click", function(e){
     if(e.target && e.target.closest && e.target.closest("#adminLogoutBtn")) clearBackExit();
   }, true);
-
-  function isMobileWidth(){ return window.matchMedia && window.matchMedia("(max-width:480px)").matches; }
-  function placeFilterPanel(panel){
-    if(!panel) return;
-    var th = panel.closest("th");
-    var wrap = panel.closest(".header-filter-wrap");
-    if(!th || !wrap) return;
-    if(isMobileWidth()){
-      // 모바일: 화면 좌표/fixed 사용 금지. 누른 제목 셀 내부 기준으로 첫 데이터줄 쪽에 생성.
-      th.style.setProperty("overflow", "visible", "important");
-      th.classList.add("filter-header-open");
-      wrap.style.setProperty("position", "relative", "important");
-      wrap.style.setProperty("overflow", "visible", "important");
-      panel.style.setProperty("position", "absolute", "important");
-      panel.style.setProperty("left", "0px", "important");
-      panel.style.setProperty("top", "100%", "important");
-      panel.style.setProperty("right", "auto", "important");
-      panel.style.setProperty("bottom", "auto", "important");
-      panel.style.setProperty("transform", "none", "important");
-      panel.style.setProperty("z-index", "2147483647", "important");
-      panel.style.setProperty("max-height", "200px", "important");
-      panel.style.setProperty("overflow-y", "auto", "important");
-    }else{
-      // PC: 원래 위치 계산 유지
-      if(typeof window.__originalForceFilterPanelBelowHeader === "function"){
-        window.__originalForceFilterPanelBelowHeader();
-      }
-    }
-  }
-  function placeOpenFilterPanels(){
-    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(placeFilterPanel);
-  }
-  function schedulePlace(){
-    placeOpenFilterPanels();
-    requestAnimationFrame(placeOpenFilterPanels);
-    setTimeout(placeOpenFilterPanels, 30);
-    setTimeout(placeOpenFilterPanels, 120);
-    setTimeout(placeOpenFilterPanels, 250);
-  }
-  if(typeof window.forceFilterPanelBelowHeader === "function" && !window.__originalForceFilterPanelBelowHeader){
-    window.__originalForceFilterPanelBelowHeader = window.forceFilterPanelBelowHeader;
-  }
-  window.forceFilterPanelBelowHeader = schedulePlace;
-  window.scheduleFloatingFilterPosition = schedulePlace;
-  ["click","pointerup","touchend","change"].forEach(function(type){
-    document.addEventListener(type, function(e){
-      if(e.target && e.target.closest && (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"))){
-        schedulePlace();
-      }
-    }, true);
-  });
-  window.addEventListener("resize", schedulePlace);
-  window.addEventListener("orientationchange", schedulePlace);
-  var tableWrap = document.getElementById("tableWrap");
-  if(tableWrap) tableWrap.addEventListener("scroll", schedulePlace, true);
-})();
-</script>
-
-
-
-
-
-<!-- FILTER ONLY FINAL PATCH: 모바일 필터박스 위치 강제 보정 -->
-<style id="mobileFilterAbsoluteFinalStyle">
-@media (max-width:480px){
-  #memberTable th.header-cell,
-  #memberTable tr:first-child th,
-  #memberTable th.filter-header-open{
-    overflow:visible !important;
-  }
-  #memberTable th.header-cell .header-filter-wrap{
-    position:relative !important;
-    overflow:visible !important;
-  }
-  #memberTable th.header-cell .multi-filter-panel:not([hidden]){
-    position:absolute !important;
-    left:0 !important;
-    top:calc(100% + 2px) !important;
-    right:auto !important;
-    bottom:auto !important;
-    transform:none !important;
-    z-index:2147483647 !important;
-    max-height:200px !important;
-    overflow-y:auto !important;
-  }
-}
-</style>
-<script id="mobileFilterAbsoluteFinalPatch">
-(function(){
-  "use strict";
-
-  function isMobile(){
-    return !!(window.matchMedia && window.matchMedia("(max-width:480px)").matches);
-  }
-
-  function openHeaderFromPanel(panel){
-    return panel && panel.closest ? panel.closest("th.header-cell, th") : null;
-  }
-
-  function forceMobileFilterPosition(panel){
-    if(!isMobile() || !panel || panel.hidden) return;
-
-    var th = openHeaderFromPanel(panel);
-    var wrap = panel.closest(".header-filter-wrap");
-    if(!th || !wrap) return;
-
-    th.classList.add("filter-header-open");
-    th.style.setProperty("overflow", "visible", "important");
-    wrap.style.setProperty("position", "relative", "important");
-    wrap.style.setProperty("overflow", "visible", "important");
-
-    /* 핵심: 모바일에서는 화면/상단메뉴 기준 fixed 좌표를 쓰지 않고,
-       필터를 누른 제목 셀 내부 기준으로만 출력한다. */
-    panel.style.setProperty("position", "absolute", "important");
-    panel.style.setProperty("left", "0px", "important");
-    panel.style.setProperty("top", "calc(100% + 2px)", "important");
-    panel.style.setProperty("right", "auto", "important");
-    panel.style.setProperty("bottom", "auto", "important");
-    panel.style.setProperty("transform", "none", "important");
-    panel.style.setProperty("z-index", "2147483647", "important");
-    panel.style.setProperty("max-height", "200px", "important");
-    panel.style.setProperty("height", "auto", "important");
-    panel.style.setProperty("overflow-y", "auto", "important");
-  }
-
-  function forceAllOpenPanels(){
-    if(!isMobile()) return;
-    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(forceMobileFilterPosition);
-  }
-
-  function scheduleForce(){
-    forceAllOpenPanels();
-    requestAnimationFrame(forceAllOpenPanels);
-    setTimeout(forceAllOpenPanels, 0);
-    setTimeout(forceAllOpenPanels, 30);
-    setTimeout(forceAllOpenPanels, 120);
-    setTimeout(forceAllOpenPanels, 300);
-    setTimeout(forceAllOpenPanels, 700);
-  }
-
-  /* 기존 필터 위치 함수가 뒤늦게 fixed 좌표를 다시 넣어도 마지막에 이 보정이 이기도록 한다. */
-  window.forceFilterPanelBelowHeader = scheduleForce;
-  window.scheduleFloatingFilterPosition = scheduleForce;
-
-  ["click","touchstart","touchend","pointerdown","pointerup","change"].forEach(function(type){
-    document.addEventListener(type, function(e){
-      if(e.target && e.target.closest &&
-         (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"))){
-        scheduleForce();
-      }
-    }, true);
-  });
-
-  window.addEventListener("resize", scheduleForce);
-  window.addEventListener("orientationchange", scheduleForce);
-  window.addEventListener("scroll", scheduleForce, true);
-
-  var table = document.getElementById("memberTable");
-  if(table){
-    new MutationObserver(scheduleForce).observe(table, {
-      subtree:true,
-      childList:true,
-      attributes:true,
-      attributeFilter:["hidden","style","class"]
-    });
-  }
 })();
 </script>
 
