@@ -5561,6 +5561,92 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
 })();
 </script>
 
+
+
+<script id="samePcMobileFilterPositionFinal">
+/* 요청 수정: 모바일 필터박스 생성 위치를 PC와 동일한 기준으로 통일 */
+(function(){
+  "use strict";
+
+  function getHeaderBottomSameAsPc(panel){
+    var table = document.getElementById("memberTable");
+    var headerRow = table && table.rows && table.rows[0] ? table.rows[0] : null;
+    var toggle = panel && panel.closest ? panel.closest(".header-filter-wrap")?.querySelector(".column-filter-toggle") : null;
+    var baseRect = headerRow ? headerRow.getBoundingClientRect() : (toggle ? toggle.getBoundingClientRect() : null);
+    if(baseRect){
+      return Math.max(6, Math.round(baseRect.bottom + 2));
+    }
+    return 80;
+  }
+
+  function getLeftSameAsPc(panel){
+    var wrap = panel && panel.closest ? panel.closest(".header-filter-wrap") : null;
+    var toggle = wrap ? wrap.querySelector(".column-filter-toggle") : null;
+    var th = panel && panel.closest ? panel.closest("th") : null;
+    var rect = toggle ? toggle.getBoundingClientRect() : (th ? th.getBoundingClientRect() : null);
+    var panelWidth = Math.max(panel.offsetWidth || 126, 126);
+
+    /* PC와 동일하게: 필터 버튼이 보이는 화면상의 left 좌표를 그대로 기준으로 사용 */
+    var left = rect ? rect.left : 6;
+
+    /* 화면 밖으로 완전히 밀려나는 경우만 최소 보정 */
+    if(left + panelWidth > window.innerWidth - 6){
+      left = window.innerWidth - panelWidth - 6;
+    }
+    if(left < 6) left = 6;
+    return Math.round(left);
+  }
+
+  function placePanelsSameAsPc(){
+    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(function(panel){
+      var top = getHeaderBottomSameAsPc(panel);
+      var left = getLeftSameAsPc(panel);
+      var maxHeight = Math.max(50, window.innerHeight - top - 8);
+      panel.style.setProperty("position", "fixed", "important");
+      panel.style.setProperty("top", top + "px", "important");
+      panel.style.setProperty("left", left + "px", "important");
+      panel.style.setProperty("right", "auto", "important");
+      panel.style.setProperty("bottom", "auto", "important");
+      panel.style.setProperty("transform", "none", "important");
+      panel.style.setProperty("height", "auto", "important");
+      panel.style.setProperty("max-height", Math.min(280, maxHeight) + "px", "important");
+      panel.style.setProperty("overflow-y", "auto", "important");
+      panel.style.setProperty("z-index", "2147483647", "important");
+    });
+  }
+
+  function scheduleSameAsPc(){
+    placePanelsSameAsPc();
+    requestAnimationFrame(placePanelsSameAsPc);
+    setTimeout(placePanelsSameAsPc, 20);
+    setTimeout(placePanelsSameAsPc, 80);
+    setTimeout(placePanelsSameAsPc, 200);
+  }
+
+  window.forceFilterPanelBelowHeader = scheduleSameAsPc;
+  window.scheduleFloatingFilterPosition = scheduleSameAsPc;
+
+  document.addEventListener("click", function(e){
+    if(e.target && e.target.closest && (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"))){
+      scheduleSameAsPc();
+    }
+  }, true);
+  document.addEventListener("touchstart", function(e){
+    if(e.target && e.target.closest && (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"))){
+      scheduleSameAsPc();
+    }
+  }, true);
+  document.addEventListener("change", function(e){
+    if(e.target && e.target.closest && e.target.closest(".multi-filter-panel")){
+      scheduleSameAsPc();
+    }
+  }, true);
+  window.addEventListener("scroll", scheduleSameAsPc, true);
+  window.addEventListener("resize", scheduleSameAsPc);
+  window.addEventListener("orientationchange", scheduleSameAsPc);
+})();
+</script>
+
 </body>
 </html>
 <style id="phoneDropdownMenu20PercentFinal">
