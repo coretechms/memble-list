@@ -3455,7 +3455,8 @@ const firebaseConfig = {
   const DEFAULT_READONLY_PASSWORD="0000";
   const SESSION_KEY="memberList.admin.sessionUnlocked.v1";
   const SESSION_MODE_KEY="memberList.admin.sessionMode.v1";
-  const ADMIN_SYNC_PATH="memberList/main/adminPasswordSync";
+  const ADMIN_SYNC_PATH="memberList/adminPasswordSync";
+  const ADMIN_SYNC_LEGACY_PATH="memberList/main/adminPasswordSync";
   const ZOOMABLE_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=15, user-scalable=yes, viewport-fit=cover";
   const LOCKED_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
   const $=(id)=>document.getElementById(id);
@@ -3566,16 +3567,12 @@ const firebaseConfig = {
   async function getDefaultHash(){return await sha256(DEFAULT_PASSWORD);}
   async function getDefaultReadOnlyHash(){return await sha256(DEFAULT_READONLY_PASSWORD);}
   async function loadLocalAdminCache(){
-    let pass=localStorage.getItem(PASS_KEY)||"";
-    if(!pass){pass=await getDefaultHash();localStorage.setItem(PASS_KEY,pass);}
-    adminPasswordHash=pass;
+    // Firebase 우선: 로컬스토리지는 보조 캐시로만 사용합니다.
+    // 로컬스토리지가 비어 있어도 기본 비밀번호를 새로 만들거나 Firebase에 덮어쓰지 않습니다.
+    adminPasswordHash=localStorage.getItem(PASS_KEY)||"";
     adminRecoveryHash=localStorage.getItem(RECOVERY_KEY)||"";
-    let readOnly=localStorage.getItem(READONLY_KEY)||"";
-    if(!readOnly){readOnly=await getDefaultReadOnlyHash();localStorage.setItem(READONLY_KEY,readOnly);}
-    readOnlyPasswordHash=readOnly;
-    let systemAdmin=localStorage.getItem(SYSTEM_ADMIN_KEY)||"";
-    if(!systemAdmin){systemAdmin=await getDefaultHash();localStorage.setItem(SYSTEM_ADMIN_KEY,systemAdmin);}
-    systemAdminPasswordHash=systemAdmin;
+    readOnlyPasswordHash=localStorage.getItem(READONLY_KEY)||"";
+    systemAdminPasswordHash=localStorage.getItem(SYSTEM_ADMIN_KEY)||"";
   }
   function saveLocalAdminCache(){
     if(adminPasswordHash)localStorage.setItem(PASS_KEY,adminPasswordHash);
@@ -3612,19 +3609,17 @@ const firebaseConfig = {
     },120);
   }
   async function seedAdminSyncIfEmpty(){
-    if(!adminRef)return;
-    await loadLocalAdminCache();
-    adminRef.set(buildAdminPayload("initial-create")).catch((error)=>{
-      console.error("Admin password initial create failed",error);
-      setRealtimeBoxMsg("비밀번호 초기 생성 실패",false);
-    });
+    // 자동 초기 생성 금지: Firebase 비밀번호가 비어 있을 때 기본값으로 덮어쓰면
+    // 로컬스토리지 삭제 후 모든 비밀번호가 초기화되는 문제가 발생합니다.
+    setRealtimeBoxMsg("Firebase 비밀번호 없음",false);
+    setGateMsg("Firebase에 비밀번호 데이터가 없습니다. 기존 DB 값을 확인하세요.","#b45309");
   }
   async function initAdminFirebaseSync(){
     await loadLocalAdminCache();
     try{
       if(!window.firebase || !firebase.apps || !firebase.apps.length){
         adminRemoteLoaded=true;
-        setGateMsg("Firebase 연결 전입니다. 이 기기 저장 비밀번호를 사용합니다.","#b45309");
+        setGateMsg("Firebase 연결 전입니다. 로컬 캐시는 보조값으로만 사용합니다.","#b45309");
         return;
       }
       adminDb=firebase.database(firebase.apps[0]);
@@ -3638,39 +3633,51 @@ const firebaseConfig = {
         if(!payload){
           adminRemoteLoaded=true;
           await seedAdminSyncIfEmpty();
-          setGateMsg("비밀번호 초기화 완료","#0b7a28");
-          setTimeout(()=>setGateMsg(""),1200);
           return;
         }
+        // Firebase 값을 최우선으로 적용합니다. 로컬스토리지 값이 삭제/초기화되어도
+        // 여기서 읽은 DB 값이 다시 로컬 캐시에 저장됩니다.
         adminPasswordHash=payload.passwordHash;
         adminRecoveryHash=payload.recoveryHash||"";
-        readOnlyPasswordHash=payload.readOnlyHash||readOnlyPasswordHash||await getDefaultReadOnlyHash();
-        systemAdminPasswordHash=payload.systemAdminHash||systemAdminPasswordHash||await getDefaultHash();
+        readOnlyPasswordHash=payload.readOnlyHash||"";
+        systemAdminPasswordHash=payload.systemAdminHash||"";
         saveLocalAdminCache();
         adminRemoteLoaded=true;
         setGateMsg("");
       },error=>{
         console.error("Admin password sync read failed",error);
         adminRemoteLoaded=true;
-        setGateMsg("비밀번호 동기화 읽기 실패. 이 기기 저장값으로 로그인합니다.","#b45309");
+        setGateMsg("Firebase 비밀번호 읽기 실패. DB 연결/권한을 확인하세요.","#b45309");
       });
     }catch(error){
       console.error("Admin password sync init failed",error);
       adminRemoteLoaded=true;
-      setGateMsg("비밀번호 동기화 연결 실패. 이 기기 저장값으로 로그인합니다.","#b45309");
+      setGateMsg("Firebase 비밀번호 연결 실패. DB 설정을 확인하세요.","#b45309");
     }
   }
   async function ensureAdminReadyForLogin(){
     if(!adminRemoteLoaded){
-      setGateMsg("비밀번호 동기화 확인중입니다. 잠시 후 다시 눌러주세요.","#b45309");
+      setGateMsg("Firebase 비밀번호 읽는 중입니다. 잠시 후 다시 눌러주세요.","#b45309");
       await new Promise(resolve=>setTimeout(resolve,350));
     }
-    if(!adminPasswordHash){adminPasswordHash=await getDefaultHash();writeAdminSync("default-created");}
-    if(!readOnlyPasswordHash){readOnlyPasswordHash=await getDefaultReadOnlyHash();writeAdminSync("readonly-default-created");}
-    if(!systemAdminPasswordHash){systemAdminPasswordHash=await getDefaultHash();writeAdminSync("system-admin-default-created");}
+    // 기본 비밀번호 자동 생성/자동 저장 금지.
+    // Firebase에 값이 없거나 읽기 실패했을 때 임의로 1234/0000을 만들지 않습니다.
+    if(!adminPasswordHash){
+      setGateMsg("관리자 비밀번호를 Firebase에서 읽지 못했습니다.","#b45309");
+      return false;
+    }
+    if(!readOnlyPasswordHash){
+      setGateMsg("읽기전용 비밀번호를 Firebase에서 읽지 못했습니다.","#b45309");
+      return false;
+    }
+    if(!systemAdminPasswordHash){
+      systemAdminPasswordHash=adminPasswordHash;
+      saveLocalAdminCache();
+    }
+    return true;
   }
   async function unlockWithPassword(){
-    await ensureAdminReadyForLogin();
+    if(!(await ensureAdminReadyForLogin()))return;
     const input=$("adminPasswordInput");
     const value=(input&&input.value||"").trim();
     if(await sha256(value)===adminPasswordHash){
@@ -3683,7 +3690,7 @@ const firebaseConfig = {
     }
   }
   async function unlockReadOnlyWithPassword(){
-    await ensureAdminReadyForLogin();
+    if(!(await ensureAdminReadyForLogin()))return;
     const input=$("adminPasswordInput");
     const value=(input&&input.value||"").trim();
     if(await sha256(value)===readOnlyPasswordHash){
@@ -3715,7 +3722,7 @@ const firebaseConfig = {
     if(input)setTimeout(()=>{resetViewToMinimumForLogin();input.focus();},50);
   }
   async function changePassword(){
-    await ensureAdminReadyForLogin();
+    if(!(await ensureAdminReadyForLogin()))return;
     const oldPw=prompt("현재 관리자 비밀번호를 입력하세요.");
     if(oldPw===null)return;
     if(await sha256(oldPw.trim())!==adminPasswordHash){alert("현재 관리자 비밀번호가 맞지 않습니다.");return;}
@@ -3730,7 +3737,7 @@ const firebaseConfig = {
     alert("관리자 비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
   }
   async function changeReadOnlyPassword(){
-    await ensureAdminReadyForLogin();
+    if(!(await ensureAdminReadyForLogin()))return;
     const adminPw=prompt("관리자 비밀번호를 입력하세요.");
     if(adminPw===null)return;
     if(await sha256(adminPw.trim())!==adminPasswordHash){alert("관리자 비밀번호가 맞지 않습니다.");return;}
@@ -3745,14 +3752,14 @@ const firebaseConfig = {
     alert("읽기전용 비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
   }
   async function createRecoveryCode(){
-    await ensureAdminReadyForLogin();
+    if(!(await ensureAdminReadyForLogin()))return;
     const code=makeRecoveryCode();
     adminRecoveryHash=await sha256(code);
     writeAdminSync("recovery-code-create");
     alert("복구코드가 생성되었고 Firebase에 동기화되었습니다.\n\n"+code+"\n\n이 코드는 지금만 확인 가능합니다. 반드시 따로 보관하세요.");
   }
   async function resetPassword(){
-    await ensureAdminReadyForLogin();
+    if(!(await ensureAdminReadyForLogin()))return;
     const code=prompt("복구코드를 입력하세요.");
     if(code===null)return;
     if(!adminRecoveryHash){alert("생성된 복구코드가 없습니다. 관리자 로그인 후 복구코드를 먼저 생성하세요.");return;}
@@ -3768,7 +3775,7 @@ const firebaseConfig = {
   }
 
   async function openAdminGroupWithPassword(){
-    await ensureAdminReadyForLogin();
+    if(!(await ensureAdminReadyForLogin()))return;
     const pw=prompt("시스템관리자 비밀번호를 입력하세요.");
     if(pw===null)return;
     if(await sha256(pw.trim())!==systemAdminPasswordHash){
@@ -3783,7 +3790,7 @@ const firebaseConfig = {
   }
 
   async function changeSystemAdminPassword(){
-    await ensureAdminReadyForLogin();
+    if(!(await ensureAdminReadyForLogin()))return;
     const oldPw=prompt("현재 시스템관리자 비밀번호를 입력하세요.");
     if(oldPw===null)return;
     if(await sha256(oldPw.trim())!==systemAdminPasswordHash){alert("현재 시스템관리자 비밀번호가 맞지 않습니다.");return;}
