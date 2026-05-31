@@ -1924,6 +1924,9 @@ const firebaseConfig = {
   let applyingRemoteData = false;
   let firebaseSaveTimer = null;
   let firebaseInitialLoaded = false;
+  let firebaseWritePending = false;
+  let firebaseWritePendingReason = "pending";
+  let firebaseLastSaveAt = 0;
   let pendingBusSeatJoinCodeMap = null;
   const CLIENT_ID = (()=>{
     try{
@@ -2169,12 +2172,25 @@ const firebaseConfig = {
         : firebase.initializeApp(firebaseConfig);
       firebaseDb = firebase.database(firebaseApp);
       firebaseRef = firebaseDb.ref(FIREBASE_PATH);
+      try{
+        firebaseDb.ref(MEMBER_LIST_DELETED_JOIN_PATH).on("value",(snap)=>{
+          deletedJoinCodeMap = snap.exists() && snap.val() && typeof snap.val()==="object" ? snap.val() : {};
+        });
+      }catch(e){
+        console.warn("Deleted join marker watch failed", e);
+      }
       firebaseReady = true;
       setRealtimeStatus("Firebase 초기화 완료",true);
 
       firebaseDb.ref(".info/connected").on("value",(snap)=>{
         if(snap.val()===true){
           setRealtimeStatus("실시간 연결됨",true);
+          if(firebaseWritePending){
+            const reason = firebaseWritePendingReason || "pending-reconnect";
+            firebaseWritePending = false;
+            firebaseWritePendingReason = "";
+            pushRealtimeNow(reason,0);
+          }
         }else{
           setRealtimeStatus("실시간 연결 대기중",false);
         }
@@ -2233,20 +2249,38 @@ const firebaseConfig = {
   }
 
   function pushRealtimeNow(reason="auto",delayMs=0){
-    if(!firebaseReady||!firebaseRef||applyingRemoteData)return;
+    if(applyingRemoteData)return;
+
+    /* Firebase가 아직 준비되지 않았을 때 조용히 return 하면
+       화면/로컬스토리지만 저장되고 새로고침 시 원복되는 문제가 생긴다.
+       그래서 저장 대기 표시 후 연결 즉시 자동 재저장한다. */
+    if(!firebaseReady || !firebaseRef){
+      firebaseWritePending = true;
+      firebaseWritePendingReason = reason || "pending-not-ready";
+      setRealtimeStatus("Firebase 저장 대기중",false);
+      return;
+    }
+
     clearTimeout(firebaseSaveTimer);
     firebaseSaveTimer=setTimeout(()=>{
       try{
         const payload=buildFirebasePayload(reason);
         firebaseRef.set(payload).then(()=>{
-          setRealtimeStatus("저장 완료",true);
+          firebaseLastSaveAt = Date.now();
+          firebaseWritePending = false;
+          firebaseWritePendingReason = "";
+          setRealtimeStatus("Firebase 저장 완료",true);
         }).catch((error)=>{
           console.error("Firebase realtime write failed",error);
-          setRealtimeStatus("저장 실패: "+(error&&error.code?error.code:"오류"),false);
+          firebaseWritePending = true;
+          firebaseWritePendingReason = reason || "pending-write-failed";
+          setRealtimeStatus("Firebase 저장 실패: "+(error&&error.code?error.code:"오류"),false);
         });
       }catch(error){
         console.error("Firebase realtime push failed",error);
-        setRealtimeStatus("저장 오류",false);
+        firebaseWritePending = true;
+        firebaseWritePendingReason = reason || "pending-push-error";
+        setRealtimeStatus("Firebase 저장 오류",false);
       }
     },Number(delayMs)||0);
   }
@@ -2265,6 +2299,8 @@ const firebaseConfig = {
     appId: "1:132111967366:web:e034a00f8c8cc4aa441d07"
   };
   const BUS_SEAT_APPROVED_JOIN_PATH = "memberList/joinCodes";
+  const MEMBER_LIST_DELETED_JOIN_PATH = "memberList/deletedJoinCodes";
+  let deletedJoinCodeMap = {};
   let busSeatMemberSourceReady = false;
   let busSeatMemberSourceRef = null;
 
@@ -2361,6 +2397,49 @@ const firebaseConfig = {
   }
   function normalizeComparePhone(value){
     return String(value||"").replace(/\D/g,"").trim();
+  }
+  function makeDeletedJoinKey(value){
+    try{
+      return encodeURIComponent(String(value||"").trim()).replace(/\./g,"%2E");
+    }catch(e){
+      return String(value||"").replace(/[.#$\[\]\/]/g,"_");
+    }
+  }
+  function makeDeletedIdentityKey(name,phone){
+    return "identity:" + normalizeCompareText(name) + ":" + normalizeComparePhone(phone);
+  }
+  function getDeletedJoinMarker(code,name,phone){
+    const codeKey=code ? makeDeletedJoinKey("code:"+code) : "";
+    const identityKey=makeDeletedJoinKey(makeDeletedIdentityKey(name,phone));
+    return (codeKey && deletedJoinCodeMap && deletedJoinCodeMap[codeKey]) ||
+           (identityKey && deletedJoinCodeMap && deletedJoinCodeMap[identityKey]) || null;
+  }
+  function isApprovalNewerThanDeleted(member,deletedMarker){
+    const deletedAt=Number(deletedMarker && deletedMarker.deletedAt || 0);
+    if(!deletedAt) return true;
+    const approvedAt=Number(member?.approvedAt || member?.updatedAt || member?.createdAt || 0);
+    return approvedAt > deletedAt;
+  }
+  function markDeletedMemberRowInFirebase(row){
+    try{
+      if(!firebaseDb || !row) return;
+      const nameIdx=getHeaderIndex("이 름",1);
+      const phoneIdx=getHeaderIndex("연락처",5);
+      const uidIdx=getHeaderIndex("회원UID",20);
+      const name=getCellPlain(row,nameIdx);
+      const phone=getCellPlain(row,phoneIdx);
+      const code=getCellPlain(row,uidIdx);
+      const deletedAt=Date.now();
+      const marker={deletedAt, deletedAtISO:new Date(deletedAt).toISOString(), name, phone, code};
+      const updates={};
+      if(code) updates[makeDeletedJoinKey("code:"+code)] = marker;
+      if(name || phone) updates[makeDeletedJoinKey(makeDeletedIdentityKey(name,phone))] = marker;
+      if(Object.keys(updates).length){
+        firebaseDb.ref(MEMBER_LIST_DELETED_JOIN_PATH).update(updates);
+      }
+    }catch(e){
+      console.warn("Deleted member marker save failed", e);
+    }
   }
   function findRowByMemberCode(memberCode){
     const code=String(memberCode||"").trim();
@@ -2467,6 +2546,16 @@ const firebaseConfig = {
 
     const incomingName=String(member.name||"").trim();
     const incomingPhone=normalizeIncomingPhone344(member.phone||member.phoneDigits||"");
+
+    /* 수동 삭제한 회원이 새로고침 때 다시 살아나는 원인:
+       memberList/main에서는 행이 삭제되어도 bus-seat 승인 목록(memberList/joinCodes)에
+       예전 승인 코드가 남아 있어 새로고침 시 다시 등록된다.
+       삭제 시점 이후의 새 승인만 다시 살리고, 예전 승인 데이터는 건너뛴다. */
+    const deletedMarker=getDeletedJoinMarker(code,incomingName,incomingPhone);
+    if(deletedMarker && !isApprovalNewerThanDeleted(member,deletedMarker)){
+      return false;
+    }
+
     const joinDate=formatMemberJoinDate(member.approvedAt||member.createdAt||member.updatedAt);
     const resultLabel=busSeatJoinResultLabel(member);
     const isDeletedRecord = resultLabel === "삭제";
@@ -2759,19 +2848,34 @@ const firebaseConfig = {
   function autoSave(){
     clearTimeout(window.__autoSaveTimer);
     window.__autoSaveTimer=setTimeout(()=>{
-      saveToAllKeys(collectData());
-
+      const latestData = collectData();
+      saveToAllKeys(latestData);
+      /* 수정 즉시 Firebase에도 저장한다. 기존 3초 지연 저장은 F5 새로고침 시 원복 원인이었다. */
+      if(!applyingRemoteData) pushRealtimeNow("autosave-input-immediate",0);
     },200);
 
-    /* 마지막 입력 후 3초가 지나면 데이터백업 버튼 없이 Firebase에 즉시 저장 */
+    /* 보조 저장: 입력이 끝난 뒤 한 번 더 저장하여 모바일 키보드/조합 입력 누락을 방지 */
     clearTimeout(window.__realtimeInputSaveTimer);
     window.__realtimeInputSaveTimer=setTimeout(()=>{
       if(applyingRemoteData)return;
-      saveToAllKeys(collectData());
-
-      pushRealtimeNow("autosave-3sec-input",0);
-    },3000);
+      const latestData = collectData();
+      saveToAllKeys(latestData);
+      pushRealtimeNow("autosave-input-final",0);
+    },900);
   }
+
+  function flushRealtimeBeforeLeaving(reason="page-leave"){
+    try{
+      if(applyingRemoteData)return;
+      const latestData = collectData();
+      saveToAllKeys(latestData);
+      if(firebaseReady && firebaseRef){
+        firebaseRef.set(buildFirebasePayload(reason)).catch(()=>{});
+      }
+    }catch(e){}
+  }
+  window.addEventListener("beforeunload",()=>flushRealtimeBeforeLeaving("beforeunload"));
+  window.addEventListener("pagehide",()=>flushRealtimeBeforeLeaving("pagehide"));
   function loadData(){const data=loadBestSaved(); if(!data){setStatus("저장 데이터 없음");return} applyData(data); setStatus("기존 데이터 복구 완료");}
   function resetData(){if(blockReadOnlyAction())return;
     if(!confirm("현재 화면의 회원 데이터를 모두 초기화할까요? JSON 백업 파일은 삭제되지 않습니다."))return;
@@ -3033,7 +3137,7 @@ const firebaseConfig = {
     },180);
   }
   function addRow(){if(blockReadOnlyAction())return;const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="false";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
-  function deleteRow(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); tr.remove(); selectedCell=null; selectedCells.clear(); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
+  function deleteRow(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); markDeletedMemberRowInFirebase(tr); tr.remove(); selectedCell=null; selectedCells.clear(); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); pushRealtimeNow("row-delete",0); scheduleScaleWholeTable()}
   function addCol(){if(blockReadOnlyAction())return;const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="false";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function deleteCol(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; selectedCells.clear(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function selectCurrentRow(){
@@ -3445,7 +3549,7 @@ const firebaseConfig = {
     scheduleScaleWholeTable();
     if(c)showAutocomplete(c);
   },true);
-  table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(!isReadOnlyMode() && getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}}},true);
+  table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(!isReadOnlyMode() && getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}} if(!isReadOnlyMode() && c.tagName && c.tagName.toLowerCase()==="td"){ autoSave(); pushRealtimeNow("cell-blur-save",0); }},true);
   document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]);  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol; document.getElementById("selectRowBtn").onclick=selectCurrentRow;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value=""; search()};
   bindCellContentButtons();
