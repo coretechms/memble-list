@@ -1970,24 +1970,9 @@ html.member-refresh-readonly body:not(.readonly-mode){ }
 <script id="refreshSessionNoFlashEarly">
 (function(){
   try{
-    const SESSION_KEY = "memberList.admin.sessionUnlocked.v1";
-    const SESSION_MODE_KEY = "memberList.admin.sessionMode.v1";
-    const MOBILE_BACK_EXIT_KEY = "memberList.admin.mobileBackExitAt.v1";
-    const navEntry = (performance.getEntriesByType && performance.getEntriesByType("navigation")[0]) || null;
-    const navType = navEntry && navEntry.type ? navEntry.type : "";
-    const backExitAt = parseInt(localStorage.getItem(MOBILE_BACK_EXIT_KEY) || "0", 10);
-
-    if(navType === "reload"){
-      localStorage.removeItem(MOBILE_BACK_EXIT_KEY);
-    }else if(backExitAt && Date.now() - backExitAt >= 5000){
-      localStorage.removeItem(SESSION_KEY);
-      localStorage.removeItem(SESSION_MODE_KEY);
-      localStorage.removeItem(MOBILE_BACK_EXIT_KEY);
-    }
-
-    if(localStorage.getItem(SESSION_KEY) === "1"){
+    if(localStorage.getItem("memberList.admin.sessionUnlocked.v1") === "1"){
       document.documentElement.classList.add("member-refresh-unlocked");
-      if((localStorage.getItem(SESSION_MODE_KEY) || "edit") === "readonly"){
+      if((localStorage.getItem("memberList.admin.sessionMode.v1") || "edit") === "readonly"){
         document.documentElement.classList.add("member-refresh-readonly");
       }
     }
@@ -2239,7 +2224,7 @@ const firebaseConfig = {
     bind("cellStyleClearBtn","clear");
   }
 
-  /* 셀 터치: 모바일은 길게 누름 편집 / PC는 더블클릭 편집 */
+  /* 셀 터치: 0.3초 후 선택 / 0.5초 이상 길게 누르면 편집 가능 */
   let longPressTimer=null;
   let touchSelectTimer=null;
   let suppressNextTouchClickUntil=0;
@@ -2273,52 +2258,6 @@ const firebaseConfig = {
     setCaretToEnd(cell);
     isCellEditing=true;
     setStatus("길게 누름: 입력 가능");
-  }
-  /* 요청 수정: PC Enter / 모바일 키보드 이동 누르면 우측 셀로 이동하고, 숨김 셀은 건너뛰며, 편집 중이면 이동한 셀도 즉시 편집 가능 */
-  function isVisibleEditableBodyCell(cell){
-    if(!isEditableBodyCell(cell))return false;
-    const style=window.getComputedStyle(cell);
-    if(style.display==="none" || style.visibility==="hidden")return false;
-    const row=cell.parentElement;
-    if(!row)return false;
-    const rowStyle=window.getComputedStyle(row);
-    if(rowStyle.display==="none" || rowStyle.visibility==="hidden")return false;
-    const rects=cell.getClientRects();
-    if(!rects || !rects.length)return false;
-    const rect=cell.getBoundingClientRect();
-    return rect.width>0 && rect.height>0;
-  }
-  function getRightEditableBodyCell(cell){
-    if(!isEditableBodyCell(cell))return null;
-    const row=cell.parentElement;
-    if(!row)return null;
-    for(let col=cell.cellIndex+1; col<row.cells.length; col++){
-      const next=row.cells[col];
-      if(isVisibleEditableBodyCell(next))return next;
-    }
-    return null;
-  }
-  function moveRightCellByEnter(cell){
-    if(blockReadOnlyAction())return false;
-    if(!isEditableBodyCell(cell))return false;
-    const wasEditing=cell.classList.contains("cell-editing") || cell.isContentEditable;
-    const next=getRightEditableBodyCell(cell);
-    if(!next)return true;
-    if(wasEditing){
-      if(!applyingRemoteData){
-        autoSave();
-        pushRealtimeNow("cell-enter-right-move",0);
-      }
-      lockCellEditing(cell);
-      enableLongPressCellEditing(next);
-    }else{
-      lockAllCellEditing(next);
-      next.contentEditable="false";
-      setCurrentSelectedCell(next);
-      next.focus();
-    }
-    setStatus(wasEditing ? "우측 셀로 이동: 바로 편집 가능" : "우측 셀 선택");
-    return true;
   }
   function scheduleCellTouchSelection(cell,immediate=false){
     clearTimeout(touchSelectTimer);
@@ -3475,13 +3414,6 @@ const firebaseConfig = {
     lockAllCellEditing(c);
     c.contentEditable="false";
     c.classList.remove("cell-editing");
-
-    /* 요청 수정: PC에서는 길게 누름 편집 금지, 더블클릭으로만 편집 진입 */
-    if(!isTouchPointer){
-      cancelLongPressTimer();
-      return;
-    }
-
     clearTimeout(longPressTimer);
     longPressTimer=setTimeout(()=>{
       if(touchMovedAsScroll)return;
@@ -3489,18 +3421,6 @@ const firebaseConfig = {
       enableLongPressCellEditing(c);
       longPressTimer=null;
     },LONG_PRESS_EDIT_MS);
-  },true);
-
-  /* 요청 수정: PC 모드 글자 편집은 더블클릭으로 진입 */
-  table.addEventListener("dblclick",e=>{
-    const c=e.target.closest&&e.target.closest("td");
-    if(!c || !isEditableBodyCell(c))return;
-    if(e.pointerType && (e.pointerType==="touch" || e.pointerType==="pen"))return;
-    e.preventDefault();
-    e.stopPropagation();
-    cancelLongPressTimer();
-    cancelTouchSelectTimer();
-    enableLongPressCellEditing(c);
   },true);
   table.addEventListener("pointermove",e=>{
     if(!longPressTimer&&!touchSelectTimer)return;
@@ -3577,18 +3497,10 @@ const firebaseConfig = {
     setCurrentSelectedCell(c);
   });
   table.addEventListener("keydown",e=>{
-    const activeCell=e.target&&e.target.closest?e.target.closest("#memberTable td"):null;
-    if(e.key==="Enter" && activeCell){
-      e.preventDefault();
-      e.stopPropagation();
-      hideAutocomplete();
-      moveRightCellByEnter(activeCell);
-      return;
-    }
     if(autocompleteBox.style.display!=="none"&&autocompleteItems.length){
       if(e.key==="ArrowDown"){e.preventDefault();moveAutocomplete(1);return;}
       if(e.key==="ArrowUp"){e.preventDefault();moveAutocomplete(-1);return;}
-      if(e.key==="Tab"){e.preventDefault();fillAutocomplete(autocompleteItems[autocompleteIndex]);return;}
+      if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();fillAutocomplete(autocompleteItems[autocompleteIndex]);return;}
       if(e.key==="Escape"){hideAutocomplete();return;}
     }
   },true);
@@ -3667,7 +3579,6 @@ const firebaseConfig = {
   const DEFAULT_READONLY_PASSWORD="0000";
   const SESSION_KEY="memberList.admin.sessionUnlocked.v1";
   const SESSION_MODE_KEY="memberList.admin.sessionMode.v1";
-  const MOBILE_BACK_EXIT_KEY="memberList.admin.mobileBackExitAt.v1";
   const ADMIN_SYNC_PATH="memberList/main/adminPasswordSync";
   const ZOOMABLE_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=0.35, maximum-scale=15, user-scalable=yes, viewport-fit=cover";
   const LOCKED_VIEWPORT="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
@@ -3729,7 +3640,6 @@ const firebaseConfig = {
     if(isUnlocked){
       /* PC/모바일 새로고침 유지: 로그인/읽기전용 진입 상태를 저장해 새로고침 후 같은 화면으로 복귀합니다. */
       try{
-        localStorage.removeItem(MOBILE_BACK_EXIT_KEY);
         localStorage.setItem(SESSION_KEY,"1");
         localStorage.setItem(SESSION_MODE_KEY,isReadOnly?"readonly":"edit");
       }catch(e){}
@@ -3738,7 +3648,6 @@ const firebaseConfig = {
     }else{
       localStorage.removeItem(SESSION_KEY);
       localStorage.removeItem(SESSION_MODE_KEY);
-      localStorage.removeItem(MOBILE_BACK_EXIT_KEY);
       document.body.classList.remove("readonly-mode","edit-mode");
       setTimeout(()=>window.scrollTo(0,0),30);
     }
@@ -3761,38 +3670,6 @@ const firebaseConfig = {
     }catch(e){}
     setUnlockedState(false);
     return false;
-  }
-
-  function isMobileBackGuardTarget(){
-    try{
-      return window.matchMedia && window.matchMedia("(max-width:480px)").matches;
-    }catch(e){
-      return window.innerWidth <= 480;
-    }
-  }
-  function markMobileBackExit(){
-    try{
-      if(document.body.classList.contains("unlocked") && isMobileBackGuardTarget()){
-        localStorage.setItem(MOBILE_BACK_EXIT_KEY, String(Date.now()));
-      }
-    }catch(e){}
-  }
-  function checkMobileBackExitTimeout(){
-    try{
-      if(!isMobileBackGuardTarget())return false;
-      const backExitAt=parseInt(localStorage.getItem(MOBILE_BACK_EXIT_KEY)||"0",10);
-      if(backExitAt && Date.now()-backExitAt>=5000){
-        localStorage.removeItem(MOBILE_BACK_EXIT_KEY);
-        forcePasswordGate();
-        resetViewToMinimumForLogin();
-        const input=$("adminPasswordInput");
-        if(input)setTimeout(()=>input.focus(),60);
-        return true;
-      }
-      return false;
-    }catch(e){
-      return false;
-    }
   }
   function makeRecoveryCode(){
     const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -4081,19 +3958,10 @@ const firebaseConfig = {
     if(resetBtn)resetBtn.onclick=resetPassword;
 
     /* PC/모바일 새로고침 방지: pagehide/beforeunload/visibilitychange에서 로그인 상태를 삭제하지 않습니다.
-       로그아웃 버튼을 누를 때만 저장된 화면 상태를 삭제합니다.
-       단, 모바일 뒤로가기/이탈 후 5초가 지나 재진입하면 로그인 화면부터 다시 시작합니다. */
-
-    if(!window.__memberListMobileBackExitGuardBound){
-      window.__memberListMobileBackExitGuardBound=true;
-      window.addEventListener("popstate", markMobileBackExit);
-      window.addEventListener("pagehide", markMobileBackExit);
-      window.addEventListener("pageshow", function(){setTimeout(checkMobileBackExitTimeout, 30);});
-    }
+       로그아웃 버튼을 누를 때만 저장된 화면 상태를 삭제합니다. */
 
     initAdminFirebaseSync();
     restoreUnlockedSession();
-    checkMobileBackExitTimeout();
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAdmin);
   else bindAdmin();
@@ -4418,24 +4286,7 @@ const firebaseConfig = {
     return e.touches && e.touches[0] ? e.touches[0] : e;
   }
 
-  function isMobilePhoneMenuMode(){
-    try{
-      return window.matchMedia && (
-        window.matchMedia("(max-width: 480px)").matches ||
-        window.matchMedia("(pointer: coarse)").matches
-      );
-    }catch(error){
-      return (window.innerWidth || 9999) <= 480;
-    }
-  }
-
   function startHold(e){
-    /* 요청 수정: 전화/문자 박스는 모바일에서만 표시, PC에서는 더블클릭 편집만 허용 */
-    if(!isMobilePhoneMenuMode()){
-      closePhoneDropdown();
-      cancelHold();
-      return;
-    }
     if(isMultiTouch(e)){
       cancelHold();
       return;
@@ -4491,9 +4342,6 @@ const firebaseConfig = {
   function blockPhoneDefaults(e){
     const cell = getPhoneCell(e.target);
     if(!cell) return;
-    if(!isMobilePhoneMenuMode()){
-      return; // PC에서는 전화/문자 박스 차단, 더블클릭 편집 기본 흐름 유지
-    }
     if(cell.classList.contains("phone-hold-editing") || cell.classList.contains("cell-editing") || cell.isContentEditable){
       return; // 편집 상태에서는 텍스트 선택/복사/붙여넣기 허용
     }
@@ -4544,10 +4392,7 @@ const firebaseConfig = {
     }, true);
 
     document.addEventListener("scroll", closePhoneDropdown, true);
-    window.addEventListener("resize", function(){
-      closePhoneDropdown();
-      cancelHold();
-    }, true);
+    window.addEventListener("resize", closePhoneDropdown, true);
 
     document.addEventListener("input", function(e){
       const cell = getPhoneCell(e.target);
@@ -4579,20 +4424,6 @@ const firebaseConfig = {
 })();
 </script>
 
-
-
-<style id="phoneDropdownMobileOnlyStyle">
-/* 요청 수정: 전화/문자 박스는 모바일에서만 표시, PC에서는 출력 차단 */
-@media (min-width:481px) and (pointer:fine){
-  #phoneDropdownMenu,
-  .phone-dropdown-menu,
-  .phone-action-dropdown,
-  .phone-action-dialog,
-  .phone-action-cell-menu{
-    display:none !important;
-  }
-}
-</style>
 
 
 <style id="readonlyMobileForceStyle">
@@ -5236,40 +5067,13 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
     if(table){ new MutationObserver(scheduleApply).observe(table,{childList:true,subtree:true}); }
   }
 
-  /* 최종 수정: 모바일 필터박스는 화면/상단메뉴 기준이 아니라 누른 제목셀 아래 데이터박스 안쪽에 생성 */
+  /* 요청 수정: 필터 내용이 많아도 박스 상단은 항상 회색 제목행 아래에 고정 */
   function positionFloatingFilterPanels(){
     document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(panel=>{
       const wrap = panel.closest(".header-filter-wrap");
       const toggle = wrap ? wrap.querySelector(".column-filter-toggle") : null;
       const th = panel.closest("th");
       if(!toggle) return;
-
-      const isMobile = window.matchMedia && window.matchMedia("(max-width:480px)").matches;
-
-      if(isMobile){
-        /* 모바일 핵심:
-           fixed/window 기준을 쓰면 화면 좌측 또는 상단 메뉴 쪽으로 튀므로,
-           필터박스를 해당 제목셀 내부 absolute 기준으로 붙인다.
-           → 버스타는곳 필터를 누르면 버스타는곳 열 바로 아래에서 열린다. */
-        if(wrap){
-          wrap.style.setProperty("position", "relative", "important");
-        }
-        if(th){
-          th.classList.add("filter-header-open");
-          th.style.setProperty("overflow", "visible", "important");
-        }
-        panel.style.setProperty("position", "absolute", "important");
-        panel.style.setProperty("left", "0px", "important");
-        panel.style.setProperty("top", "calc(100% + 2px)", "important");
-        panel.style.setProperty("right", "auto", "important");
-        panel.style.setProperty("bottom", "auto", "important");
-        panel.style.setProperty("transform", "none", "important");
-        panel.style.setProperty("max-height", "200px", "important");
-        panel.style.setProperty("height", "auto", "important");
-        panel.style.setProperty("overflow-y", "auto", "important");
-        panel.style.setProperty("z-index", "2147483647", "important");
-        return;
-      }
 
       const colIndex = Number(panel.dataset.col);
       const firstDataCell = Number.isFinite(colIndex) && table && table.rows && table.rows[1]
@@ -5283,17 +5087,25 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
       const baseRect = firstDataCell ? firstDataCell.getBoundingClientRect() : thRect;
       const panelWidth = Math.max(panel.offsetWidth || 126, 126);
 
+      /* 좌우 위치는 회원데이터 첫 칸 기준 유지 */
       let left = baseRect.left;
       if(left + panelWidth > window.innerWidth - 6){
         left = Math.max(6, window.innerWidth - panelWidth - 6);
       }
       left = Math.max(6, left);
 
+      /* 핵심 수정: 스크롤 상태에서 table.rows[1]의 실제 위치가 화면 위로 올라가도
+         그 값을 쓰지 않는다. 필터박스 상단은 항상 현재 화면에 보이는 회색 제목행의
+         아래쪽(= 회원데이터박스 첫칸 시작선)에 고정한다. */
       const tableWrapRect = tableWrap ? tableWrap.getBoundingClientRect() : headerRowRect;
       const visibleHeaderBottom = Math.max(headerRowRect.bottom, tableWrapRect.top);
       const fixedTop = Math.max(6, visibleHeaderBottom + 2);
+
+      /* 내용이 많아도 top을 위로 보정하지 않고, 아래 공간만큼 높이만 줄여 내부 스크롤한다. */
       const availableHeight = Math.max(44, window.innerHeight - fixedTop - 6);
 
+      /* 기존 CSS에 top:auto !important / max-height !important가 있어서
+         일반 inline style이 무시될 수 있으므로 setProperty(..., 'important')로 강제 */
       panel.style.setProperty("position", "fixed", "important");
       panel.style.setProperty("left", left + "px", "important");
       panel.style.setProperty("top", fixedTop + "px", "important");
@@ -5580,377 +5392,5 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
 })();
 </script>
 
-
-
-<script id="samePcMobileFilterPositionFinal">
-/* 요청 수정: 모바일 필터박스 생성 위치를 PC와 동일한 기준으로 통일 */
-(function(){
-  "use strict";
-
-  function getHeaderBottomSameAsPc(panel){
-    var table = document.getElementById("memberTable");
-    var headerRow = table && table.rows && table.rows[0] ? table.rows[0] : null;
-    var toggle = panel && panel.closest ? panel.closest(".header-filter-wrap")?.querySelector(".column-filter-toggle") : null;
-    var baseRect = headerRow ? headerRow.getBoundingClientRect() : (toggle ? toggle.getBoundingClientRect() : null);
-    if(baseRect){
-      return Math.max(6, Math.round(baseRect.bottom + 2));
-    }
-    return 80;
-  }
-
-  function getLeftSameAsPc(panel){
-    var wrap = panel && panel.closest ? panel.closest(".header-filter-wrap") : null;
-    var toggle = wrap ? wrap.querySelector(".column-filter-toggle") : null;
-    var th = panel && panel.closest ? panel.closest("th") : null;
-    var rect = toggle ? toggle.getBoundingClientRect() : (th ? th.getBoundingClientRect() : null);
-    var panelWidth = Math.max(panel.offsetWidth || 126, 126);
-
-    /* PC와 동일하게: 필터 버튼이 보이는 화면상의 left 좌표를 그대로 기준으로 사용 */
-    var left = rect ? rect.left : 6;
-
-    /* 화면 밖으로 완전히 밀려나는 경우만 최소 보정 */
-    if(left + panelWidth > window.innerWidth - 6){
-      left = window.innerWidth - panelWidth - 6;
-    }
-    if(left < 6) left = 6;
-    return Math.round(left);
-  }
-
-  function placePanelsSameAsPc(){
-    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(function(panel){
-      var top = getHeaderBottomSameAsPc(panel);
-      var left = getLeftSameAsPc(panel);
-      var maxHeight = Math.max(50, window.innerHeight - top - 8);
-      panel.style.setProperty("position", "fixed", "important");
-      panel.style.setProperty("top", top + "px", "important");
-      panel.style.setProperty("left", left + "px", "important");
-      panel.style.setProperty("right", "auto", "important");
-      panel.style.setProperty("bottom", "auto", "important");
-      panel.style.setProperty("transform", "none", "important");
-      panel.style.setProperty("height", "auto", "important");
-      panel.style.setProperty("max-height", Math.min(280, maxHeight) + "px", "important");
-      panel.style.setProperty("overflow-y", "auto", "important");
-      panel.style.setProperty("z-index", "2147483647", "important");
-    });
-  }
-
-  function scheduleSameAsPc(){
-    placePanelsSameAsPc();
-    requestAnimationFrame(placePanelsSameAsPc);
-    setTimeout(placePanelsSameAsPc, 20);
-    setTimeout(placePanelsSameAsPc, 80);
-    setTimeout(placePanelsSameAsPc, 200);
-  }
-
-  window.forceFilterPanelBelowHeader = scheduleSameAsPc;
-  window.scheduleFloatingFilterPosition = scheduleSameAsPc;
-
-  document.addEventListener("click", function(e){
-    if(e.target && e.target.closest && (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"))){
-      scheduleSameAsPc();
-    }
-  }, true);
-  document.addEventListener("touchstart", function(e){
-    if(e.target && e.target.closest && (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"))){
-      scheduleSameAsPc();
-    }
-  }, true);
-  document.addEventListener("change", function(e){
-    if(e.target && e.target.closest && e.target.closest(".multi-filter-panel")){
-      scheduleSameAsPc();
-    }
-  }, true);
-  window.addEventListener("scroll", scheduleSameAsPc, true);
-  window.addEventListener("resize", scheduleSameAsPc);
-  window.addEventListener("orientationchange", scheduleSameAsPc);
-})();
-</script>
-
-
-
-<style id="mobileFilterInsideClickedCellStyle">
-/* 요청 수정: 모바일 필터박스는 상단 메뉴/화면 좌측이 아니라 누른 제목 셀 아래 데이터박스 안쪽에 표시 */
-@media(max-width:480px){
-  #memberTable .header-filter-wrap{
-    position:relative !important;
-    overflow:visible !important;
-  }
-  #memberTable th.header-cell.filter-header-open,
-  #memberTable tr:first-child th.filter-header-open{
-    overflow:visible !important;
-    z-index:2147483646 !important;
-  }
-  #memberTable .multi-filter-panel:not([hidden]){
-    position:absolute !important;
-    left:0 !important;
-    right:auto !important;
-    bottom:auto !important;
-    transform:none !important;
-    z-index:2147483647 !important;
-  }
-}
-</style>
-<script id="mobileFilterInsideClickedCellPatch">
-/* 모바일 전용: 필터 박스를 눌린 필터 셀 내부 좌표로 고정한다. PC 위치 로직은 유지. */
-(function(){
-  "use strict";
-
-  var oldSchedule = window.scheduleFloatingFilterPosition;
-  var oldForce = window.forceFilterPanelBelowHeader;
-
-  function isMobile(){
-    return window.matchMedia && window.matchMedia("(max-width:480px)").matches;
-  }
-
-  function placeMobilePanel(panel){
-    if(!panel || panel.hidden) return;
-    var wrap = panel.closest ? panel.closest(".header-filter-wrap") : null;
-    var th = panel.closest ? panel.closest("th") : null;
-    if(!wrap || !th) return;
-
-    th.classList.add("filter-header-open");
-    wrap.style.setProperty("position", "relative", "important");
-    wrap.style.setProperty("overflow", "visible", "important");
-
-    /* 핵심: 화면 전체 좌표가 아니라 header-filter-wrap 내부 좌표를 사용한다. */
-    var top = Math.max(0, wrap.offsetHeight || 0) + 2;
-
-    panel.style.setProperty("position", "absolute", "important");
-    panel.style.setProperty("left", "0px", "important");
-    panel.style.setProperty("top", top + "px", "important");
-    panel.style.setProperty("right", "auto", "important");
-    panel.style.setProperty("bottom", "auto", "important");
-    panel.style.setProperty("transform", "none", "important");
-    panel.style.setProperty("z-index", "2147483647", "important");
-
-    /* 데이터박스 아래쪽 공간만큼 내부 스크롤 사용 */
-    var tableWrap = document.getElementById("tableWrap") || document.querySelector(".table-wrap");
-    var wrapRect = tableWrap ? tableWrap.getBoundingClientRect() : null;
-    var thRect = th.getBoundingClientRect ? th.getBoundingClientRect() : null;
-    var baseTop = thRect ? thRect.bottom : (wrapRect ? wrapRect.top : 0);
-    var bottomLimit = wrapRect ? wrapRect.bottom : window.innerHeight;
-    var available = Math.max(60, bottomLimit - baseTop - 8);
-    panel.style.setProperty("max-height", Math.min(280, available) + "px", "important");
-    panel.style.setProperty("height", "auto", "important");
-    panel.style.setProperty("overflow-y", "auto", "important");
-  }
-
-  function placeMobilePanels(){
-    if(!isMobile()){
-      if(typeof oldSchedule === "function") oldSchedule();
-      return;
-    }
-    document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(placeMobilePanel);
-  }
-
-  function scheduleMobilePanels(){
-    if(!isMobile()){
-      if(typeof oldSchedule === "function") oldSchedule();
-      else if(typeof oldForce === "function") oldForce();
-      return;
-    }
-    placeMobilePanels();
-    requestAnimationFrame(placeMobilePanels);
-    setTimeout(placeMobilePanels, 20);
-    setTimeout(placeMobilePanels, 80);
-    setTimeout(placeMobilePanels, 200);
-  }
-
-  window.forceFilterPanelBelowHeader = scheduleMobilePanels;
-  window.scheduleFloatingFilterPosition = scheduleMobilePanels;
-
-  ["click","touchstart","pointerdown","change"].forEach(function(type){
-    document.addEventListener(type, function(e){
-      if(e.target && e.target.closest && (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"))){
-        scheduleMobilePanels();
-      }
-    }, true);
-  });
-
-  window.addEventListener("resize", scheduleMobilePanels);
-  window.addEventListener("orientationchange", scheduleMobilePanels);
-  window.addEventListener("scroll", scheduleMobilePanels, true);
-})();
-</script>
-
-
-<style id="mobileFilterExactClickedColumnFinalStyle">
-/* 최종 보정: 모바일 필터박스는 누른 제목 셀 바로 아래 좌표에 고정 출력 */
-@media(max-width:480px){
-  #memberTable .multi-filter-panel:not([hidden]){
-    position:fixed !important;
-    right:auto !important;
-    bottom:auto !important;
-    transform:none !important;
-    z-index:2147483647 !important;
-    overflow-y:auto !important;
-  }
-}
-</style>
-<script id="mobileFilterExactClickedColumnFinalPatch">
-/*
-  모바일 필터 위치 최종 보정
-  - 화면 전체 좌측/상단 메뉴 기준 금지
-  - 필터를 누른 th.header-cell의 실제 화면 좌표 기준
-  - top = 누른 제목 셀 하단
-  - left = 누른 제목 셀 왼쪽
-  - PC는 기존 로직 유지
-*/
-(function(){
-  "use strict";
-
-  var prevSchedule = window.scheduleFloatingFilterPosition;
-  var prevForce = window.forceFilterPanelBelowHeader;
-
-  function isMobile(){
-    return !!(window.matchMedia && window.matchMedia("(max-width:480px)").matches);
-  }
-
-  function getOpenPanels(){
-    return Array.prototype.slice.call(document.querySelectorAll(".multi-filter-panel:not([hidden])"));
-  }
-
-  function findAnchorCell(panel){
-    if(!panel || !panel.closest) return null;
-    return panel.closest("th.header-cell") || panel.closest("th");
-  }
-
-  function placeOneMobilePanel(panel){
-    var th = findAnchorCell(panel);
-    if(!th || !th.getBoundingClientRect) return;
-
-    var rect = th.getBoundingClientRect();
-    var tableWrap = document.getElementById("tableWrap") || document.querySelector(".table-wrap");
-    var wrapRect = tableWrap && tableWrap.getBoundingClientRect ? tableWrap.getBoundingClientRect() : null;
-
-    /* 핵심: 누른 제목셀 자체 좌표 사용. 화면 폭 기준 중앙/좌측 보정 금지 */
-    var left = Math.round(rect.left);
-    var top = Math.round(rect.bottom + 2);
-
-    /* 왼쪽으로 완전히 밀린 경우만 최소 보정. 오른쪽은 보정하지 않음: 누른 열 기준 유지 */
-    if(left < 0) left = 0;
-
-    /* 데이터박스보다 위로 올라가는 경우만 제목행 아래로 보정 */
-    if(wrapRect && top < wrapRect.top){
-      top = Math.round(wrapRect.top + 2);
-    }
-
-    var bottomLimit = wrapRect ? wrapRect.bottom : window.innerHeight;
-    var maxHeight = Math.max(60, Math.round(bottomLimit - top - 6));
-
-    th.classList.add("filter-header-open");
-    panel.style.setProperty("position", "fixed", "important");
-    panel.style.setProperty("left", left + "px", "important");
-    panel.style.setProperty("top", top + "px", "important");
-    panel.style.setProperty("right", "auto", "important");
-    panel.style.setProperty("bottom", "auto", "important");
-    panel.style.setProperty("transform", "none", "important");
-    panel.style.setProperty("height", "auto", "important");
-    panel.style.setProperty("max-height", Math.min(280, maxHeight) + "px", "important");
-    panel.style.setProperty("overflow-y", "auto", "important");
-    panel.style.setProperty("z-index", "2147483647", "important");
-  }
-
-  function placeMobilePanels(){
-    getOpenPanels().forEach(placeOneMobilePanel);
-  }
-
-  function runPreviousForPc(){
-    if(typeof prevSchedule === "function") return prevSchedule();
-    if(typeof prevForce === "function") return prevForce();
-  }
-
-  function scheduleFinalFilterPosition(){
-    if(!isMobile()){
-      runPreviousForPc();
-      return;
-    }
-    placeMobilePanels();
-    requestAnimationFrame(placeMobilePanels);
-    setTimeout(placeMobilePanels, 10);
-    setTimeout(placeMobilePanels, 40);
-    setTimeout(placeMobilePanels, 120);
-    setTimeout(placeMobilePanels, 260);
-  }
-
-  window.scheduleFloatingFilterPosition = scheduleFinalFilterPosition;
-  window.forceFilterPanelBelowHeader = scheduleFinalFilterPosition;
-
-  function shouldReposition(e){
-    return e && e.target && e.target.closest &&
-      (e.target.closest(".column-filter-toggle") || e.target.closest(".multi-filter-panel"));
-  }
-
-  ["click","touchstart","touchend","pointerdown","pointerup","change"].forEach(function(type){
-    document.addEventListener(type, function(e){
-      if(shouldReposition(e)) scheduleFinalFilterPosition();
-    }, true);
-    document.addEventListener(type, function(e){
-      if(shouldReposition(e)) scheduleFinalFilterPosition();
-    }, false);
-  });
-
-  window.addEventListener("resize", scheduleFinalFilterPosition);
-  window.addEventListener("orientationchange", scheduleFinalFilterPosition);
-  window.addEventListener("scroll", scheduleFinalFilterPosition, true);
-})();
-</script>
 </body>
 </html>
-<style id="phoneDropdownMenu20PercentFinal">
-/* 요청 수정: 전화번호 길게누름 전화/문자 박스 20% 확대 최종 보정 */
-.phone-dropdown-menu{
-  min-width:48px !important;
-  max-width:70px !important;
-  padding:3px !important;
-  border-radius:5px !important;
-}
-.phone-dropdown-menu .phone-dropdown-name{
-  font-size:5px !important;
-  padding:2px 3px !important;
-  line-height:1.15 !important;
-  max-width:65px !important;
-}
-.phone-dropdown-menu button{
-  height:12px !important;
-  min-height:12px !important;
-  font-size:6px !important;
-  line-height:10px !important;
-  padding:0 3px !important;
-  border-radius:4px !important;
-}
-.phone-dropdown-menu button.call{
-  height:14px !important;
-  min-height:14px !important;
-  font-size:7px !important;
-  line-height:12px !important;
-}
-@media(max-width:480px){
-  .phone-dropdown-menu{
-    min-width:43px !important;
-    max-width:64px !important;
-    padding:3px !important;
-    border-radius:5px !important;
-  }
-  .phone-dropdown-menu .phone-dropdown-name{
-    font-size:5px !important;
-    padding:2px 3px !important;
-    line-height:1.15 !important;
-    max-width:60px !important;
-  }
-  .phone-dropdown-menu button{
-    height:12px !important;
-    min-height:12px !important;
-    font-size:6px !important;
-    line-height:10px !important;
-    padding:0 3px !important;
-    border-radius:4px !important;
-  }
-  .phone-dropdown-menu button.call{
-    height:14px !important;
-    min-height:14px !important;
-    font-size:7px !important;
-    line-height:12px !important;
-  }
-}
-</style>
