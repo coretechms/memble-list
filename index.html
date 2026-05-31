@@ -5236,13 +5236,40 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
     if(table){ new MutationObserver(scheduleApply).observe(table,{childList:true,subtree:true}); }
   }
 
-  /* 요청 수정: 필터 내용이 많아도 박스 상단은 항상 회색 제목행 아래에 고정 */
+  /* 최종 수정: 모바일 필터박스는 화면/상단메뉴 기준이 아니라 누른 제목셀 아래 데이터박스 안쪽에 생성 */
   function positionFloatingFilterPanels(){
     document.querySelectorAll(".multi-filter-panel:not([hidden])").forEach(panel=>{
       const wrap = panel.closest(".header-filter-wrap");
       const toggle = wrap ? wrap.querySelector(".column-filter-toggle") : null;
       const th = panel.closest("th");
       if(!toggle) return;
+
+      const isMobile = window.matchMedia && window.matchMedia("(max-width:480px)").matches;
+
+      if(isMobile){
+        /* 모바일 핵심:
+           fixed/window 기준을 쓰면 화면 좌측 또는 상단 메뉴 쪽으로 튀므로,
+           필터박스를 해당 제목셀 내부 absolute 기준으로 붙인다.
+           → 버스타는곳 필터를 누르면 버스타는곳 열 바로 아래에서 열린다. */
+        if(wrap){
+          wrap.style.setProperty("position", "relative", "important");
+        }
+        if(th){
+          th.classList.add("filter-header-open");
+          th.style.setProperty("overflow", "visible", "important");
+        }
+        panel.style.setProperty("position", "absolute", "important");
+        panel.style.setProperty("left", "0px", "important");
+        panel.style.setProperty("top", "calc(100% + 2px)", "important");
+        panel.style.setProperty("right", "auto", "important");
+        panel.style.setProperty("bottom", "auto", "important");
+        panel.style.setProperty("transform", "none", "important");
+        panel.style.setProperty("max-height", "200px", "important");
+        panel.style.setProperty("height", "auto", "important");
+        panel.style.setProperty("overflow-y", "auto", "important");
+        panel.style.setProperty("z-index", "2147483647", "important");
+        return;
+      }
 
       const colIndex = Number(panel.dataset.col);
       const firstDataCell = Number.isFinite(colIndex) && table && table.rows && table.rows[1]
@@ -5256,25 +5283,17 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
       const baseRect = firstDataCell ? firstDataCell.getBoundingClientRect() : thRect;
       const panelWidth = Math.max(panel.offsetWidth || 126, 126);
 
-      /* 좌우 위치는 회원데이터 첫 칸 기준 유지 */
       let left = baseRect.left;
       if(left + panelWidth > window.innerWidth - 6){
         left = Math.max(6, window.innerWidth - panelWidth - 6);
       }
       left = Math.max(6, left);
 
-      /* 핵심 수정: 스크롤 상태에서 table.rows[1]의 실제 위치가 화면 위로 올라가도
-         그 값을 쓰지 않는다. 필터박스 상단은 항상 현재 화면에 보이는 회색 제목행의
-         아래쪽(= 회원데이터박스 첫칸 시작선)에 고정한다. */
       const tableWrapRect = tableWrap ? tableWrap.getBoundingClientRect() : headerRowRect;
       const visibleHeaderBottom = Math.max(headerRowRect.bottom, tableWrapRect.top);
       const fixedTop = Math.max(6, visibleHeaderBottom + 2);
-
-      /* 내용이 많아도 top을 위로 보정하지 않고, 아래 공간만큼 높이만 줄여 내부 스크롤한다. */
       const availableHeight = Math.max(44, window.innerHeight - fixedTop - 6);
 
-      /* 기존 CSS에 top:auto !important / max-height !important가 있어서
-         일반 inline style이 무시될 수 있으므로 setProperty(..., 'important')로 강제 */
       panel.style.setProperty("position", "fixed", "important");
       panel.style.setProperty("left", left + "px", "important");
       panel.style.setProperty("top", fixedTop + "px", "important");
