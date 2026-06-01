@@ -2274,7 +2274,7 @@ const firebaseConfig = {
           firebaseLastSaveAt = Date.now();
           firebaseWritePending = false;
           firebaseWritePendingReason = "";
-          setRealtimeStatus("Firebase 저장 완료",true);
+          setRealtimeStatus("저장 완료",true);
         }).catch((error)=>{
           console.error("Firebase realtime write failed",error);
           firebaseWritePending = true;
