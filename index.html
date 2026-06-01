@@ -3467,6 +3467,13 @@ const firebaseConfig = {
     return {tr,name,phone,code,nameIdx,phoneIdx,uidIdx};
   }
 
+  function makeIndexNameKeyForCleanup(name){
+    return String(name||"")
+      .replace(/[^가-힣0-9\s]/g,"")
+      .replace(/\s+/g," ")
+      .trim()
+      .toLowerCase();
+  }
   function memberRecordMatchesTarget(value,key,target){
     const v=(value && typeof value==="object") ? value : {};
     const keyText=String(key||"");
@@ -3488,6 +3495,31 @@ const firebaseConfig = {
     return false;
   }
 
+  function collectNestedRemovalUpdates(basePath,value,target,updates){
+    if(!value || typeof value!=="object") return 0;
+    let count=0;
+    Object.keys(value).forEach(key=>{
+      const child=value[key];
+      const childPath=basePath ? basePath+"/"+key : key;
+      if(memberRecordMatchesTarget(child,key,target)){
+        updates[childPath]=null;
+        count++;
+        return;
+      }
+      if(child && typeof child==="object" && !Array.isArray(child)){
+        const keys=Object.keys(child);
+        const looksNested = keys.some(k=>{
+          const v=child[k];
+          return v && typeof v==="object" && (v.code || v.name || v.phone || v.memberCode || v.joinCode || v.deviceId);
+        });
+        if(looksNested){
+          count += collectNestedRemovalUpdates(childPath,child,target,updates);
+        }
+      }
+    });
+    return count;
+  }
+
   async function removeMatchingChildrenByTarget(db,path,target,stats,label){
     if(!db) return;
     try{
@@ -3495,10 +3527,7 @@ const firebaseConfig = {
       const map=snap.exists() ? (snap.val() || {}) : {};
       if(!map || typeof map!=="object") return;
       const updates={};
-      Object.keys(map).forEach(key=>{
-        if(memberRecordMatchesTarget(map[key],key,target)) updates[key]=null;
-      });
-      const count=Object.keys(updates).length;
+      const count=collectNestedRemovalUpdates("",map,target,updates);
       if(count){
         await db.ref(path).update(updates);
         stats.removed += count;
@@ -3507,6 +3536,44 @@ const firebaseConfig = {
     }catch(e){
       stats.errors.push(label+"/"+path+": "+(e && e.code ? e.code : (e && e.message ? e.message : "오류")));
     }
+  }
+
+  function buildExactCleanupUpdates(target,marker){
+    const updates={};
+    const code=String(target.code||"").trim();
+    const nameKey=makeIndexNameKeyForCleanup(target.name);
+    const roots=[
+      "membershipSecure",
+      "busSeatApp/membership",
+      "membership"
+    ];
+    const rootStylePaths=[
+      {members:"members",pending:"pending",nameIndex:"nameIndex"},
+      {members:"busSeatApp/members",pending:"busSeatApp/pending",nameIndex:"busSeatApp/nameIndex"}
+    ];
+    if(code){
+      updates[BUS_SEAT_APPROVED_JOIN_PATH+"/"+code]=null;
+      updates[MEMBER_LIST_DELETED_JOIN_PATH+"/"+code]=marker;
+      roots.forEach(root=>{
+        updates[root+"/members/"+code]=null;
+        updates[root+"/pending/"+code]=null;
+        updates[root+"/activeSessions/"+code]=null;
+        if(nameKey){
+          updates[root+"/nameIndex/"+nameKey+"/"+code]=null;
+          updates[root+"/loginIndex/"+nameKey+"/"+code]=null;
+        }
+      });
+      rootStylePaths.forEach(paths=>{
+        updates[paths.members+"/"+code]=null;
+        updates[paths.pending+"/"+code]=null;
+        if(nameKey) updates[paths.nameIndex+"/"+nameKey+"/"+code]=null;
+      });
+      updates["activeSessions/"+code]=null;
+      if(nameKey) updates["loginIndex/"+nameKey+"/"+code]=null;
+    }
+    if(marker.code) updates[MEMBER_LIST_DELETED_JOIN_PATH+"/"+makeDeletedJoinKey("code:"+marker.code)] = marker;
+    if(marker.name || marker.phone) updates[MEMBER_LIST_DELETED_JOIN_PATH+"/"+makeDeletedJoinKey(makeDeletedIdentityKey(marker.name,marker.phone))] = marker;
+    return updates;
   }
 
   async function cleanupMemberRelatedDbRecords(target,marker){
@@ -3520,22 +3587,37 @@ const firebaseConfig = {
       "membershipSecure/members",
       "membershipSecure/loginIndex",
       "membershipSecure/pending",
+      "membershipSecure/nameIndex",
       "membershipSecure/activeSessions",
+      "busSeatApp/membership/members",
+      "busSeatApp/membership/loginIndex",
+      "busSeatApp/membership/pending",
+      "busSeatApp/membership/nameIndex",
+      "busSeatApp/membership/activeSessions",
+      "membership/members",
+      "membership/loginIndex",
+      "membership/pending",
+      "membership/nameIndex",
+      "membership/activeSessions",
       "members",
       "loginIndex",
       "pending",
-      "activeSessions"
+      "nameIndex",
+      "activeSessions",
+      "busSeatApp/members",
+      "busSeatApp/pending",
+      "busSeatApp/nameIndex"
     ];
     for(const item of dbList){
       try{
-        const tombUpdates={};
-        if(marker.code) tombUpdates[makeDeletedJoinKey("code:"+marker.code)] = marker;
-        if(marker.name || marker.phone) tombUpdates[makeDeletedJoinKey(makeDeletedIdentityKey(marker.name,marker.phone))] = marker;
-        if(Object.keys(tombUpdates).length){
-          await item.db.ref(MEMBER_LIST_DELETED_JOIN_PATH).update(tombUpdates);
+        const exactUpdates=buildExactCleanupUpdates(target,marker);
+        if(Object.keys(exactUpdates).length){
+          await item.db.ref().update(exactUpdates);
+          stats.removed += Object.keys(exactUpdates).filter(k=>exactUpdates[k]===null).length;
+          stats.details.push(item.label+"/index exact cleanup");
         }
       }catch(e){
-        stats.errors.push(item.label+"/deletedJoinCodes: "+(e && e.code ? e.code : (e && e.message ? e.message : "오류")));
+        stats.errors.push(item.label+"/exactCleanup: "+(e && e.code ? e.code : (e && e.message ? e.message : "오류")));
       }
       for(const path of cleanupPaths){
         await removeMatchingChildrenByTarget(item.db,path,target,stats,item.label);
