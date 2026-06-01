@@ -1854,6 +1854,7 @@ html.member-refresh-readonly body:not(.readonly-mode){ }
     <span class="button-group-panel edit-button-group" id="editButtonGroup" hidden>
       <button type="button" id="addRowBtn">행밑추가</button>
       <button type="button" id="delRowBtn">행삭제</button>
+      <button type="button" id="deleteMemberInfoBtn" title="이름 칸을 선택한 회원의 행과 관련 DB 자료를 함께 정리">정보삭제</button>
       <button type="button" id="addColBtn">열추가</button>
       <button type="button" id="delColBtn">열삭제</button>
       <button type="button" id="selectRowBtn" title="현재 선택한 칸의 행 전체 선택">행선택</button>
@@ -2781,6 +2782,38 @@ const firebaseConfig = {
     return map;
   }
 
+  /* joinCodes 정리 보강
+     - 현재 멤버리스트 표에 이름이 없는 승인자료는 joinCodes에서 삭제한다.
+     - 삭제한 회원/멤버리스트에 없는 회원이 과거 joinCodes 때문에 다시 승인대기 또는 중복 회원으로 살아나는 것을 막는다. */
+  function buildCurrentMemberNameSetFromTable(){
+    const nameIdx=getHeaderIndex("이 름",1);
+    const names=new Set();
+    rowsArray().slice(1).forEach(row=>{
+      const name=normalizeCompareText(getCellPlain(row,nameIdx));
+      if(name) names.add(name);
+    });
+    return names;
+  }
+
+  async function pruneJoinCodesMissingFromCurrentMemberNames(targetDb,currentNameSet){
+    if(!targetDb || !currentNameSet || !currentNameSet.size) return 0;
+    const snap=await targetDb.ref(BUS_SEAT_APPROVED_JOIN_PATH).once("value");
+    const oldMap=snap.exists() ? (snap.val() || {}) : {};
+    const updates={};
+    Object.keys(oldMap).forEach(code=>{
+      const member=oldMap[code] || {};
+      const joinName=normalizeCompareText(member.name || member.realName || member.memberName || member.idName || member.displayName || "");
+      if(!joinName || !currentNameSet.has(joinName)){
+        updates[code]=null;
+      }
+    });
+    const removeCount=Object.keys(updates).length;
+    if(removeCount){
+      await targetDb.ref(BUS_SEAT_APPROVED_JOIN_PATH).update(updates);
+    }
+    return removeCount;
+  }
+
   function buildDeletedMarkersFromCurrentTable(masterAt){
     const updates={};
     rowsArray().slice(1).forEach(row=>{
@@ -2847,19 +2880,27 @@ const firebaseConfig = {
     const currentData=collectData();
     const currentJoinCodes=buildCurrentJoinCodesFromTable(masterAt);
     const deletedMarkers=buildDeletedMarkersFromCurrentTable(masterAt);
+    const currentMemberNames=buildCurrentMemberNameSetFromTable();
+    let prunedMissingJoinCodesCount=0;
     const masterPayload={
       mode:"current-member-list-is-master-reset",
       cutoffAt:masterAt,
       cutoffAtISO:new Date(masterAt).toISOString(),
       joinCodesCount:Object.keys(currentJoinCodes).length,
       deletedMarkersCount:Object.keys(deletedMarkers).length,
-      note:"현재 화면의 멤버리스트를 기준으로 memberList/main 및 joinCodes를 재설정함",
+      missingNameJoinCodesDeletedCount:0,
+      note:"현재 화면의 멤버리스트를 기준으로 memberList/main 및 joinCodes를 재설정하고, 멤버리스트에 없는 이름의 joinCodes 자료는 삭제함",
       clientId:CLIENT_ID
     };
 
     setRealtimeStatus("현재 데이터 기준 초기화 준비중",false);
     try{
       const sourceDb=await backupJoinCodesBeforeReset(masterAt,currentJoinCodes,deletedMarkers);
+      prunedMissingJoinCodesCount += await pruneJoinCodesMissingFromCurrentMemberNames(firebaseDb,currentMemberNames);
+      if(sourceDb){
+        prunedMissingJoinCodesCount += await pruneJoinCodesMissingFromCurrentMemberNames(sourceDb,currentMemberNames);
+      }
+      masterPayload.missingNameJoinCodesDeletedCount=prunedMissingJoinCodesCount;
       const jobs=[];
       jobs.push(firebaseRef.set(buildFirebasePayload("current-master-reset-main")));
       jobs.push(firebaseDb.ref(BUS_SEAT_APPROVED_JOIN_PATH).set(currentJoinCodes));
@@ -2880,7 +2921,7 @@ const firebaseConfig = {
       saveToAllKeys(currentData);
       setRealtimeStatus("현재 데이터 기준 Firebase/joinCodes 초기화 완료",true);
       setStatus("현재 멤버리스트 기준으로 Firebase와 joinCodes를 통일했습니다");
-      alert("완료: 현재 화면 데이터가 기준 원본으로 저장되었고 joinCodes가 현재 회원 기준으로 초기화되었습니다.");
+      alert("완료: 현재 화면 데이터가 기준 원본으로 저장되었고 joinCodes가 현재 회원 기준으로 초기화되었습니다.\n멤버리스트에 없는 이름의 기존 joinCodes 삭제: "+prunedMissingJoinCodesCount+"건");
     }catch(error){
       console.error("Current data master reset failed", error);
       setRealtimeStatus("현재 데이터 기준 초기화 실패: "+(error&&error.code?error.code:"오류"),false);
@@ -3402,8 +3443,152 @@ const firebaseConfig = {
       pushRealtimeNow("edit-finished",0);
     },180);
   }
+
+  function getSelectedMemberRowForInfoDelete(){
+    if(blockReadOnlyAction()) return null;
+    if(!selectedCell) { alert("정보삭제할 회원의 이름 칸을 선택하세요."); return null; }
+    const tr=selectedCell.parentElement;
+    if(!tr || tr.rowIndex<1){ alert("제목 행은 삭제할 수 없습니다."); return null; }
+    const nameIdx=getHeaderIndex("이 름",1);
+    const phoneIdx=getHeaderIndex("연락처",5);
+    const uidIdx=getHeaderIndex("회원UID",20);
+    if(selectedCell.cellIndex!==nameIdx){
+      alert("정보삭제는 반드시 삭제할 회원의 '이름' 칸을 선택한 뒤 실행하세요.");
+      return null;
+    }
+    const name=getCellPlain(tr,nameIdx);
+    const phone=getCellPlain(tr,phoneIdx);
+    const code=getCellPlain(tr,uidIdx);
+    if(!name && !phone && !code){ alert("삭제할 회원 정보가 없습니다."); return null; }
+    if(!phone && !code){
+      alert("동명이인 오삭제 방지를 위해 연락처 또는 회원UID가 있는 행만 정보삭제할 수 있습니다.");
+      return null;
+    }
+    return {tr,name,phone,code,nameIdx,phoneIdx,uidIdx};
+  }
+
+  function memberRecordMatchesTarget(value,key,target){
+    const v=(value && typeof value==="object") ? value : {};
+    const keyText=String(key||"");
+    const targetCode=String(target.code||"").trim();
+    const targetName=normalizeCompareText(target.name);
+    const targetPhone=normalizeComparePhone(target.phone);
+    const names=[v.name,v.realName,v.memberName,v.idName,v.displayName,v.userName,v.username,v.id].map(normalizeCompareText).filter(Boolean);
+    const phones=[v.phone,v.phoneDigits,v.tel,v.mobile,v.contact,v.contactPhone].map(normalizeComparePhone).filter(Boolean);
+    const codes=[v.code,v.joinCode,v.memberCode,v.uid,v.memberUid,v.userUid,v.authUid].map(x=>String(x||"").trim()).filter(Boolean);
+    if(targetCode && (keyText===targetCode || codes.includes(targetCode))) return true;
+    if(targetPhone){
+      const phoneHit=phones.includes(targetPhone) || keyText.includes(targetPhone);
+      const nameHit=!targetName || names.includes(targetName) || normalizeCompareText(keyText).includes(targetName);
+      return phoneHit && nameHit;
+    }
+    if(targetName && targetCode){
+      return names.includes(targetName) && (keyText.includes(targetCode) || codes.includes(targetCode));
+    }
+    return false;
+  }
+
+  async function removeMatchingChildrenByTarget(db,path,target,stats,label){
+    if(!db) return;
+    try{
+      const snap=await db.ref(path).once("value");
+      const map=snap.exists() ? (snap.val() || {}) : {};
+      if(!map || typeof map!=="object") return;
+      const updates={};
+      Object.keys(map).forEach(key=>{
+        if(memberRecordMatchesTarget(map[key],key,target)) updates[key]=null;
+      });
+      const count=Object.keys(updates).length;
+      if(count){
+        await db.ref(path).update(updates);
+        stats.removed += count;
+        stats.details.push(label+"/"+path+" "+count+"건");
+      }
+    }catch(e){
+      stats.errors.push(label+"/"+path+": "+(e && e.code ? e.code : (e && e.message ? e.message : "오류")));
+    }
+  }
+
+  async function cleanupMemberRelatedDbRecords(target,marker){
+    const stats={removed:0,details:[],errors:[]};
+    const dbList=[];
+    if(firebaseDb) dbList.push({db:firebaseDb,label:"member-b458f"});
+    const sourceDb=getBusSeatSourceDbForReset();
+    if(sourceDb) dbList.push({db:sourceDb,label:"bus-seat-eb86c"});
+    const cleanupPaths=[
+      BUS_SEAT_APPROVED_JOIN_PATH,
+      "membershipSecure/members",
+      "membershipSecure/loginIndex",
+      "membershipSecure/pending",
+      "membershipSecure/activeSessions",
+      "members",
+      "loginIndex",
+      "pending",
+      "activeSessions"
+    ];
+    for(const item of dbList){
+      try{
+        const tombUpdates={};
+        if(marker.code) tombUpdates[makeDeletedJoinKey("code:"+marker.code)] = marker;
+        if(marker.name || marker.phone) tombUpdates[makeDeletedJoinKey(makeDeletedIdentityKey(marker.name,marker.phone))] = marker;
+        if(Object.keys(tombUpdates).length){
+          await item.db.ref(MEMBER_LIST_DELETED_JOIN_PATH).update(tombUpdates);
+        }
+      }catch(e){
+        stats.errors.push(item.label+"/deletedJoinCodes: "+(e && e.code ? e.code : (e && e.message ? e.message : "오류")));
+      }
+      for(const path of cleanupPaths){
+        await removeMatchingChildrenByTarget(item.db,path,target,stats,item.label);
+      }
+    }
+    return stats;
+  }
+
+  async function deleteSelectedMemberInfo(){
+    if(blockReadOnlyAction()) return;
+    const target=getSelectedMemberRowForInfoDelete();
+    if(!target) return;
+    if(!firebaseDb || !firebaseRef){ alert("Firebase 연결이 준비되지 않았습니다. 실시간 연결 후 다시 실행하세요."); return; }
+    const msg="선택 회원 정보를 삭제합니다.\n\n이름: "+(target.name||"-")+"\n연락처: "+(target.phone||"-")+"\n회원UID: "+(target.code||"-")+"\n\n행 삭제와 함께 joinCodes / loginIndex / pending / members 잔류자료를 정리합니다. 정상 회원 자료는 이름+연락처 또는 회원UID가 일치할 때만 삭제합니다. 계속할까요?";
+    if(!confirm(msg)) return;
+    const deletedAt=Date.now();
+    const marker={
+      deletedAt,
+      deletedAtISO:new Date(deletedAt).toISOString(),
+      name:target.name,
+      phone:target.phone,
+      code:target.code,
+      reason:"member-list-info-delete-button",
+      clientId:CLIENT_ID
+    };
+    setRealtimeStatus("정보삭제 DB 정리중",false);
+    try{
+      if(marker.code) deletedJoinCodeMap[makeDeletedJoinKey("code:"+marker.code)] = marker;
+      if(marker.name || marker.phone) deletedJoinCodeMap[makeDeletedJoinKey(makeDeletedIdentityKey(marker.name,marker.phone))] = marker;
+      const cleanupStats=await cleanupMemberRelatedDbRecords(target,marker);
+      target.tr.remove();
+      selectedCell=null;
+      selectedCells.clear();
+      updateTotalCount();
+      refreshHeaderFiltersSoon();
+      saveToAllKeys(collectData());
+      await firebaseRef.set(buildFirebasePayload("member-info-delete"));
+      firebaseLastSaveAt=Date.now();
+      scheduleScaleWholeTable();
+      setRealtimeStatus("정보삭제 완료",true);
+      setStatus("정보삭제 완료: "+(target.name||target.code||"선택회원"));
+      const detailText=cleanupStats.details.length ? cleanupStats.details.join("\n") : "일치하는 잔류 DB 자료 없음";
+      const errorText=cleanupStats.errors.length ? "\n\n일부 경로 정리 실패:\n"+cleanupStats.errors.join("\n") : "";
+      alert("정보삭제 완료\n\n삭제된 행: "+(target.name||"-")+"\n정리된 DB 자료: "+cleanupStats.removed+"건\n"+detailText+errorText);
+    }catch(error){
+      console.error("Member info delete failed", error);
+      setRealtimeStatus("정보삭제 실패: "+(error&&error.code?error.code:"오류"),false);
+      alert("정보삭제 실패: "+(error&&error.message?error.message:"Firebase 저장/정리 오류"));
+    }
+  }
+
   function addRow(){if(blockReadOnlyAction())return;const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="false";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
-  function deleteRow(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); markDeletedMemberRowInFirebase(tr); tr.remove(); selectedCell=null; selectedCells.clear(); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); pushRealtimeNow("row-delete",0); scheduleScaleWholeTable()}
+  function deleteRow(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); const nameIdx=getHeaderIndex("이 름",1); const phoneIdx=getHeaderIndex("연락처",5); const uidIdx=getHeaderIndex("회원UID",20); const hasMemberInfo=normalizeCompareText(getCellPlain(tr,nameIdx))||normalizeComparePhone(getCellPlain(tr,phoneIdx))||String(getCellPlain(tr,uidIdx)||"").trim(); if(hasMemberInfo){alert("회원 정보가 있는 행은 '정보삭제' 버튼으로 삭제하세요. 그래야 joinCodes/loginIndex/pending/members까지 함께 정리됩니다."); return;} tr.remove(); selectedCell=null; selectedCells.clear(); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); pushRealtimeNow("blank-row-delete",0); scheduleScaleWholeTable()}
   function addCol(){if(blockReadOnlyAction())return;const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="false";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function deleteCol(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; selectedCells.clear(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function selectCurrentRow(){
@@ -3816,7 +4001,7 @@ const firebaseConfig = {
     if(c)showAutocomplete(c);
   },true);
   table.addEventListener("blur",e=>{const c=e.target.closest&&e.target.closest("td,th"); if(!c)return; setTimeout(()=>{if(!autocompleteBox.matches(":hover"))hideAutocomplete();},120); if(!isReadOnlyMode() && getPhoneColumnIndexes().includes(c.cellIndex)){const old=c.innerText.trim(), next=normalizePhoneText(old); if(old!==next){c.innerText=next;autoSave();scheduleScaleWholeTable()}} if(!isReadOnlyMode() && c.tagName && c.tagName.toLowerCase()==="td"){ autoSave(); pushRealtimeNow("cell-blur-save",0); }},true);
-  document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]); const resetFirebaseJoinCodesBtn=document.getElementById("resetFirebaseJoinCodesBtn"); if(resetFirebaseJoinCodesBtn) resetFirebaseJoinCodesBtn.onclick=resetFirebaseAndJoinCodesToCurrentTable;  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol; document.getElementById("selectRowBtn").onclick=selectCurrentRow;
+  document.getElementById("sortBtn").onclick=()=>{if(blockReadOnlyAction())return;sortRowsByNameAsc(); search(); autoSave(); pushRealtimeNow("manual-sort"); setStatus("이름 가나다순 정렬 완료");}; document.getElementById("resetBtn").onclick=resetData; document.getElementById("dataBackupBtn").onclick=backupDataJson; document.getElementById("dataRestoreBtn").onclick=()=>{if(blockReadOnlyAction())return;document.getElementById("dataRestoreFile").click();}; document.getElementById("dataRestoreFile").onchange=e=>restoreDataJsonFile(e.target.files&&e.target.files[0]); const resetFirebaseJoinCodesBtn=document.getElementById("resetFirebaseJoinCodesBtn"); if(resetFirebaseJoinCodesBtn) resetFirebaseJoinCodesBtn.onclick=resetFirebaseAndJoinCodesToCurrentTable;  document.getElementById("addRowBtn").onclick=addRow; document.getElementById("delRowBtn").onclick=deleteRow; const deleteMemberInfoBtn=document.getElementById("deleteMemberInfoBtn"); if(deleteMemberInfoBtn) deleteMemberInfoBtn.onclick=deleteSelectedMemberInfo; document.getElementById("addColBtn").onclick=addCol; document.getElementById("delColBtn").onclick=deleteCol; document.getElementById("selectRowBtn").onclick=selectCurrentRow;
   document.getElementById("clearSearchBtn").onclick=()=>{document.getElementById("nameSearch").value="";document.getElementById("nickSearch").value=""; search()};
   bindCellContentButtons();
   bindCellStyleButtons();
