@@ -661,18 +661,6 @@ body.readonly-mode #statusText{
 }
 
 
-/* 요청 수정: 읽기전용/관리자 진입 후 불필요 버튼 숨김 */
-body.unlocked #realtimeStatusBox{
-  display:none !important;
-}
-body.readonly-mode #nickSearch,
-body.readonly-mode #clearSearchBtn,
-body.readonly-mode #adminGroupToggleBtn,
-body.readonly-mode #editGroupToggleBtn{
-  display:none !important;
-}
-
-
 
 
 #readOnlyLoginBtn{
@@ -1816,6 +1804,22 @@ html.member-refresh-readonly body:not(.readonly-mode){ }
   }catch(e){}
 })();
 </script>
+
+<style id="requestedButtonVisibilityOnlyFix">
+/* 요청 수정: 읽기전용/관리자 버튼 가림만 적용 */
+body.readonly-mode #realtimeStatusBox,
+body.readonly-mode #nickSearch,
+body.readonly-mode #clearSearchBtn,
+body.readonly-mode #adminGroupToggleBtn,
+body.readonly-mode #editGroupToggleBtn,
+body.readonly-mode #adminButtonGroup,
+body.readonly-mode #editButtonGroup{
+  display:none !important;
+}
+body.unlocked:not(.readonly-mode) #realtimeStatusBox{
+  display:none !important;
+}
+</style>
 </head>
 <body class="locked">
 
@@ -1859,9 +1863,9 @@ html.member-refresh-readonly body:not(.readonly-mode){ }
       <button type="button" id="resetBtn">초기화</button>
       <button type="button" id="dataBackupBtn">자료백업</button>
       <button type="button" id="dataRestoreBtn">자료복구</button>
+      <button type="button" id="resetFirebaseJoinCodesBtn" title="현재 화면의 멤버리스트를 기준으로 Firebase와 joinCodes를 재설정">현재데이터기준저장</button>
       <button type="button" id="deleteMemberInfoBtn" title="이름 칸을 선택한 회원의 행과 관련 DB 자료를 함께 정리">정보삭제</button>
       <button type="button" id="clearCellContentBtn" title="선택된 셀의 내용만 삭제">셀내용삭제</button>
-      <button type="button" id="resetFirebaseJoinCodesBtn" title="현재 화면의 멤버리스트를 기준으로 Firebase와 joinCodes를 재설정">현재데이터기준저장</button>
       <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
     </span>
 
@@ -3682,34 +3686,7 @@ const firebaseConfig = {
   }
 
   function addRow(){if(blockReadOnlyAction())return;const rows=rowsArray(); const idx=selectedCell?selectedCell.parentElement.rowIndex+1:rows.length; const ref=rows[0]; const tr=document.createElement("tr"); const n=ref?ref.cells.length:headers.length; for(let i=0;i<n;i++){const td=document.createElement("td");td.contentEditable="false";td.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.appendChild(td)} table.tBodies[0].insertBefore(tr,rows[idx]||null); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
-  function rowHasAnyContent(tr){
-    if(!tr || !tr.cells) return false;
-    return Array.from(tr.cells).some(cell=>{
-      const text=(cell.innerText || cell.textContent || "").replace(/ /g," ").trim();
-      return text.length > 0;
-    });
-  }
-  function deleteRow(){
-    if(blockReadOnlyAction())return;
-    if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요.");
-    const tr=selectedCell.parentElement;
-    if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다.");
-    if(rowHasAnyContent(tr)){
-      alert("선택한 행에 내용이 있어서 행삭제를 할 수 없습니다.
-
-내용이 모두 비어있는 행만 삭제할 수 있습니다.
-회원 정보를 삭제하려면 '정보삭제' 버튼을 사용하세요.");
-      return;
-    }
-    tr.remove();
-    selectedCell=null;
-    selectedCells.clear();
-    updateTotalCount();
-    refreshHeaderFiltersSoon();
-    autoSave();
-    pushRealtimeNow("blank-row-delete",0);
-    scheduleScaleWholeTable();
-  }
+  function deleteRow(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 행의 칸을 선택하세요."); const tr=selectedCell.parentElement; if(tr.rowIndex<1)return alert("제목 행은 삭제할 수 없습니다."); const hasAnyContent=Array.from(tr.cells).some(cell=>String(cell.innerText||"").replace(/\u00a0/g," ").trim()); if(hasAnyContent){alert("선택한 행에 내용이 있어 삭제할 수 없습니다. 완전히 빈 행만 삭제할 수 있습니다."); return;} tr.remove(); selectedCell=null; selectedCells.clear(); updateTotalCount(); refreshHeaderFiltersSoon(); autoSave(); pushRealtimeNow("blank-row-delete",0); scheduleScaleWholeTable()}
   function addCol(){if(blockReadOnlyAction())return;const idx=selectedCell?selectedCell.cellIndex+1:table.rows[0].cells.length; const col=document.createElement("col");col.style.width="70px";table.querySelector("colgroup").insertBefore(col,table.querySelectorAll("col")[idx]||null); rowsArray().forEach((tr,r)=>{const el=document.createElement(r===0?"th":"td");el.contentEditable="false";el.className=r===0?"header-cell":"";el.style.cssText="font-size:12px;text-align:center;vertical-align:middle;white-space:nowrap;overflow-wrap:normal;word-break:keep-all;";tr.insertBefore(el,tr.cells[idx]||null)}); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function deleteCol(){if(blockReadOnlyAction())return;if(!selectedCell)return alert("삭제할 열의 칸을 선택하세요."); const idx=selectedCell.cellIndex; rowsArray().forEach(tr=>{if(tr.cells[idx])tr.cells[idx].remove()}); const col=table.querySelectorAll("col")[idx]; if(col)col.remove(); selectedCell=null; selectedCells.clear(); refreshHeaderFiltersSoon(); autoSave(); scheduleScaleWholeTable()}
   function selectCurrentRow(){
