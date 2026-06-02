@@ -1827,16 +1827,19 @@ html.member-refresh-readonly body:not(.readonly-mode){ }
 <div class="app">
   <div class="toolbar grouped-toolbar">
     <span class="total-box" id="totalBox">총회원수: <b id="totalCount">0</b></span>
-    <span class="realtime-box off" id="realtimeStatusBox">연결 준비중</span>
+    <span class="realtime-box off" id="realtimeStatusBox">실시간 연결 준비중</span>
     <button type="button" id="adminLogoutBtn">로그아웃</button>
     <input id="nameSearch" type="search" placeholder="이름검색">
-
+    <input id="nickSearch" type="search" placeholder="닉네임검색">
+    <button type="button" id="clearSearchBtn">검색해제</button>
     <button type="button" id="sortBtn">이름정렬</button>
+    <button type="button" id="adminColumnSettingBtn">열보기 설정</button>
+    <button type="button" id="adminGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="adminButtonGroup">시스템관리자</button>
+    <button type="button" id="editGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="editButtonGroup">✏️ 편집</button>
+    <span class="status" id="statusText">편집가능</span>
 
     <span class="button-group-panel admin-button-group" id="adminButtonGroup" hidden>
       <button type="button" id="adminChangePasswordBtn">비번변경</button>
-      <button type="button" id="deleteMemberInfoBtn" title="이름 칸을 선택한 회원의 행과 관련 DB 자료를 함께 정리">정보삭제</button>
-      <button type="button" id="clearCellContentBtn" title="선택된 셀의 내용만 삭제">셀내용삭제</button>
       <button type="button" id="readOnlyChangePasswordBtn">읽기비번변경</button>
       <button type="button" id="readOnlyColumnSettingBtn">읽기열설정</button>
       <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
@@ -1851,9 +1854,11 @@ html.member-refresh-readonly body:not(.readonly-mode){ }
     <span class="button-group-panel edit-button-group" id="editButtonGroup" hidden>
       <button type="button" id="addRowBtn">행밑추가</button>
       <button type="button" id="delRowBtn">행삭제</button>
+      <button type="button" id="deleteMemberInfoBtn" title="이름 칸을 선택한 회원의 행과 관련 DB 자료를 함께 정리">정보삭제</button>
       <button type="button" id="addColBtn">열추가</button>
       <button type="button" id="delColBtn">열삭제</button>
       <button type="button" id="selectRowBtn" title="현재 선택한 칸의 행 전체 선택">행선택</button>
+      <button type="button" id="clearCellContentBtn" title="선택된 셀의 내용만 삭제">셀내용삭제</button>
       <button type="button" id="copyCellContentBtn" title="선택된 셀 내용 복사">내용복사</button>
       <button type="button" id="pasteCellContentBtn" title="선택된 셀부터 내용 붙여넣기">붙여넣기</button>
       <span class="style-tools" id="cellStyleTools">
