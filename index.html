@@ -2178,6 +2178,41 @@ const firebaseConfig = {
     });
   }
 
+  /* 요청 수정: 저장한 신규 데이터가 Firebase의 예전 스냅샷으로 되돌아가는 현상 방지
+     - 로컬/화면 데이터가 Firebase 원격 데이터보다 최신이면 원격 반영을 막고 최신 로컬을 다시 저장한다. */
+  function getDataTimeMs(value){
+    if(!value) return 0;
+    const direct = Number(value.updatedAt || value.savedAt || value.modifiedAt || 0);
+    if(direct && direct > 1000000000000) return direct;
+    const iso = value.updatedAtISO || value.updatedAtText || value.updatedAt;
+    if(typeof iso === "string"){
+      const t = Date.parse(iso);
+      if(Number.isFinite(t)) return t;
+    }
+    if(value.data && value.data !== value){
+      return getDataTimeMs(value.data);
+    }
+    return 0;
+  }
+
+  function shouldKeepLocalInsteadOfRemote(value, data){
+    try{
+      if(!firebaseInitialLoaded) return false;
+      const localData = collectData();
+      const localSaved = loadBestSaved && loadBestSaved();
+      const localTime = Math.max(getDataTimeMs(localData), getDataTimeMs(localSaved));
+      const remoteTime = Math.max(getDataTimeMs(value), getDataTimeMs(data));
+      if(!localTime || !remoteTime) return false;
+      if(localTime > remoteTime + 1500 && hasMeaningfulMemberData(localData)){
+        console.warn("Ignored stale Firebase memberList/main snapshot", {localTime, remoteTime});
+        return true;
+      }
+    }catch(e){
+      console.warn("stale remote guard failed", e);
+    }
+    return false;
+  }
+
   function initFirebaseRealtime(){
     try{
       if(!window.firebase){
@@ -2237,6 +2272,14 @@ const firebaseConfig = {
         const data=normalizeData(remoteData);
         if(!data){
           setRealtimeStatus("실시간 데이터 형식 오류",false);
+          return;
+        }
+
+        if(shouldKeepLocalInsteadOfRemote(value, data)){
+          firebaseWritePending = true;
+          firebaseWritePendingReason = "protect-newer-local-data";
+          setRealtimeStatus("이전 Firebase 데이터 무시 - 신규 데이터 재저장중", false);
+          pushRealtimeNow("protect-newer-local-data", 0);
           return;
         }
 
@@ -2706,7 +2749,10 @@ const firebaseConfig = {
     // 재가입 승인에서는 기존 삭제 행/동일인 행을 우선 복구한다.
     // 새 회원UID(A03 등)로 별도 행이 이미 생겨도 기존 동일인 행에 UID를 갱신하고 중복 승인 칸은 비운다.
     let row=rowByIdentity || rowByCode;
-    let metadataOnly=false;
+    /* 기존 행은 사용자가 직접 수정한 최신 회원정보를 기준으로 유지한다.
+       joinCodes는 승인/UID/가입일/승인결과 보강용으로만 사용하고,
+       이름/성별/생년월일/연락처/거주지는 새 행 생성 때만 채운다. */
+    let metadataOnly=!!row;
 
     if(rowByIdentity && rowByCode && rowByIdentity!==rowByCode && isMostlyEmptyOrSameMemberRow(rowByCode,incomingName,incomingPhone)){
       clearApprovalDuplicateRow(rowByCode);
@@ -2737,11 +2783,13 @@ const firebaseConfig = {
     }
     // 상태 표시는 최종적으로 "승인결과" 칸에 기록한다.
     // 가입:승인 칸은 승인/관리자 상태의 호환 표시용으로만 사용한다.
+    const beforeMeta = [idx.approval, idx.uid, idx.joinDate, idx.result].map(i=>i>=0?getCellPlain(row,i):"").join("|");
     setCellPlain(row,idx.approval,resultLabel === "승인" || resultLabel === "관리자" ? "승인" : "");
     setCellPlain(row,idx.uid,code);
     setCellPlain(row,idx.joinDate,joinDate);
     setCellPlain(row,idx.result,resultLabel);
-    return isNew || metadataOnly;
+    const afterMeta = [idx.approval, idx.uid, idx.joinDate, idx.result].map(i=>i>=0?getCellPlain(row,i):"").join("|");
+    return isNew || beforeMeta !== afterMeta;
   }
   function syncApprovedMembersFromBusSeat(joinCodeMap){
     if(!joinCodeMap || typeof joinCodeMap!=="object") return;
