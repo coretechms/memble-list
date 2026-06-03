@@ -4605,15 +4605,29 @@ const firebaseConfig = {
   }
   function readConfig(){
     try{
-      const raw = localStorage.getItem(CONFIG_KEY);
+      if(Array.isArray(window.__readonlyVisibleColumns) && window.__readonlyVisibleColumns.length){
+        return window.__readonlyVisibleColumns.map(Number).filter(n=>Number.isInteger(n) && n >= 0);
+      }
+      const sessionRaw = sessionStorage.getItem(CONFIG_KEY);
+      const localRaw = localStorage.getItem(CONFIG_KEY);
+      const raw = sessionRaw || localRaw;
       const arr = raw ? JSON.parse(raw) : DEFAULT_VISIBLE;
-      if(Array.isArray(arr) && arr.length) return arr.map(Number).filter(n=>Number.isInteger(n) && n >= 0);
+      if(Array.isArray(arr) && arr.length){
+        const clean = arr.map(Number).filter(n=>Number.isInteger(n) && n >= 0);
+        window.__readonlyVisibleColumns = clean.slice();
+        return clean;
+      }
     }catch(e){}
     return DEFAULT_VISIBLE.slice();
   }
   function saveConfig(arr){
     const clean = Array.from(new Set(arr.map(Number).filter(n=>Number.isInteger(n) && n >= 0))).sort((a,b)=>a-b);
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(clean.length ? clean : DEFAULT_VISIBLE));
+    const finalConfig = clean.length ? clean : DEFAULT_VISIBLE;
+    try{
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(finalConfig));
+      sessionStorage.setItem(CONFIG_KEY, JSON.stringify(finalConfig));
+      window.__readonlyVisibleColumns = finalConfig.slice();
+    }catch(e){}
     applyReadonlyColumnVisibility(true);
   }
   function applyReadonlyColumnVisibility(force=false){
@@ -5146,10 +5160,15 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
   }
   function readVisibleIndexes(table){
     try{
-      const raw = localStorage.getItem(CONFIG_KEY);
+      const memoryConfig = Array.isArray(window.__readonlyVisibleColumns) ? window.__readonlyVisibleColumns : null;
+      const sessionRaw = sessionStorage.getItem(CONFIG_KEY);
+      const localRaw = localStorage.getItem(CONFIG_KEY);
+      const raw = memoryConfig ? JSON.stringify(memoryConfig) : (sessionRaw || localRaw);
       const arr = raw ? JSON.parse(raw) : null;
       if(Array.isArray(arr) && arr.length){
-        return new Set(arr.map(Number).filter(n => Number.isInteger(n) && n >= 0));
+        const clean = arr.map(Number).filter(n => Number.isInteger(n) && n >= 0);
+        window.__readonlyVisibleColumns = clean.slice();
+        return new Set(clean);
       }
     }catch(e){}
     const headers = getHeaders(table);
@@ -5752,6 +5771,21 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
   document.addEventListener("click", function(e){
     if(e.target && e.target.closest && e.target.closest("#adminLogoutBtn")) clearBackExit();
   }, true);
+})();
+</script>
+
+
+<script id="readonlyColumnConfigBoot">
+(function(){
+  try{
+    const CONFIG_KEY = "memberList.readonly.visibleColumns.v1";
+    const sessionRaw = sessionStorage.getItem(CONFIG_KEY);
+    const localRaw = localStorage.getItem(CONFIG_KEY);
+    const raw = sessionRaw || localRaw;
+    if(raw){
+      window.__readonlyVisibleColumns = JSON.parse(raw);
+    }
+  }catch(e){}
 })();
 </script>
 
