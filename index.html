@@ -1959,7 +1959,6 @@ const firebaseConfig = {
     }
   })();
   const LOCAL_CHANGE_META_KEY = "memberList.localChangeMeta.v1";
-  const LOCAL_LATEST_DATA_KEY = "memberList.latestConfirmedLocalData.v1";
   const LOCAL_REMOTE_GUARD_MS = 1500;
   const LOCAL_FORCE_KEEP_MS = 24*60*60*1000;
 
@@ -2212,7 +2211,6 @@ const firebaseConfig = {
         score:dataScore(normalized)
       };
       localStorage.setItem(LOCAL_CHANGE_META_KEY, JSON.stringify(meta));
-      localStorage.setItem(LOCAL_LATEST_DATA_KEY, JSON.stringify({meta,data:normalized}));
     }catch(e){}
   }
 
@@ -2225,34 +2223,10 @@ const firebaseConfig = {
   }
 
   function shouldKeepLocalDataOverRemote(value, remoteData){
-    try{
-      const localData=loadBestSaved();
-      if(!hasMeaningfulMemberData(localData)) return null;
-      const normalizedLocal=normalizeData(localData);
-      const normalizedRemote=normalizeData(remoteData);
-      const localAt=getLocalChangeAt();
-      const remoteAt=getRemoteUpdatedAt(value, remoteData);
-      const localScore=dataScore(normalizedLocal);
-      const remoteScore=dataScore(normalizedRemote);
-      const age=localAt ? Date.now()-localAt : Infinity;
-
-      /* 새로고침 원복 방지 강화:
-         1) 로컬 수정 시각이 원격보다 명확히 최신이면 로컬 우선
-         2) 원격 updatedAt이 늦게 찍힌 예전 데이터라도, 최근 24시간 안에 이 기기에서 직접 수정/저장한
-            로컬 데이터가 있고 회원 데이터량이 원격보다 줄지 않았으면 로컬을 우선한다. */
-      if(localAt && (!remoteAt || localAt > remoteAt + LOCAL_REMOTE_GUARD_MS)){
-        return { data:normalizedLocal, localAt, remoteAt, reason:"local-newer-than-remote-time" };
-      }
-      if(localAt && age >= 0 && age < LOCAL_FORCE_KEEP_MS && localScore >= remoteScore && localScore > 0){
-        const localJson=JSON.stringify(normalizedLocal);
-        const remoteJson=JSON.stringify(normalizedRemote);
-        if(localJson !== remoteJson){
-          return { data:normalizedLocal, localAt, remoteAt, reason:"recent-local-data-preferred" };
-        }
-      }
-    }catch(e){
-      console.warn("local/remote freshness check failed", e);
-    }
+    /* 실시간 동기화 유지 원칙:
+       Firebase 원격값을 로컬 임시자료로 막지 않는다.
+       새로고침 원복의 실제 원인은 joinCodes가 기존 행 개인정보를 덮어쓰는 부분이므로,
+       원격 실시간 리스너는 항상 정상 반영되게 둔다. */
     return null;
   }
 
@@ -3357,7 +3331,7 @@ const firebaseConfig = {
     document.getElementById("nameSearch").value="";
     document.getElementById("nickSearch").value="";
     STORAGE_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
-    try{localStorage.removeItem(LOCAL_LATEST_DATA_KEY);localStorage.removeItem(LOCAL_CHANGE_META_KEY);}catch(e){}
+    try{localStorage.removeItem(LOCAL_CHANGE_META_KEY);}catch(e){}
     pushRealtimeNow("reset");
     setStatus("초기화 완료");
   }
