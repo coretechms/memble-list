@@ -2988,6 +2988,22 @@ const firebaseConfig = {
     return sourceDb;
   }
 
+  function mergeJoinCodeAuthFieldsFromExisting(currentMap, existingMaps){
+    const keepKeys=["passwordHash","passHash","pwHash","memberPasswordHash","phoneLast4","role","adminAccess","apps","approvedAt","createdAt"];
+    const result={...(currentMap||{})};
+    (existingMaps||[]).forEach(oldMap=>{
+      if(!oldMap || typeof oldMap!=="object") return;
+      Object.keys(result).forEach(code=>{
+        const oldRec=oldMap[code];
+        if(!oldRec || typeof oldRec!=="object") return;
+        keepKeys.forEach(key=>{
+          if(result[code][key]===undefined && oldRec[key]!==undefined) result[code][key]=oldRec[key];
+        });
+      });
+    });
+    return result;
+  }
+
   async function resetFirebaseAndJoinCodesToCurrentTable(){
     if(blockReadOnlyAction()) return;
     if(!firebaseDb || !firebaseRef){
@@ -3002,7 +3018,7 @@ const firebaseConfig = {
     const masterAt=Date.now();
     const currentData=collectData();
     saveToAllKeys(currentData,{reason:"current-master-reset-before-write"});
-    const currentJoinCodes=buildCurrentJoinCodesFromTable(masterAt);
+    let currentJoinCodes=buildCurrentJoinCodesFromTable(masterAt);
     const deletedMarkers=buildDeletedMarkersFromCurrentTable(masterAt);
     const currentMemberNames=buildCurrentMemberNameSetFromTable();
     let prunedMissingJoinCodesCount=0;
@@ -3020,6 +3036,12 @@ const firebaseConfig = {
     setRealtimeStatus("현재 데이터 기준 초기화 준비중",false);
     try{
       const sourceDb=await backupJoinCodesBeforeReset(masterAt,currentJoinCodes,deletedMarkers);
+      const oldCurrentSnap=await firebaseDb.ref(BUS_SEAT_APPROVED_JOIN_PATH).once("value").catch(()=>null);
+      const oldSourceSnap=sourceDb ? await sourceDb.ref(BUS_SEAT_APPROVED_JOIN_PATH).once("value").catch(()=>null) : null;
+      currentJoinCodes=mergeJoinCodeAuthFieldsFromExisting(currentJoinCodes,[
+        oldCurrentSnap && oldCurrentSnap.exists && oldCurrentSnap.exists() ? oldCurrentSnap.val() : null,
+        oldSourceSnap && oldSourceSnap.exists && oldSourceSnap.exists() ? oldSourceSnap.val() : null
+      ]);
       prunedMissingJoinCodesCount += await pruneJoinCodesMissingFromCurrentMemberNames(firebaseDb,currentMemberNames);
       if(sourceDb){
         prunedMissingJoinCodesCount += await pruneJoinCodesMissingFromCurrentMemberNames(sourceDb,currentMemberNames);
