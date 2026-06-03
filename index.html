@@ -4665,7 +4665,13 @@ const firebaseConfig = {
     if(readOnlyLoginBtn)readOnlyLoginBtn.onclick=unlockReadOnlyWithPassword;
     if(input){
       input.placeholder="비밀번호 입력";
-      input.addEventListener("keydown",(e)=>{if(e.key==="Enter")unlockWithPassword();});
+      input.addEventListener("keydown",(e)=>{
+        if(e.key==="Enter"){
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      });
       setTimeout(()=>input.focus(),80);
     }
     if(logoutBtn)logoutBtn.onclick=logout;
