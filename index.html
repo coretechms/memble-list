@@ -4670,10 +4670,10 @@ const firebaseConfig = {
           e.preventDefault();
           e.stopPropagation();
           if(e.stopImmediatePropagation)e.stopImmediatePropagation();
-          /* 모바일 키보드 Enter/완료는 화면 이탈이 아니라 현재 로그인 버튼 실행으로 처리 */
+          /* 모바일 키보드 Enter/완료는 관리자 비밀번호 확인만 실행합니다.
+             읽기전용 로그인은 반드시 읽기전용 로그인 버튼 클릭으로만 실행합니다. */
           if(document.body.classList.contains("locked")){
-            if(readOnlyLoginBtn && getComputedStyle(readOnlyLoginBtn).display !== "none") unlockReadOnlyWithPassword();
-            else unlockWithPassword();
+            unlockWithPassword();
           }
           return false;
         }
