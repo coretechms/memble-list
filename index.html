@@ -1960,6 +1960,7 @@ const firebaseConfig = {
   })();
   const LOCAL_CHANGE_META_KEY = "memberList.localChangeMeta.v1";
   const LOCAL_REMOTE_GUARD_MS = 1500;
+  const LOCAL_FORCE_KEEP_MS = 24*60*60*1000;
 
   const table=document.getElementById("memberTable");
   const tableWrap=document.getElementById("tableWrap");
@@ -2200,13 +2201,16 @@ const firebaseConfig = {
     try{
       if(applyingRemoteData) return;
       if(!hasMeaningfulMemberData(data)) return;
-      localStorage.setItem(LOCAL_CHANGE_META_KEY, JSON.stringify({
-        updatedAt:Date.now(),
-        updatedAtISO:new Date().toISOString(),
+      const normalized=normalizeData(data);
+      const now=Date.now();
+      const meta={
+        updatedAt:now,
+        updatedAtISO:new Date(now).toISOString(),
         clientId:CLIENT_ID,
         reason:String(reason||"local-save"),
-        score:dataScore(data)
-      }));
+        score:dataScore(normalized)
+      };
+      localStorage.setItem(LOCAL_CHANGE_META_KEY, JSON.stringify(meta));
     }catch(e){}
   }
 
@@ -2219,17 +2223,10 @@ const firebaseConfig = {
   }
 
   function shouldKeepLocalDataOverRemote(value, remoteData){
-    try{
-      const localData=loadBestSaved();
-      if(!hasMeaningfulMemberData(localData)) return null;
-      const localAt=getLocalChangeAt();
-      const remoteAt=getRemoteUpdatedAt(value, remoteData);
-      if(localAt && (!remoteAt || localAt > remoteAt + LOCAL_REMOTE_GUARD_MS)){
-        return { data:normalizeData(localData), localAt, remoteAt };
-      }
-    }catch(e){
-      console.warn("local/remote freshness check failed", e);
-    }
+    /* 실시간 동기화 유지 원칙:
+       Firebase 원격값을 로컬 임시자료로 막지 않는다.
+       새로고침 원복의 실제 원인은 joinCodes가 기존 행 개인정보를 덮어쓰는 부분이므로,
+       원격 실시간 리스너는 항상 정상 반영되게 둔다. */
     return null;
   }
 
@@ -2374,12 +2371,20 @@ const firebaseConfig = {
     clearTimeout(firebaseSaveTimer);
     firebaseSaveTimer=setTimeout(()=>{
       try{
+        const currentLocalData=collectData();
+        saveToAllKeys(currentLocalData,{reason:reason || "pushRealtimeNow"});
         const payload=buildFirebasePayload(reason);
-        firebaseRef.set(payload).then(()=>{
+        firebaseRef.set(payload).then(()=>firebaseRef.once("value")).then((verifySnap)=>{
+          const verifyValue=verifySnap && verifySnap.val ? verifySnap.val() : null;
+          const verifyData=normalizeData(verifyValue && verifyValue.data ? verifyValue.data : verifyValue);
+          const localData=normalizeData(currentLocalData);
+          if(JSON.stringify(verifyData)!==JSON.stringify(localData)){
+            throw new Error("Firebase 저장 검증 실패");
+          }
           firebaseLastSaveAt = Date.now();
           firebaseWritePending = false;
           firebaseWritePendingReason = "";
-          setRealtimeStatus("Firebase 저장 완료",true);
+          setRealtimeStatus("Firebase 저장 완료/검증",true);
         }).catch((error)=>{
           console.error("Firebase realtime write failed",error);
           firebaseWritePending = true;
@@ -2816,7 +2821,12 @@ const firebaseConfig = {
       }
     }
 
-    if(!metadataOnly){
+    /* 핵심 수정:
+       joinCodes는 가입승인용 보조 DB일 뿐, 이미 존재하는 멤버리스트 행의
+       이름/성별/생년월일/연락처/거주지는 덮어쓰면 안 된다.
+       수동으로 고친 최신 자료가 새로고침 후 이전 승인자료로 돌아가는 주원인이
+       여기였으므로, 기존 행은 승인 상태/회원UID/가입일만 갱신한다. */
+    if(!metadataOnly && isNew){
       setCellPlain(row,idx.name,incomingName);
       setCellPlain(row,idx.gender,member.gender||"");
       setCellPlain(row,idx.birth,"");
@@ -2991,6 +3001,7 @@ const firebaseConfig = {
 
     const masterAt=Date.now();
     const currentData=collectData();
+    saveToAllKeys(currentData,{reason:"current-master-reset-before-write"});
     const currentJoinCodes=buildCurrentJoinCodesFromTable(masterAt);
     const deletedMarkers=buildDeletedMarkersFromCurrentTable(masterAt);
     const currentMemberNames=buildCurrentMemberNameSetFromTable();
@@ -3031,7 +3042,7 @@ const firebaseConfig = {
       currentMasterCutoffAt=masterAt;
       currentMasterReady=true;
       firebaseLastSaveAt=Date.now();
-      saveToAllKeys(currentData);
+      saveToAllKeys(currentData,{reason:"current-master-reset-complete"});
       setRealtimeStatus("현재 데이터 기준 Firebase/joinCodes 초기화 완료",true);
       setStatus("현재 멤버리스트 기준으로 Firebase와 joinCodes를 통일했습니다");
       alert("완료: 현재 화면 데이터가 기준 원본으로 저장되었고 joinCodes가 현재 회원 기준으로 초기화되었습니다.\n멤버리스트에 없는 이름의 기존 joinCodes 삭제: "+prunedMissingJoinCodesCount+"건");
@@ -3236,6 +3247,17 @@ const firebaseConfig = {
     return candidates;
   }
   function loadBestSaved(){
+    try{
+      const raw=localStorage.getItem(LOCAL_LATEST_DATA_KEY);
+      if(raw){
+        const parsed=JSON.parse(raw);
+        const data=normalizeData(parsed && parsed.data);
+        const metaAt=Number(parsed && parsed.meta && parsed.meta.updatedAt || 0);
+        if(data && hasMeaningfulMemberData(data) && metaAt>0){
+          return data;
+        }
+      }
+    }catch(e){}
     const candidates=loadAllSavedCandidates();
     if(candidates.length) return normalizeData(candidates[0].data);
     return null;
@@ -3309,6 +3331,7 @@ const firebaseConfig = {
     document.getElementById("nameSearch").value="";
     document.getElementById("nickSearch").value="";
     STORAGE_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
+    try{localStorage.removeItem(LOCAL_CHANGE_META_KEY);}catch(e){}
     pushRealtimeNow("reset");
     setStatus("초기화 완료");
   }
@@ -4665,6 +4688,7 @@ const firebaseConfig = {
     if(readOnlyLoginBtn)readOnlyLoginBtn.onclick=unlockReadOnlyWithPassword;
     if(input){
       input.placeholder="비밀번호 입력";
+      input.setAttribute("enterkeyhint","done");
       input.addEventListener("keydown",(e)=>{
         if(e.key==="Enter"){
           e.preventDefault();
