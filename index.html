@@ -4669,6 +4669,12 @@ const firebaseConfig = {
         if(e.key==="Enter"){
           e.preventDefault();
           e.stopPropagation();
+          if(e.stopImmediatePropagation)e.stopImmediatePropagation();
+          /* 모바일 키보드 Enter/완료는 화면 이탈이 아니라 현재 로그인 버튼 실행으로 처리 */
+          if(document.body.classList.contains("locked")){
+            if(readOnlyLoginBtn && getComputedStyle(readOnlyLoginBtn).display !== "none") unlockReadOnlyWithPassword();
+            else unlockWithPassword();
+          }
           return false;
         }
       });
