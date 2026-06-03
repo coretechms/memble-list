@@ -1959,6 +1959,7 @@ const firebaseConfig = {
     }
   })();
   const LOCAL_CHANGE_META_KEY = "memberList.localChangeMeta.v1";
+  const LOCAL_LATEST_DATA_KEY = "memberList.latestConfirmedLocalData.v1";
   const LOCAL_REMOTE_GUARD_MS = 1500;
   const LOCAL_FORCE_KEEP_MS = 24*60*60*1000;
 
@@ -2201,13 +2202,17 @@ const firebaseConfig = {
     try{
       if(applyingRemoteData) return;
       if(!hasMeaningfulMemberData(data)) return;
-      localStorage.setItem(LOCAL_CHANGE_META_KEY, JSON.stringify({
-        updatedAt:Date.now(),
-        updatedAtISO:new Date().toISOString(),
+      const normalized=normalizeData(data);
+      const now=Date.now();
+      const meta={
+        updatedAt:now,
+        updatedAtISO:new Date(now).toISOString(),
         clientId:CLIENT_ID,
         reason:String(reason||"local-save"),
-        score:dataScore(data)
-      }));
+        score:dataScore(normalized)
+      };
+      localStorage.setItem(LOCAL_CHANGE_META_KEY, JSON.stringify(meta));
+      localStorage.setItem(LOCAL_LATEST_DATA_KEY, JSON.stringify({meta,data:normalized}));
     }catch(e){}
   }
 
@@ -2395,11 +2400,17 @@ const firebaseConfig = {
         const currentLocalData=collectData();
         saveToAllKeys(currentLocalData,{reason:reason || "pushRealtimeNow"});
         const payload=buildFirebasePayload(reason);
-        firebaseRef.set(payload).then(()=>{
+        firebaseRef.set(payload).then(()=>firebaseRef.once("value")).then((verifySnap)=>{
+          const verifyValue=verifySnap && verifySnap.val ? verifySnap.val() : null;
+          const verifyData=normalizeData(verifyValue && verifyValue.data ? verifyValue.data : verifyValue);
+          const localData=normalizeData(currentLocalData);
+          if(JSON.stringify(verifyData)!==JSON.stringify(localData)){
+            throw new Error("Firebase 저장 검증 실패");
+          }
           firebaseLastSaveAt = Date.now();
           firebaseWritePending = false;
           firebaseWritePendingReason = "";
-          setRealtimeStatus("Firebase 저장 완료",true);
+          setRealtimeStatus("Firebase 저장 완료/검증",true);
         }).catch((error)=>{
           console.error("Firebase realtime write failed",error);
           firebaseWritePending = true;
@@ -2836,7 +2847,12 @@ const firebaseConfig = {
       }
     }
 
-    if(!metadataOnly){
+    /* 핵심 수정:
+       joinCodes는 가입승인용 보조 DB일 뿐, 이미 존재하는 멤버리스트 행의
+       이름/성별/생년월일/연락처/거주지는 덮어쓰면 안 된다.
+       수동으로 고친 최신 자료가 새로고침 후 이전 승인자료로 돌아가는 주원인이
+       여기였으므로, 기존 행은 승인 상태/회원UID/가입일만 갱신한다. */
+    if(!metadataOnly && isNew){
       setCellPlain(row,idx.name,incomingName);
       setCellPlain(row,idx.gender,member.gender||"");
       setCellPlain(row,idx.birth,"");
@@ -3257,6 +3273,17 @@ const firebaseConfig = {
     return candidates;
   }
   function loadBestSaved(){
+    try{
+      const raw=localStorage.getItem(LOCAL_LATEST_DATA_KEY);
+      if(raw){
+        const parsed=JSON.parse(raw);
+        const data=normalizeData(parsed && parsed.data);
+        const metaAt=Number(parsed && parsed.meta && parsed.meta.updatedAt || 0);
+        if(data && hasMeaningfulMemberData(data) && metaAt>0){
+          return data;
+        }
+      }
+    }catch(e){}
     const candidates=loadAllSavedCandidates();
     if(candidates.length) return normalizeData(candidates[0].data);
     return null;
@@ -3330,6 +3357,7 @@ const firebaseConfig = {
     document.getElementById("nameSearch").value="";
     document.getElementById("nickSearch").value="";
     STORAGE_KEYS.forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});
+    try{localStorage.removeItem(LOCAL_LATEST_DATA_KEY);localStorage.removeItem(LOCAL_CHANGE_META_KEY);}catch(e){}
     pushRealtimeNow("reset");
     setStatus("초기화 완료");
   }
