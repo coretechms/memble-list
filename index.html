@@ -3981,7 +3981,7 @@ const firebaseConfig = {
     const a=document.createElement("a");
     const stamp=new Date().toISOString().slice(0,10).replace(/-/g,"");
     a.href=URL.createObjectURL(blob);
-    a.download="회원명부_데이터백업_"+stamp+".json";
+    a.download="Memble-list_백업_"+stamp+".json";
     document.body.appendChild(a);
     a.click();
     a.remove();
