@@ -2764,6 +2764,7 @@ const firebaseConfig = {
       rrn:getHeaderIndex("주민번호",4),
       phone:getHeaderIndex("연락처",5),
       dong:getHeaderIndex("거주지",8),
+      nickname:getHeaderIndex("닉네임",11),
       approval:getHeaderIndex("가입:승인",19),
       uid:getHeaderIndex("회원UID",20),
       joinDate:getHeaderIndex("가입일",21),
@@ -2773,6 +2774,7 @@ const firebaseConfig = {
     const incomingName=String(member.name||"").trim();
     const incomingPhone=normalizeIncomingPhone344(member.phone||member.phoneDigits||"");
     const incomingBirthDate=String(member.rrn||member.birthDate||member.birthYear||"").trim();
+    const incomingNickname=String(member.nickname||member.nickName||member.nick||"").trim();
 
     /* 수동 삭제한 회원이 새로고침 때 다시 살아나는 원인:
        memberList/main에서는 행이 삭제되어도 bus-seat 승인 목록(memberList/joinCodes)에
@@ -2821,6 +2823,8 @@ const firebaseConfig = {
       }
     }
 
+    let nicknameChanged=false;
+
     /* 핵심 수정:
        joinCodes는 가입승인용 보조 DB일 뿐, 이미 존재하는 멤버리스트 행의
        이름/성별/생년월일/연락처/거주지는 덮어쓰면 안 된다.
@@ -2834,13 +2838,20 @@ const firebaseConfig = {
       setCellPlain(row,idx.phone,incomingPhone);
       setCellPlain(row,idx.dong,member.dong||"");
     }
+
+    // 닉네임은 신규 행뿐 아니라 기존 동일인 행에도 회원가입 승인값으로 반영한다.
+    if(incomingNickname && idx.nickname>=0 && getCellPlain(row,idx.nickname)!==incomingNickname){
+      setCellPlain(row,idx.nickname,incomingNickname);
+      nicknameChanged=true;
+    }
+
     // 상태 표시는 최종적으로 "승인결과" 칸에 기록한다.
     // 가입:승인 칸은 승인/관리자 상태의 호환 표시용으로만 사용한다.
     setCellPlain(row,idx.approval,resultLabel === "승인" || resultLabel === "관리자" ? "승인" : "");
     setCellPlain(row,idx.uid,code);
     setCellPlain(row,idx.joinDate,joinDate);
     setCellPlain(row,idx.result,resultLabel);
-    return isNew || metadataOnly;
+    return isNew || metadataOnly || nicknameChanged;
   }
   function syncApprovedMembersFromBusSeat(joinCodeMap){
     if(!joinCodeMap || typeof joinCodeMap!=="object") return;
@@ -2866,6 +2877,7 @@ const firebaseConfig = {
       rrn:getHeaderIndex("주민번호",4),
       phone:getHeaderIndex("연락처",5),
       dong:getHeaderIndex("거주지",8),
+      nickname:getHeaderIndex("닉네임",11),
       approval:getHeaderIndex("가입:승인",19),
       uid:getHeaderIndex("회원UID",20),
       joinDate:getHeaderIndex("가입일",21),
@@ -2885,6 +2897,7 @@ const firebaseConfig = {
       map[code]={
         code,
         name,
+        nickname:getCellPlain(row,idx.nickname),
         gender:getCellPlain(row,idx.gender),
         birthYear:"",
         birthDate:getCellPlain(row,idx.rrn>=0?idx.rrn:idx.birth),
@@ -3981,7 +3994,7 @@ const firebaseConfig = {
     const a=document.createElement("a");
     const stamp=new Date().toISOString().slice(0,10).replace(/-/g,"");
     a.href=URL.createObjectURL(blob);
-    a.download="회원명부_데이터백업_"+stamp+".json";
+    a.download="Member-list_백업_"+stamp+".json";
     document.body.appendChild(a);
     a.click();
     a.remove();
