@@ -2905,7 +2905,7 @@ const firebaseConfig = {
         phone,
         phoneDigits:String(phone||"").replace(/\D/g,""),
         dong:getCellPlain(row,idx.dong),
-        status:"approved",
+        status:"active",
         joinStatus:"승인",
         approvalResult: result==="관리자" ? "관리자" : "승인",
         approved:true,
@@ -3110,16 +3110,89 @@ const firebaseConfig = {
       phone:target.phone,
       phoneDigits:String(target.phone||"").replace(/\D/g,""),
       dong:getCellPlain(tr,idx.dong),
-      status:(result==="차단"||result==="탈퇴"||result==="삭제") ? result : "approved",
+      status:(result==="차단") ? "blocked" : (result==="탈퇴") ? "withdrawn" : (result==="삭제") ? "deleted" : "active",
       joinStatus:(result==="차단"||result==="탈퇴"||result==="삭제") ? result : "승인",
-      approvalResult: result || (approval==="승인" ? "승인" : ""),
+      approvalResult: result || (approval==="승인" ? "승인" : "승인"),
       approved:!(result==="차단"||result==="탈퇴"||result==="삭제"),
+      role:(result==="차단"||result==="탈퇴"||result==="삭제") ? "member" : "member",
+      adminAccess:false,
       updatedAt:now,
       syncedFromMemberListAt:now,
       syncedFromMemberListAtISO:new Date(now).toISOString(),
       joinedAtText:getCellPlain(tr,idx.joinDate),
       source:"member-list-selected-row-sync"
     };
+  }
+
+
+  function makeSelectedMemberDbSyncUpdates(target,payload){
+    const updates={};
+    const code=String(target && target.code || payload && payload.code || "").trim();
+    if(!code) return updates;
+    const name=String(payload && payload.name || target && target.name || "").trim();
+    const nameKey=typeof makeIndexNameKeyForCleanup==="function" ? makeIndexNameKeyForCleanup(name) : String(name||"").replace(/\s+/g,"").trim();
+    const isBlocked = payload.status==="blocked" || payload.approvalResult==="차단";
+    const isWithdrawn = payload.status==="withdrawn" || payload.approvalResult==="탈퇴";
+    const isDeleted = payload.status==="deleted" || payload.approvalResult==="삭제";
+    const approvedPayload={
+      ...payload,
+      code,
+      name,
+      status:isBlocked ? "blocked" : isWithdrawn ? "withdrawn" : isDeleted ? "deleted" : "active",
+      approved:!(isBlocked || isWithdrawn || isDeleted),
+      role:payload.role || "member",
+      adminAccess:!!payload.adminAccess,
+      source:"member-list-selected-row-sync",
+      updatedAt:payload.updatedAt || Date.now()
+    };
+
+    updates[BUS_SEAT_APPROVED_JOIN_PATH+"/"+code]=approvedPayload;
+    updates[MEMBER_LIST_DELETED_JOIN_PATH+"/"+code]=null;
+
+    const memberPatch={
+      code,
+      name,
+      nickname:approvedPayload.nickname || "",
+      gender:approvedPayload.gender || "",
+      birthYear:"",
+      birthDate:approvedPayload.birthDate || approvedPayload.rrn || "",
+      rrn:approvedPayload.rrn || approvedPayload.birthDate || "",
+      phone:approvedPayload.phone || "",
+      phoneDigits:approvedPayload.phoneDigits || String(approvedPayload.phone||"").replace(/\D/g,""),
+      dong:approvedPayload.dong || "",
+      status:approvedPayload.status,
+      approved:!!approvedPayload.approved,
+      role:approvedPayload.role || "member",
+      adminAccess:!!approvedPayload.adminAccess,
+      syncedFromMemberListAt:approvedPayload.syncedFromMemberListAt || approvedPayload.updatedAt,
+      updatedAt:approvedPayload.updatedAt
+    };
+
+    const roots=["membershipSecure","busSeatApp/membership","membership"];
+    roots.forEach(root=>{
+      Object.keys(memberPatch).forEach(k=>{
+        updates[root+"/members/"+code+"/"+k]=memberPatch[k];
+      });
+      updates[root+"/pending/"+code]=null;
+      if(nameKey){
+        updates[root+"/nameIndex/"+nameKey+"/"+code]=memberPatch.approved && memberPatch.status==="active" ? true : null;
+      }
+    });
+
+    const rootStyle=[
+      {members:"members",pending:"pending",nameIndex:"nameIndex"},
+      {members:"busSeatApp/members",pending:"busSeatApp/pending",nameIndex:"busSeatApp/nameIndex"}
+    ];
+    rootStyle.forEach(paths=>{
+      Object.keys(memberPatch).forEach(k=>{
+        updates[paths.members+"/"+code+"/"+k]=memberPatch[k];
+      });
+      updates[paths.pending+"/"+code]=null;
+      if(nameKey){
+        updates[paths.nameIndex+"/"+nameKey+"/"+code]=memberPatch.approved && memberPatch.status==="active" ? true : null;
+      }
+    });
+    return updates;
   }
 
   async function syncSelectedMemberRowToFirebaseDb(){
@@ -3138,10 +3211,11 @@ const firebaseConfig = {
       saveToAllKeys(collectData(),{reason:"selected-member-db-sync-local"});
       const jobs=[];
       jobs.push(firebaseRef.set(buildFirebasePayload("selected-member-db-sync-main")));
-      jobs.push(firebaseDb.ref(BUS_SEAT_APPROVED_JOIN_PATH+"/"+target.code).update(payload));
+      const updates=makeSelectedMemberDbSyncUpdates(target,payload);
+      jobs.push(firebaseDb.ref().update(updates));
       const sourceDb=getBusSeatSourceDbForReset();
       if(sourceDb){
-        jobs.push(sourceDb.ref(BUS_SEAT_APPROVED_JOIN_PATH+"/"+target.code).update(payload));
+        jobs.push(sourceDb.ref().update(updates));
       }
       await Promise.all(jobs);
       firebaseLastSaveAt=Date.now();
