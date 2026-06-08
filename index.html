@@ -3125,74 +3125,39 @@ const firebaseConfig = {
   }
 
 
-  function makeSelectedMemberDbSyncUpdates(target,payload){
-    const updates={};
+  function makeSelectedMemberApprovedJoinPayload(target,payload){
     const code=String(target && target.code || payload && payload.code || "").trim();
-    if(!code) return updates;
     const name=String(payload && payload.name || target && target.name || "").trim();
-    const nameKey=typeof makeIndexNameKeyForCleanup==="function" ? makeIndexNameKeyForCleanup(name) : String(name||"").replace(/\s+/g,"").trim();
     const isBlocked = payload.status==="blocked" || payload.approvalResult==="차단";
     const isWithdrawn = payload.status==="withdrawn" || payload.approvalResult==="탈퇴";
     const isDeleted = payload.status==="deleted" || payload.approvalResult==="삭제";
-    const approvedPayload={
+    return {
       ...payload,
       code,
       name,
       status:isBlocked ? "blocked" : isWithdrawn ? "withdrawn" : isDeleted ? "deleted" : "active",
+      joinStatus:isBlocked ? "차단" : isWithdrawn ? "탈퇴" : isDeleted ? "삭제" : "승인",
+      approvalResult:isBlocked ? "차단" : isWithdrawn ? "탈퇴" : isDeleted ? "삭제" : "승인",
       approved:!(isBlocked || isWithdrawn || isDeleted),
       role:payload.role || "member",
       adminAccess:!!payload.adminAccess,
       source:"member-list-selected-row-sync",
       updatedAt:payload.updatedAt || Date.now()
     };
+  }
 
-    updates[BUS_SEAT_APPROVED_JOIN_PATH+"/"+code]=approvedPayload;
-    updates[MEMBER_LIST_DELETED_JOIN_PATH+"/"+code]=null;
-
-    const memberPatch={
-      code,
-      name,
-      nickname:approvedPayload.nickname || "",
-      gender:approvedPayload.gender || "",
-      birthYear:"",
-      birthDate:approvedPayload.birthDate || approvedPayload.rrn || "",
-      rrn:approvedPayload.rrn || approvedPayload.birthDate || "",
-      phone:approvedPayload.phone || "",
-      phoneDigits:approvedPayload.phoneDigits || String(approvedPayload.phone||"").replace(/\D/g,""),
-      dong:approvedPayload.dong || "",
-      status:approvedPayload.status,
-      approved:!!approvedPayload.approved,
-      role:approvedPayload.role || "member",
-      adminAccess:!!approvedPayload.adminAccess,
-      syncedFromMemberListAt:approvedPayload.syncedFromMemberListAt || approvedPayload.updatedAt,
-      updatedAt:approvedPayload.updatedAt
-    };
-
-    const roots=["membershipSecure","busSeatApp/membership","membership"];
-    roots.forEach(root=>{
-      Object.keys(memberPatch).forEach(k=>{
-        updates[root+"/members/"+code+"/"+k]=memberPatch[k];
-      });
-      updates[root+"/pending/"+code]=null;
-      if(nameKey){
-        updates[root+"/nameIndex/"+nameKey+"/"+code]=memberPatch.approved && memberPatch.status==="active" ? true : null;
-      }
-    });
-
-    const rootStyle=[
-      {members:"members",pending:"pending",nameIndex:"nameIndex"},
-      {members:"busSeatApp/members",pending:"busSeatApp/pending",nameIndex:"busSeatApp/nameIndex"}
-    ];
-    rootStyle.forEach(paths=>{
-      Object.keys(memberPatch).forEach(k=>{
-        updates[paths.members+"/"+code+"/"+k]=memberPatch[k];
-      });
-      updates[paths.pending+"/"+code]=null;
-      if(nameKey){
-        updates[paths.nameIndex+"/"+nameKey+"/"+code]=memberPatch.approved && memberPatch.status==="active" ? true : null;
-      }
-    });
-    return updates;
+  async function runSelectedMemberDbSyncJob(label, job){
+    try{
+      await job();
+      return {label, ok:true};
+    }catch(error){
+      console.warn("Selected member DB sync partial failed:", label, error);
+      return {
+        label,
+        ok:false,
+        code:error && (error.code || error.message) ? (error.code || error.message) : String(error || "오류")
+      };
+    }
   }
 
   async function syncSelectedMemberRowToFirebaseDb(){
@@ -3206,27 +3171,38 @@ const firebaseConfig = {
     const ok=confirm("선택한 회원 1명의 수정 데이터를 Firebase DB에 반영합니다.\n\n이름: "+target.name+"\n회원UID: "+target.code+"\n\n계속할까요?");
     if(!ok) return;
     const payload=buildSelectedMemberJoinCodePayload(target);
+    const approvedJoinPayload=makeSelectedMemberApprovedJoinPayload(target,payload);
     setRealtimeStatus("선택회원 DB 반영중",false);
-    try{
-      saveToAllKeys(collectData(),{reason:"selected-member-db-sync-local"});
-      const jobs=[];
-      jobs.push(firebaseRef.set(buildFirebasePayload("selected-member-db-sync-main")));
-      const updates=makeSelectedMemberDbSyncUpdates(target,payload);
-      jobs.push(firebaseDb.ref().update(updates));
-      const sourceDb=getBusSeatSourceDbForReset();
-      if(sourceDb){
-        jobs.push(sourceDb.ref().update(updates));
-      }
-      await Promise.all(jobs);
-      firebaseLastSaveAt=Date.now();
-      setRealtimeStatus("선택회원 DB 반영 완료",true);
-      setStatus("선택회원 DB 반영 완료: "+target.name);
-      alert("완료: 선택한 회원의 수정 데이터가 Firebase DB에 반영되었습니다.");
-    }catch(error){
-      console.error("Selected member DB sync failed", error);
-      setRealtimeStatus("선택회원 DB 반영 실패: "+(error&&error.code?error.code:"오류"),false);
-      alert("선택회원 DB 반영 실패: "+(error&&error.message?error.message:"Firebase 저장 오류"));
+
+    saveToAllKeys(collectData(),{reason:"selected-member-db-sync-local"});
+
+    const jobs=[];
+    jobs.push(runSelectedMemberDbSyncJob("멤버리스트 main 저장",()=>firebaseRef.set(buildFirebasePayload("selected-member-db-sync-main"))));
+    jobs.push(runSelectedMemberDbSyncJob("현재 DB joinCodes 반영",()=>firebaseDb.ref(BUS_SEAT_APPROVED_JOIN_PATH+"/"+target.code).update(approvedJoinPayload)));
+
+    const sourceDb=getBusSeatSourceDbForReset();
+    if(sourceDb){
+      jobs.push(runSelectedMemberDbSyncJob("bus-seat DB joinCodes 반영",()=>sourceDb.ref(BUS_SEAT_APPROVED_JOIN_PATH+"/"+target.code).update(approvedJoinPayload)));
     }
+
+    const results=await Promise.all(jobs);
+    const joinSuccess=results.some(r=>r.ok && /joinCodes/.test(r.label));
+    const failed=results.filter(r=>!r.ok);
+
+    if(joinSuccess){
+      firebaseLastSaveAt=Date.now();
+      setRealtimeStatus(failed.length ? "선택회원 DB 핵심반영 완료/일부실패" : "선택회원 DB 반영 완료",true);
+      setStatus("선택회원 DB 반영 완료: "+target.name);
+      if(failed.length){
+        alert("완료: 선택회원 DB 핵심 반영이 완료되었습니다.\n\n일부 보조 저장은 실패했지만 회원관리 승인유지에는 영향 없습니다.\n\n실패 항목:\n- "+failed.map(r=>r.label+": "+r.code).join("\n- "));
+      }else{
+        alert("완료: 선택한 회원의 수정 데이터가 Firebase DB에 반영되었습니다.");
+      }
+      return;
+    }
+
+    setRealtimeStatus("선택회원 DB 반영 실패",false);
+    alert("선택회원 DB 반영 실패\n\njoinCodes 반영이 모두 실패했습니다. Firebase Rules에서 memberList/joinCodes 쓰기 권한을 확인하세요.\n\n실패 항목:\n- "+failed.map(r=>r.label+": "+r.code).join("\n- "));
   }
 
 
