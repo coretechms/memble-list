@@ -3714,7 +3714,32 @@ const firebaseConfig = {
     else if(hasColumnFilter)setStatus("필터 적용");
     else setStatus("검색 해제");
     updateFilterHeaderState();
+
+    // 필터/검색 후에도 결과 행 전체를 세로 스크롤할 수 있도록
+    // 스크롤 컨테이너를 다시 계산한다.
+    refreshFilteredVerticalScroll();
     scheduleScaleWholeTable();
+  }
+
+  function refreshFilteredVerticalScroll(){
+    if(!tableWrap) return;
+
+    // 현재 화면에서 툴바 아래 남은 실제 높이를 사용한다.
+    const rect = tableWrap.getBoundingClientRect();
+    const viewportH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const bottomGap = window.matchMedia && window.matchMedia("(max-width:480px)").matches ? 2 : 8;
+    const availableH = Math.max(120, Math.floor(viewportH - rect.top - bottomGap));
+
+    tableWrap.style.height = availableH + "px";
+    tableWrap.style.maxHeight = availableH + "px";
+    tableWrap.style.overflowY = "auto";
+    tableWrap.style.overflowX = "auto";
+    tableWrap.style.webkitOverflowScrolling = "touch";
+    tableWrap.style.touchAction = "pan-x pan-y pinch-zoom";
+
+    // 필터 적용 전에 아래쪽을 보고 있었다면 결과가 안 보이는 현상을 방지한다.
+    const maxTop = Math.max(0, tableWrap.scrollHeight - tableWrap.clientHeight);
+    if(tableWrap.scrollTop > maxTop) tableWrap.scrollTop = maxTop;
   }
 
   function updateTotalCount(){const nameCol=getHeaderIndexByText("이름",1); let count=0; rowsArray().forEach((row,idx)=>{if(idx>=1&&cellText(row.cells[nameCol]))count++}); const total=document.getElementById("totalCount"); if(total)total.textContent=String(count)}
@@ -4114,6 +4139,8 @@ const firebaseConfig = {
     scaleStage.style.zoom=String(scale);
     scaleStage.style.width=tableW+"px";
     tableWrap.style.overflow="auto";
+    tableWrap.style.overflowY="auto";
+    tableWrap.style.overflowX="auto";
     tableWrap.style.touchAction="pan-x pan-y pinch-zoom";
     document.documentElement.style.touchAction="pan-x pan-y pinch-zoom";
     document.body.style.touchAction="pan-x pan-y pinch-zoom";
@@ -4384,7 +4411,7 @@ const firebaseConfig = {
   document.addEventListener("click",handleOutsideClick);
   document.addEventListener("touchstart",handleOutsideClick,{passive:true});
   tableWrap.addEventListener("scroll",()=>{hideAutocomplete();});
-  window.addEventListener("resize",()=>{hideAutocomplete();scheduleScaleWholeTable();}); window.addEventListener("orientationchange",()=>setTimeout(scaleWholeTable,300));
+  window.addEventListener("resize",()=>{hideAutocomplete();refreshFilteredVerticalScroll();scheduleScaleWholeTable();}); window.addEventListener("orientationchange",()=>setTimeout(()=>{refreshFilteredVerticalScroll();scaleWholeTable();},300));
   applyData(loadBestSaved()||defaultData());
 
   initFirebaseRealtime();
