@@ -1774,6 +1774,42 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
 }
 
 
+
+
+/* 추가: 편집 기능 마우스 우클릭 풀다운 메뉴 */
+#editContextMenu{
+  position:fixed;
+  z-index:99999;
+  min-width:150px;
+  max-height:calc(100vh - 16px);
+  overflow-y:auto;
+  padding:4px;
+  border:0;
+  border-radius:5px;
+  background:#fff;
+  box-shadow:0 5px 18px rgba(0,0,0,.20);
+  font-size:11px;
+}
+#editContextMenu[hidden]{display:none !important;}
+#editContextMenu .ctx-item{
+  display:block;
+  width:100%;
+  margin:0;
+  padding:5px 8px;
+  border:0;
+  border-radius:3px;
+  background:#fff;
+  color:#111;
+  text-align:left;
+  font:inherit;
+  cursor:pointer;
+}
+#editContextMenu .ctx-item:hover{background:#eef3ff;}
+#editContextMenu .ctx-sep{height:1px;margin:3px 2px;background:#d8dde5;}
+#editContextMenu .ctx-label{padding:4px 8px 2px;color:#666;font-size:10px;font-weight:700;}
+#editContextMenu .ctx-text-red{color:#d00000;}
+#editContextMenu .ctx-text-blue{color:#0057d9;}
+#editContextMenu .ctx-text-gray{color:#777;}
 </style>
 
 <style id="refreshSessionNoFlashStyle">
@@ -1899,6 +1935,8 @@ body.unlocked:not(.readonly-mode) #realtimeStatusBox{
   </div>
   <div class="table-wrap" id="tableWrap"><div class="scale-stage" id="scaleStage"><table class="member-table" id="memberTable"></table></div></div>
   <div class="autocomplete-box" id="autocompleteBox" role="listbox"></div>
+  <div id="editContextMenu" hidden aria-label="편집 우클릭 메뉴"></div>
+
   <div class="hint"></div>
 </div>
 <script id="initialData" type="application/json"></script>
@@ -4108,6 +4146,24 @@ const firebaseConfig = {
       e.preventDefault();
       pasteTextToSelectedCell(text);
     });
+
+    // PC 키보드 Ctrl+C / Ctrl+V 지원
+    // 기존 내용복사/붙여넣기 함수만 호출하며 다른 동작은 변경하지 않는다.
+    document.addEventListener("keydown",e=>{
+      if(!(e.ctrlKey || e.metaKey))return;
+      const key=String(e.key||"").toLowerCase();
+      if(key!=="c" && key!=="v")return;
+
+      // 입력창이나 셀을 직접 편집 중일 때는 브라우저 기본 복사/붙여넣기를 유지한다.
+      const target=e.target;
+      if(target && (target.tagName==="INPUT" || target.tagName==="TEXTAREA" || target.isContentEditable))return;
+      if(!selectedCell || !selectedCell.isConnected || selectedCell.tagName.toLowerCase()!=="td")return;
+
+      e.preventDefault();
+      if(key==="c") copySelectedCellContents();
+      else pasteClipboardToSelectedCell();
+    });
+
     document.addEventListener("keydown",e=>{
       if(e.key!=="Delete" && e.key!=="Backspace")return;
       if(!selectedCell || isTableCellElement(document.activeElement))return;
@@ -4450,6 +4506,80 @@ const firebaseConfig = {
   }
 
   bindToolbarButtonGroups();
+
+  // 추가: 마우스 우클릭으로 편집 기능 풀다운 메뉴 표시
+  function bindEditContextMenu(){
+    const menu=document.getElementById("editContextMenu");
+    const editToggle=document.getElementById("editGroupToggleBtn");
+    if(!menu)return;
+
+    const items=[
+      ["행밑추가","addRowBtn"],["행삭제","delRowBtn"],["열추가","addColBtn"],["열삭제","delColBtn"],["행선택","selectRowBtn"],
+      ["-",""],["내용복사","copyCellContentBtn"],["붙여넣기","pasteCellContentBtn"],
+      ["label","글자"],["굵게","cellBoldBtn"],["검정","cellTextBlackBtn"],["빨강","cellTextRedBtn","ctx-text-red"],["파랑","cellTextBlueBtn","ctx-text-blue"],["회색","cellTextGrayBtn","ctx-text-gray"],
+      ["label","배경"],["흰색","cellBgWhiteBtn"],["노랑","cellBgYellowBtn"],["하늘","cellBgSkyBtn"],["빨강","cellBgRedBtn"],
+      ["-",""],["서식해제","cellStyleClearBtn"]
+    ];
+
+    menu.innerHTML="";
+    items.forEach(item=>{
+      if(item[0]==="-"){
+        const sep=document.createElement("div"); sep.className="ctx-sep"; menu.appendChild(sep); return;
+      }
+      if(item[0]==="label"){
+        const label=document.createElement("div"); label.className="ctx-label"; label.textContent=item[1]+" :"; menu.appendChild(label); return;
+      }
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.className="ctx-item"+(item[2]?" "+item[2]:"");
+      btn.textContent=item[0];
+      btn.dataset.targetId=item[1];
+      btn.addEventListener("click",()=>{
+        menu.hidden=true;
+        const original=document.getElementById(btn.dataset.targetId);
+        if(original) original.click();
+      });
+      menu.appendChild(btn);
+    });
+
+    function openMenu(e){
+      if(document.body.classList.contains("readonly-mode"))return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const cell=e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
+      if(cell){
+        clearSelectedCellBorders();
+        selectedCell=cell;
+        selectedCells.add(cell);
+        cell.classList.add("selected-cell");
+      }
+
+      menu.hidden=false;
+      menu.style.left="0px";
+      menu.style.top="0px";
+      const rect=menu.getBoundingClientRect();
+      const gap=6;
+      let left=e.clientX;
+      let top=e.clientY;
+      if(left+rect.width>window.innerWidth-gap) left=Math.max(gap,window.innerWidth-rect.width-gap);
+      if(top+rect.height>window.innerHeight-gap) top=Math.max(gap,window.innerHeight-rect.height-gap);
+      menu.style.left=left+"px";
+      menu.style.top=top+"px";
+    }
+
+    table.addEventListener("contextmenu",e=>{
+      if(e.target && e.target.closest && e.target.closest("#memberTable td")) openMenu(e);
+    });
+    if(editToggle) editToggle.addEventListener("contextmenu",openMenu);
+
+    document.addEventListener("click",e=>{if(!menu.hidden && !menu.contains(e.target))menu.hidden=true;});
+    document.addEventListener("keydown",e=>{if(e.key==="Escape")menu.hidden=true;});
+    window.addEventListener("resize",()=>{menu.hidden=true;});
+    tableWrap.addEventListener("scroll",()=>{menu.hidden=true;});
+  }
+
+  bindEditContextMenu();
 
 })();
 </script>
