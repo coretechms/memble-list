@@ -1796,7 +1796,9 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
   width:100%;
   margin:0;
   padding:5px 8px;
-  border:0;
+  border:0 !important;
+  border-style:none !important;
+  box-shadow:none !important;
   border-radius:3px;
   background:#fff;
   color:#111;
@@ -1852,6 +1854,7 @@ body.readonly-mode #adminButtonGroup,
 body.readonly-mode #editButtonGroup{
   display:none !important;
 }
+body.readonly-mode #importExcelBtn{display:none !important;}
 body.unlocked:not(.readonly-mode) #realtimeStatusBox{
   display:none !important;
 }
@@ -1883,8 +1886,11 @@ body.unlocked:not(.readonly-mode) #realtimeStatusBox{
     <button type="button" id="adminLogoutBtn">로그아웃</button>
     <input id="nameSearch" type="search" placeholder="이름검색">
     <input id="nickSearch" type="search" placeholder="닉네임검색">
-    <button type="button" id="clearSearchBtn">검색해제</button>
+    <button type="button" id="clearSearchBtn">검색 X</button>
     <button type="button" id="sortBtn">이름정렬</button>
+    <button type="button" id="exportExcelBtn" title="화면에 표시되는 회원 목록을 엑셀 파일로 저장">엑셀저장</button>
+    <button type="button" id="importExcelBtn" title="엑셀 표의 회원 정보를 불러와 저장">엑셀불러오기</button>
+    <input type="file" id="importExcelFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
     <button type="button" id="adminColumnSettingBtn">열보기 설정</button>
     <button type="button" id="adminGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="adminButtonGroup">시스템관리자</button>
     <button type="button" id="editGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="editButtonGroup">✏️ 편집</button>
@@ -4246,6 +4252,100 @@ const firebaseConfig = {
     };
     reader.readAsText(file,"utf-8");
   }
+  window.addEventListener("member-list-excel-rows",event=>{
+    if(blockReadOnlyAction()) return;
+    const imported=event.detail?.rows;
+    if(!Array.isArray(imported) || imported.length<2) return alert("엑셀 파일에 회원 데이터가 없습니다.");
+    const sourceHeaders=imported[0].map(value=>normalize(value));
+    // 내보낸 파일의 첫 번째 '순번' 열은 회원정보에 포함하지 않는다.
+    const serialColumn=["순번","번호"].includes(sourceHeaders[0]) ? 0 : -1;
+    const current=collectData();
+    const targetHeaders=current.rows[0].map(cell=>normalize(plainTextFromHtml(cell.html)));
+    const used=new Set(),mapping=[];
+    sourceHeaders.forEach((header,index)=>{
+      if(index===serialColumn || !header) return;
+      const targetIndex=targetHeaders.findIndex((label,i)=>label===header && !used.has(i));
+      if(targetIndex>=0){used.add(targetIndex);mapping.push([index,targetIndex]);}
+    });
+    const sourceName=sourceHeaders.findIndex(label=>label==="이름");
+    const targetName=targetHeaders.findIndex(label=>label==="이름");
+    if(sourceName<0 || targetName<0) return alert("엑셀 제목행에서 '이름' 열을 찾지 못했습니다.");
+    const sourcePhone=sourceHeaders.findIndex(label=>label==="연락처");
+    const targetPhone=targetHeaders.findIndex(label=>label==="연락처");
+    const sourceUid=sourceHeaders.findIndex(label=>label==="회원uid");
+    const targetUid=targetHeaders.findIndex(label=>label==="회원uid");
+    const existingRows=current.rows.slice(1);
+    const indexes=(column,rows)=>{
+      const result=new Map();
+      rows.forEach((row,index)=>{
+        const value=normalize(plainTextFromHtml(row[column]?.html));
+        if(value){const list=result.get(value)||[];list.push(index);result.set(value,list);}
+      });
+      return result;
+    };
+    const nameIndex=indexes(targetName,existingRows);
+    const uidIndex=targetUid>=0?indexes(targetUid,existingRows):new Map();
+    const prepared=[],matched=new Set();
+    let updated=0,added=0,skipped=0;
+    for(const values of imported.slice(1)){
+      const name=String(values[sourceName]||"").trim();
+      if(!name){skipped++;continue;}
+      const uid=sourceUid>=0?normalize(values[sourceUid]):"";
+      const phone=sourcePhone>=0?normalize(values[sourcePhone]):"";
+      let candidates=uid&&targetUid>=0?(uidIndex.get(uid)||[]):[];
+      if(candidates.length!==1){
+        const sameName=nameIndex.get(normalize(name))||[];
+        candidates=sameName.length===1?sameName:sameName.filter(index=>
+          phone && targetPhone>=0 && normalize(plainTextFromHtml(existingRows[index][targetPhone]?.html))===phone
+        );
+      }
+      if(candidates.length>1 || (candidates.length===1 && matched.has(candidates[0]))){skipped++;continue;}
+      const existingIndex=candidates.length===1?candidates[0]:-1;
+      const row=existingIndex>=0?existingRows[existingIndex].map(cell=>({...cell})):current.rows[0].map(()=>makeCell(""));
+      mapping.forEach(([sourceIndex,targetIndex])=>{
+        if(!row[targetIndex])row[targetIndex]=makeCell("");
+        row[targetIndex].html=escapeHtml(String(values[sourceIndex]??""));
+      });
+      if(existingIndex>=0){matched.add(existingIndex);updated++;}
+      else added++;
+      prepared.push({existingIndex,row});
+    }
+    if(!updated && !added) return alert("적용할 회원 정보가 없습니다. 중복 이름 또는 일치하지 않는 제목행을 확인하세요.");
+    const warning=`엑셀 데이터 ${updated+added}명을 저장하시겠습니까?\n기존 회원 수정: ${updated}명 / 신규 회원 추가: ${added}명 / 건너뜀: ${skipped}행\n명부의 다른 회원과 가져오지 않은 열은 유지됩니다.`;
+    if(!confirm(warning))return;
+    try{
+      try{localStorage.setItem("memberList.beforeExcelImport.v1",JSON.stringify(current));}catch(error){console.warn("불러오기 전 로컬 백업 저장 실패",error);}
+      // 먼저 기존 회원을 수정해야 원래 행 번호가 신규 행 삽입으로 밀리지 않는다.
+      prepared.forEach(({existingIndex,row})=>{
+        if(existingIndex>=0)current.rows[existingIndex+1]=row;
+      });
+      let insertAt=1;
+      for(let index=current.rows.length-1;index>=1;index--){
+        if(normalize(plainTextFromHtml(current.rows[index][targetName]?.html))){
+          insertAt=index+1;
+          break;
+        }
+      }
+      prepared.forEach(({existingIndex,row})=>{
+        if(existingIndex>=0)return;
+        const next=current.rows[insertAt];
+        const empty=next && next.every(cell=>!normalize(plainTextFromHtml(cell?.html)));
+        if(empty)current.rows[insertAt]=row;
+        else current.rows.splice(insertAt,0,row);
+        insertAt++;
+      });
+      excelColumnFilters.clear();
+      document.getElementById("nameSearch").value="";
+      document.getElementById("nickSearch").value="";
+      applyData(current);
+      saveToAllKeys(collectData(),{reason:"excel-import"});
+      pushRealtimeNow("excel-import",0);
+      setStatus(`엑셀 저장 완료: 수정 ${updated}명, 추가 ${added}명`);
+    }catch(error){
+      console.error("엑셀 불러오기 저장 실패",error);
+      alert("엑셀 데이터를 저장하지 못했습니다.");
+    }
+  });
   function setCaretToEnd(el){
     try{
       el.focus();
@@ -5364,6 +5464,8 @@ const firebaseConfig = {
   }
 
   function startHold(e){
+    // 마우스 오른쪽 버튼은 표의 편집 우클릭 메뉴에 전달한다.
+    if((e.pointerType==="mouse" || e.type==="mousedown") && e.button!==0) return;
     if(isMultiTouch(e)){
       cancelHold();
       return;
@@ -5432,7 +5534,14 @@ const firebaseConfig = {
     if(document.body.dataset.phoneHoldEditCallBind === "3") return;
     document.body.dataset.phoneHoldEditCallBind = "3";
 
-    document.addEventListener("contextmenu", blockPhoneDefaults, true);
+    document.addEventListener("contextmenu", function(e){
+      // 모바일 길게 누르기에서만 브라우저 기본 메뉴를 막는다.
+      // PC의 연락처/비상연락처 우클릭은 표 편집 메뉴까지 전달한다.
+      const touchContext=e.pointerType==="touch" ||
+        (!e.pointerType && e.sourceCapabilities?.firesTouchEvents) ||
+        (window.matchMedia?.("(hover: none) and (pointer: coarse)").matches && e.button===0);
+      if(touchContext) blockPhoneDefaults(e);
+    }, true);
     document.addEventListener("selectstart", blockPhoneDefaults, true);
     document.addEventListener("dragstart", blockPhoneDefaults, true);
 
@@ -6234,5 +6343,245 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
 })();
 </script>
 
+<script id="visibleMemberExcelExport">
+(function(){
+  "use strict";
+  const button=document.getElementById("exportExcelBtn");
+  const table=document.getElementById("memberTable");
+  const encoder=new TextEncoder();
+  if(!button || !table) return;
+
+  function xmlEscape(value){
+    return String(value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "")
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&apos;");
+  }
+  function columnName(index){
+    let name="";
+    for(index++;index;index=Math.floor((index-1)/26)) name=String.fromCharCode(65+(index-1)%26)+name;
+    return name;
+  }
+  function isVisible(element){
+    if(!element || element.hidden) return false;
+    const style=getComputedStyle(element);
+    return style.display!=="none" && style.visibility!=="hidden" && style.visibility!=="collapse";
+  }
+  function visibleData(){
+    const rows=Array.from(table.rows).filter(isVisible);
+    if(!rows.length) return [];
+    const columns=Array.from(rows[0].cells).map((cell,index)=>index).filter(index=>{
+      const col=table.querySelectorAll("col")[index];
+      return isVisible(rows[0].cells[index]) && (!col || isVisible(col));
+    });
+    return rows.map((row,rowIndex)=>columns.map(index=>{
+      const cell=row.cells[index];
+      if(!cell || !isVisible(cell)) return "";
+      if(rowIndex===0) return (cell.dataset.headerTitle || cell.querySelector(".header-title")?.textContent || cell.textContent || "").trim();
+      return (cell.innerText || cell.textContent || "").trim();
+    }));
+  }
+  function worksheetXml(data){
+    const widthXml=data[0].map((_,index)=>{
+      let contentWidth=8;
+      if(index>0) for(const row of data){
+        for(const line of String(row[index]||"").split(/\r\n|\r|\n/)){
+          let length=2;
+          for(const char of line){
+            length+=char.codePointAt(0)>127?2:1;
+            if(length>=255)break;
+          }
+          contentWidth=Math.min(255,Math.max(contentWidth,length));
+        }
+        if(contentWidth===255)break;
+      }
+      return `<col min="${index+1}" max="${index+1}" width="${contentWidth}" bestFit="1" customWidth="1"/>`;
+    }).join("");
+    const lines=data.map((row,rowIndex)=>{
+      const cells=row.map((value,colIndex)=>{
+        // 문자열 셀로 기록하여 전화번호 앞의 0과 긴 회원번호를 보존한다.
+        const ref=columnName(colIndex)+(rowIndex+1);
+        const style=rowIndex===0?1:(rowIndex%2===1?2:3);
+        if(rowIndex>0 && colIndex===0) return `<c r="${ref}" s="${style}"><v>${rowIndex}</v></c>`;
+        return `<c r="${ref}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(value.slice(0,32767))}</t></is></c>`;
+      }).join("");
+      return `<row r="${rowIndex+1}" ht="22" customHeight="1">${cells}</row>`;
+    }).join("");
+    const last=columnName(data[0].length-1)+data.length;
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${last}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="22"/><cols>${widthXml}</cols><sheetData>${lines}</sheetData><autoFilter ref="A1:${last}"/></worksheet>`;
+  }
+  const stylesXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="10"/><name val="Malgun Gothic"/></font><font><b/><sz val="10"/><color rgb="FFFFFFFF"/><name val="Malgun Gothic"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCEAF7"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FF23466B"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFD3DCE5"/></left><right style="thin"><color rgb="FFD3DCE5"/></right><top style="thin"><color rgb="FFD3DCE5"/></top><bottom style="thin"><color rgb="FFD3DCE5"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  const crcTable=(()=>{
+    const result=new Uint32Array(256);
+    for(let i=0;i<256;i++){
+      let c=i;
+      for(let j=0;j<8;j++) c=c&1 ? (0xEDB88320^(c>>>1)) : (c>>>1);
+      result[i]=c>>>0;
+    }
+    return result;
+  })();
+  function crc32(bytes){
+    let value=0xFFFFFFFF;
+    for(const byte of bytes) value=crcTable[(value^byte)&255]^(value>>>8);
+    return (value^0xFFFFFFFF)>>>0;
+  }
+  function zip(files){
+    const parts=[], central=[];
+    let offset=0;
+    for(const [name,xml] of files){
+      const nameBytes=encoder.encode(name), data=encoder.encode(xml), crc=crc32(data);
+      const local=new Uint8Array(30+nameBytes.length), header=new DataView(local.buffer);
+      header.setUint32(0,0x04034b50,true);header.setUint16(4,20,true);
+      header.setUint16(6,0x0800,true);header.setUint32(14,crc,true);
+      header.setUint32(18,data.length,true);header.setUint32(22,data.length,true);
+      header.setUint16(26,nameBytes.length,true);local.set(nameBytes,30);
+      parts.push(local,data);
+      const entry=new Uint8Array(46+nameBytes.length), view=new DataView(entry.buffer);
+      view.setUint32(0,0x02014b50,true);view.setUint16(4,20,true);
+      view.setUint16(6,20,true);view.setUint16(8,0x0800,true);
+      view.setUint32(16,crc,true);view.setUint32(20,data.length,true);
+      view.setUint32(24,data.length,true);view.setUint16(28,nameBytes.length,true);
+      view.setUint32(42,offset,true);entry.set(nameBytes,46);
+      central.push(entry);offset+=local.length+data.length;
+    }
+    const directorySize=central.reduce((sum,entry)=>sum+entry.length,0);
+    const end=new Uint8Array(22), footer=new DataView(end.buffer);
+    footer.setUint32(0,0x06054b50,true);
+    footer.setUint16(8,files.length,true);footer.setUint16(10,files.length,true);
+    footer.setUint32(12,directorySize,true);footer.setUint32(16,offset,true);
+    return new Blob([...parts,...central,end],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  }
+  button.addEventListener("click",()=>{
+    if(document.body.classList.contains("locked")) return;
+    const visible=visibleData();
+    if(visible.length<2 || !visible[0].length){alert("저장할 회원 데이터가 없습니다.");return;}
+    try{
+      const data=visible.map((row,index)=>[index===0?"순번":String(index),...row]);
+      const files=[
+        ["[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+        ["_rels/.rels",'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+        ["xl/workbook.xml",'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="회원목록" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+        ["xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+        ["xl/styles.xml",stylesXml],
+        ["xl/worksheets/sheet1.xml",worksheetXml(data)]
+      ];
+      const url=URL.createObjectURL(zip(files));
+      const link=document.createElement("a");
+      link.href=url;
+      link.download="회원목록_화면_"+new Date().toLocaleDateString("sv-SE")+".xlsx";
+      document.body.appendChild(link);link.click();link.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+    }catch(error){
+      console.error("엑셀 저장 실패",error);
+      alert("엑셀 파일을 저장하지 못했습니다.");
+    }
+  });
+})();
+</script>
+<script id="memberExcelImportReader">
+(function(){
+  "use strict";
+  const button=document.getElementById("importExcelBtn");
+  const input=document.getElementById("importExcelFile");
+  if(!button || !input)return;
+  const decoder=new TextDecoder("utf-8");
+  const xmlParser=new DOMParser();
+  function xml(text){
+    const doc=xmlParser.parseFromString(text,"application/xml");
+    if(doc.getElementsByTagName("parsererror").length)throw Error("엑셀 내부 XML 형식 오류");
+    return doc;
+  }
+  function elements(node,name){return Array.from(node.getElementsByTagNameNS("*",name));}
+  function first(node,name){return elements(node,name)[0];}
+  async function readArchive(buffer){
+    const bytes=new Uint8Array(buffer),view=new DataView(buffer);
+    let end=-1;
+    for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--){
+      if(view.getUint32(i,true)===0x06054b50){end=i;break;}
+    }
+    if(end<0)throw Error("올바른 .xlsx 파일이 아닙니다.");
+    const count=view.getUint16(end+10,true),entries=new Map();
+    let offset=view.getUint32(end+16,true);
+    for(let i=0;i<count;i++){
+      if(view.getUint32(offset,true)!==0x02014b50)throw Error("엑셀 파일 목록이 손상되었습니다.");
+      const method=view.getUint16(offset+10,true),compressed=view.getUint32(offset+20,true);
+      const uncompressed=view.getUint32(offset+24,true),nameLength=view.getUint16(offset+28,true);
+      const extra=view.getUint16(offset+30,true),comment=view.getUint16(offset+32,true);
+      const localOffset=view.getUint32(offset+42,true);
+      const name=decoder.decode(bytes.subarray(offset+46,offset+46+nameLength));
+      entries.set(name,{method,compressed,uncompressed,localOffset});
+      offset+=46+nameLength+extra+comment;
+    }
+    async function read(name){
+      const entry=entries.get(name);
+      if(!entry)return null;
+      if(entry.uncompressed>50*1024*1024)throw Error("엑셀 시트가 너무 큽니다.");
+      const pos=entry.localOffset;
+      if(view.getUint32(pos,true)!==0x04034b50)throw Error("엑셀 파일 항목이 손상되었습니다.");
+      const start=pos+30+view.getUint16(pos+26,true)+view.getUint16(pos+28,true);
+      const data=bytes.subarray(start,start+entry.compressed);
+      if(data.length!==entry.compressed)throw Error("엑셀 파일 데이터가 잘렸습니다.");
+      if(entry.method===0)return decoder.decode(data);
+      if(entry.method!==8 || typeof DecompressionStream==="undefined")throw Error("이 엑셀 파일의 압축 형식을 읽을 수 없습니다.");
+      const stream=new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      const inflated=await new Response(stream).arrayBuffer();
+      if(inflated.byteLength!==entry.uncompressed)throw Error("엑셀 파일 압축 데이터가 손상되었습니다.");
+      return decoder.decode(inflated);
+    }
+    return {read,entries};
+  }
+  function columnIndex(reference){
+    let index=0;
+    for(const char of (reference.match(/^[A-Z]+/i)?.[0]||"")) index=index*26+char.toUpperCase().charCodeAt(0)-64;
+    return index-1;
+  }
+  async function excelRows(file){
+    if(file.size>25*1024*1024)throw Error("25MB 이하의 엑셀 파일을 선택해 주세요.");
+    const archive=await readArchive(await file.arrayBuffer());
+    if(!archive.entries.has("xl/workbook.xml"))throw Error(".xlsx 형식의 엑셀 파일을 선택해 주세요.");
+    const workbook=xml(await archive.read("xl/workbook.xml"));
+    const sheet=first(workbook,"sheet");
+    const relation=sheet?.getAttribute("r:id")||sheet?.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id");
+    const rels=xml(await archive.read("xl/_rels/workbook.xml.rels"));
+    const target=elements(rels,"Relationship").find(node=>node.getAttribute("Id")===relation)?.getAttribute("Target");
+    const path=target?(target.startsWith("/")?target.slice(1):"xl/"+target.replace(/^\.\//,"")):"xl/worksheets/sheet1.xml";
+    const sheetText=await archive.read(path);
+    if(!sheetText)throw Error("첫 번째 엑셀 시트를 찾지 못했습니다.");
+    const sharedText=await archive.read("xl/sharedStrings.xml");
+    const shared=sharedText?elements(xml(sharedText),"si").map(si=>elements(si,"t").map(t=>t.textContent).join("")):[];
+    const sheetDoc=xml(sheetText),rows=[];
+    for(const row of elements(sheetDoc,"row")){
+      if(rows.length>=50000)throw Error("최대 50,000행까지 불러올 수 있습니다.");
+      const values=[];
+      for(const cell of elements(row,"c")){
+        const index=columnIndex(cell.getAttribute("r")||"");
+        if(index<0 || index>=200)continue;
+        const type=cell.getAttribute("t"),raw=first(cell,"v")?.textContent||"";
+        const value=type==="s"?shared[Number(raw)]||"":type==="inlineStr"?
+          elements(first(cell,"is")||cell,"t").map(t=>t.textContent).join(""):
+          type==="b"?(raw==="1"?"TRUE":"FALSE"):(type==="str"?raw:raw);
+        values[index]=value;
+      }
+      if(values.some(value=>String(value||"").trim()))rows.push(values);
+    }
+    return rows;
+  }
+  button.addEventListener("click",()=>{
+    if(!document.body.classList.contains("locked") && !document.body.classList.contains("readonly-mode"))input.click();
+  });
+  input.addEventListener("change",async()=>{
+    const file=input.files?.[0];
+    input.value="";
+    if(!file)return;
+    try{
+      const rows=await excelRows(file);
+      if(document.body.classList.contains("locked") || document.body.classList.contains("readonly-mode"))return;
+      window.dispatchEvent(new CustomEvent("member-list-excel-rows",{detail:{rows}}));
+    }catch(error){
+      console.error("엑셀 파일 읽기 실패",error);
+      alert(error.message||"엑셀 파일을 읽지 못했습니다.");
+    }
+  });
+})();
+</script>
 </body>
 </html>
