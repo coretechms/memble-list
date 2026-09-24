@@ -6467,7 +6467,7 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
       const url=URL.createObjectURL(zip(files));
       const link=document.createElement("a");
       link.href=url;
-      link.download="회원목록_화면_"+new Date().toLocaleDateString("sv-SE")+".xlsx";
+      link.download="회원목록_"+new Date().toLocaleDateString("sv-SE")+".xlsx";
       document.body.appendChild(link);link.click();link.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
     }catch(error){
