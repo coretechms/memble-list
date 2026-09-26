@@ -1859,6 +1859,17 @@ body.unlocked:not(.readonly-mode) #realtimeStatusBox{
   display:none !important;
 }
 </style>
+
+<style id="phoneContextIntegratedStyle">
+#editContextMenu .ctx-phone-call{color:#047857;font-weight:700;}
+#editContextMenu .ctx-phone-sms{color:#1d4ed8;font-weight:700;}
+#editContextMenu .ctx-phone-only[hidden]{display:none !important;}
+@media(max-width:480px){
+  #editContextMenu{min-width:78px;font-size:7px;padding:2px;}
+  #editContextMenu .ctx-item{padding:4px 6px;min-height:20px;}
+  #editContextMenu .ctx-label{font-size:6px;padding:3px 6px 1px;}
+}
+</style>
 </head>
 <body class="locked">
 
@@ -1886,7 +1897,7 @@ body.unlocked:not(.readonly-mode) #realtimeStatusBox{
     <button type="button" id="adminLogoutBtn">로그아웃</button>
     <input id="nameSearch" type="search" placeholder="이름검색">
     <input id="nickSearch" type="search" placeholder="닉네임검색">
-    <button type="button" id="clearSearchBtn">검색 X</button>
+    <button type="button" id="clearSearchBtn">검색해제</button>
     <button type="button" id="sortBtn">이름정렬</button>
     <button type="button" id="exportExcelBtn" title="화면에 표시되는 회원 목록을 엑셀 파일로 저장">엑셀저장</button>
     <button type="button" id="importExcelBtn" title="엑셀 표의 회원 정보를 불러와 저장">엑셀불러오기</button>
@@ -4443,6 +4454,14 @@ const firebaseConfig = {
     c.contentEditable="false";
     c.classList.remove("cell-editing");
     clearTimeout(longPressTimer);
+
+    /* 연락처/비상연락처는 일반 0.4초 길게누름 편집보다 전용 풀다운 메뉴를 우선한다. */
+    const isPhoneActionCell = c.tagName && c.tagName.toLowerCase()==="td" && getPhoneColumnIndexes().includes(c.cellIndex);
+    if(isTouchPointer && isPhoneActionCell){
+      longPressTimer=null;
+      return;
+    }
+
     /* PC에서는 길게누름 편집을 사용하지 않고 더블클릭으로만 편집 진입. 모바일/펜은 기존 길게누름 유지. */
     if(!isTouchPointer){
       longPressTimer=null;
@@ -4607,13 +4626,14 @@ const firebaseConfig = {
 
   bindToolbarButtonGroups();
 
-  // 추가: 마우스 우클릭으로 편집 기능 풀다운 메뉴 표시
+  // 통합 편집 풀다운 메뉴: PC 우클릭 + 모바일 연락처/비상연락처 길게누름
   function bindEditContextMenu(){
     const menu=document.getElementById("editContextMenu");
     const editToggle=document.getElementById("editGroupToggleBtn");
     if(!menu)return;
 
     const items=[
+      ["편집","__cell_edit__"],
       ["행밑추가","addRowBtn"],["행삭제","delRowBtn"],["열추가","addColBtn"],["열삭제","delColBtn"],["행선택","selectRowBtn"],
       ["-",""],["내용복사","copyCellContentBtn"],["붙여넣기","pasteCellContentBtn"],
       ["label","글자"],["굵게","cellBoldBtn"],["검정","cellTextBlackBtn"],["빨강","cellTextRedBtn","ctx-text-red"],["파랑","cellTextBlueBtn","ctx-text-blue"],["회색","cellTextGrayBtn","ctx-text-gray"],
@@ -4622,6 +4642,53 @@ const firebaseConfig = {
     ];
 
     menu.innerHTML="";
+
+    const phoneSep=document.createElement("div");
+    phoneSep.className="ctx-sep ctx-phone-only";
+    phoneSep.hidden=true;
+    menu.appendChild(phoneSep);
+
+    const phoneLabel=document.createElement("div");
+    phoneLabel.className="ctx-label ctx-phone-only";
+    phoneLabel.textContent="연락처 :";
+    phoneLabel.hidden=true;
+    menu.appendChild(phoneLabel);
+
+    const makePhoneButton=(label,action,cls)=>{
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.className="ctx-item ctx-phone-only"+(cls?" "+cls:"");
+      btn.textContent=label;
+      btn.dataset.phoneAction=action;
+      btn.hidden=true;
+      btn.addEventListener("click",()=>{
+        const cell=selectedCell;
+        menu.hidden=true;
+        if(!cell)return;
+        const phone=String(cell.innerText||"").replace(/[^0-9]/g,"");
+        if(action==="edit"){
+          if(!blockReadOnlyAction()) enableLongPressCellEditing(cell);
+          return;
+        }
+        if(phone.length<9){
+          alert("전화번호를 확인해 주세요.");
+          return;
+        }
+        if(action==="call") window.location.href="tel:"+phone;
+        if(action==="sms") window.location.href="sms:"+phone;
+      });
+      menu.appendChild(btn);
+      return btn;
+    };
+
+    const phoneEditBtn=makePhoneButton("편집","edit","");
+    const phoneCallBtn=makePhoneButton("전화","call","ctx-phone-call");
+    const phoneSmsBtn=makePhoneButton("문자","sms","ctx-phone-sms");
+
+    const normalStart=document.createElement("div");
+    normalStart.className="ctx-sep";
+    menu.appendChild(normalStart);
+
     items.forEach(item=>{
       if(item[0]==="-"){
         const sep=document.createElement("div"); sep.className="ctx-sep"; menu.appendChild(sep); return;
@@ -4636,18 +4703,32 @@ const firebaseConfig = {
       btn.dataset.targetId=item[1];
       btn.addEventListener("click",()=>{
         menu.hidden=true;
+        if(btn.dataset.targetId==="__cell_edit__"){
+          if(selectedCell && !blockReadOnlyAction()) enableLongPressCellEditing(selectedCell);
+          return;
+        }
         const original=document.getElementById(btn.dataset.targetId);
         if(original) original.click();
       });
       menu.appendChild(btn);
     });
 
-    function openMenu(e){
-      if(document.body.classList.contains("readonly-mode"))return;
-      e.preventDefault();
-      e.stopPropagation();
+    function isPhoneCell(cell){
+      return !!(cell && cell.tagName && cell.tagName.toLowerCase()==="td" && getPhoneColumnIndexes().includes(cell.cellIndex));
+    }
 
-      const cell=e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
+    function setPhoneItemsVisible(show){
+      menu.querySelectorAll(".ctx-phone-only").forEach(el=>{el.hidden=!show;});
+      /* 연락처 전용 메뉴에서는 중복 '편집'을 피하기 위해 일반 편집 버튼은 숨긴다. */
+      const genericEdit=menu.querySelector('[data-target-id="__cell_edit__"]');
+      if(genericEdit) genericEdit.hidden=!!show;
+      normalStart.hidden=!!show;
+    }
+
+    function openMenuAt(clientX,clientY,target){
+      if(document.body.classList.contains("readonly-mode"))return;
+
+      const cell=target && target.closest ? target.closest("#memberTable td") : null;
       if(cell){
         clearSelectedCellBorders();
         selectedCell=cell;
@@ -4655,17 +4736,26 @@ const firebaseConfig = {
         cell.classList.add("selected-cell");
       }
 
+      const phoneMode=isPhoneCell(cell);
+      setPhoneItemsVisible(phoneMode);
       menu.hidden=false;
       menu.style.left="0px";
       menu.style.top="0px";
       const rect=menu.getBoundingClientRect();
       const gap=6;
-      let left=e.clientX;
-      let top=e.clientY;
+      let left=Number(clientX)||gap;
+      let top=Number(clientY)||gap;
       if(left+rect.width>window.innerWidth-gap) left=Math.max(gap,window.innerWidth-rect.width-gap);
       if(top+rect.height>window.innerHeight-gap) top=Math.max(gap,window.innerHeight-rect.height-gap);
       menu.style.left=left+"px";
       menu.style.top=top+"px";
+    }
+
+    function openMenu(e){
+      if(document.body.classList.contains("readonly-mode"))return;
+      e.preventDefault();
+      e.stopPropagation();
+      openMenuAt(e.clientX,e.clientY,e.target);
     }
 
     table.addEventListener("contextmenu",e=>{
@@ -4673,10 +4763,57 @@ const firebaseConfig = {
     });
     if(editToggle) editToggle.addEventListener("contextmenu",openMenu);
 
+    /* 모바일 연락처/비상연락처: 길게 누르면 기존 풀다운 메뉴를 연다. */
+    let phoneHoldTimer=null;
+    let phoneHoldTarget=null;
+    let phoneHoldX=0;
+    let phoneHoldY=0;
+    let phoneHoldStartX=0;
+    let phoneHoldStartY=0;
+    const PHONE_MENU_HOLD_MS=650;
+    const PHONE_MENU_MOVE_LIMIT=12;
+
+    function cancelPhoneHold(){
+      clearTimeout(phoneHoldTimer);
+      phoneHoldTimer=null;
+      phoneHoldTarget=null;
+    }
+
+    table.addEventListener("pointerdown",e=>{
+      if(e.pointerType!=="touch" && e.pointerType!=="pen")return;
+      const cell=e.target && e.target.closest ? e.target.closest("#memberTable td") : null;
+      if(!isPhoneCell(cell))return;
+      cancelPhoneHold();
+      phoneHoldTarget=cell;
+      phoneHoldStartX=e.clientX||0;
+      phoneHoldStartY=e.clientY||0;
+      phoneHoldX=e.clientX||0;
+      phoneHoldY=e.clientY||0;
+      phoneHoldTimer=setTimeout(()=>{
+        if(!phoneHoldTarget)return;
+        cancelLongPressTimer();
+        cancelTouchSelectTimer();
+        try{navigator.vibrate&&navigator.vibrate(20);}catch(error){}
+        openMenuAt(phoneHoldX,phoneHoldY,phoneHoldTarget);
+        suppressNextTouchClickUntil=Date.now()+800;
+        phoneHoldTimer=null;
+        phoneHoldTarget=null;
+      },PHONE_MENU_HOLD_MS);
+    },true);
+
+    table.addEventListener("pointermove",e=>{
+      if(!phoneHoldTimer)return;
+      const dx=Math.abs((e.clientX||0)-phoneHoldStartX);
+      const dy=Math.abs((e.clientY||0)-phoneHoldStartY);
+      if(dx>PHONE_MENU_MOVE_LIMIT || dy>PHONE_MENU_MOVE_LIMIT) cancelPhoneHold();
+    },true);
+    table.addEventListener("pointerup",cancelPhoneHold,true);
+    table.addEventListener("pointercancel",cancelPhoneHold,true);
+
     document.addEventListener("click",e=>{if(!menu.hidden && !menu.contains(e.target))menu.hidden=true;});
     document.addEventListener("keydown",e=>{if(e.key==="Escape")menu.hidden=true;});
-    window.addEventListener("resize",()=>{menu.hidden=true;});
-    tableWrap.addEventListener("scroll",()=>{menu.hidden=true;});
+    window.addEventListener("resize",()=>{menu.hidden=true;cancelPhoneHold();});
+    tableWrap.addEventListener("scroll",()=>{menu.hidden=true;cancelPhoneHold();});
   }
 
   bindEditContextMenu();
@@ -5266,349 +5403,6 @@ const firebaseConfig = {
 </script>
 
 
-<script>
-(function(){
-  const PHONE_COLS = [5, 6]; // 연락처, 비상연락처
-  const LONG_PRESS_MS = 1500;
-  const MOVE_CANCEL_PX = 12;
-
-  let holdTimer = null;
-  let activeCell = null;
-  let startX = 0;
-  let startY = 0;
-  let activePointerId = null;
-  let suppressClickUntil = 0;
-
-  function cleanPhone(text){
-    return String(text || "").replace(/[^0-9]/g, "");
-  }
-
-  function showToast(message){
-    const old = document.getElementById("phoneHoldToast");
-    if(old) old.remove();
-    const toast = document.createElement("div");
-    toast.id = "phoneHoldToast";
-    toast.className = "phone-hold-toast";
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    clearTimeout(window.__phoneHoldToastTimer);
-    window.__phoneHoldToastTimer = setTimeout(()=>toast.remove(), 1200);
-  }
-
-  function getPhoneCell(target){
-    const cell = target && target.closest ? target.closest("td.phone-hold-cell") : null;
-    const table = document.getElementById("memberTable");
-    if(!cell || !table || !table.contains(cell)) return null;
-    return cell;
-  }
-
-  function markPhoneCells(){
-    const table = document.getElementById("memberTable");
-    if(!table || !table.tBodies || !table.tBodies[0]) return;
-    Array.from(table.tBodies[0].rows).forEach((row, rowIndex)=>{
-      if(rowIndex === 0) return;
-      PHONE_COLS.forEach((colIndex)=>{
-        const cell = row.cells[colIndex];
-        if(!cell) return;
-        const phone = cleanPhone(cell.innerText);
-        if(phone.length < 9){
-          cell.classList.remove("phone-hold-cell");
-          delete cell.dataset.phoneNumber;
-          return;
-        }
-        cell.classList.add("phone-hold-cell");
-        cell.dataset.phoneNumber = phone;
-        cell.style.fontWeight = "400";
-        if(!cell.classList.contains("cell-editing") && !cell.classList.contains("phone-hold-editing")){
-          cell.contentEditable = "false";
-        }
-      });
-    });
-  }
-
-  function setCaretToEndSafe(cell){
-    try{
-      const range = document.createRange();
-      range.selectNodeContents(cell);
-      range.collapse(false);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }catch(error){}
-  }
-
-  function enablePhoneEdit(cell){
-    if(!cell) return;
-    try{ if(typeof window.lockAllCellEditing === "function") window.lockAllCellEditing(cell); }catch(error){}
-    cell.contentEditable = "true";
-    cell.classList.add("cell-editing", "selected-cell", "phone-hold-editing");
-    cell.style.fontWeight = "400";
-
-    // 기존 표 선택 로직(selectedCell)과 동기화해야 내용복사/붙여넣기 버튼도 바로 작동함
-    try{
-      cell.dispatchEvent(new MouseEvent("click", {bubbles:true, cancelable:true, view:window}));
-    }catch(error){}
-
-    cell.focus();
-    setCaretToEndSafe(cell);
-    showToast("편집/복사/붙여넣기 가능");
-  }
-
-  function closePhoneDropdown(){
-    const old = document.getElementById("phoneDropdownMenu");
-    if(old) old.remove();
-  }
-
-  function clamp(v, min, max){
-    if(max < min) return min;
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function positionDropdown(menu, cell){
-    const rect = cell.getBoundingClientRect();
-    const scrollX = window.scrollX || document.documentElement.scrollLeft || 0;
-    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
-    const vw = window.innerWidth || document.documentElement.clientWidth || 320;
-    const vh = window.innerHeight || document.documentElement.clientHeight || 480;
-
-    menu.style.left = "0px";
-    menu.style.top = "0px";
-    document.body.appendChild(menu);
-
-    const mw = menu.offsetWidth || 92;
-    const mh = menu.offsetHeight || 86;
-    let left = scrollX + rect.left + (rect.width / 2) - (mw / 2);
-    let top = scrollY + rect.bottom + 2;
-
-    if(rect.bottom + mh + 8 > vh){
-      top = scrollY + rect.top - mh - 2;
-    }
-    left = clamp(left, scrollX + 4, scrollX + vw - mw - 4);
-    top = clamp(top, scrollY + 4, scrollY + vh - mh - 4);
-
-    menu.style.left = left + "px";
-    menu.style.top = top + "px";
-  }
-
-  function escapeHtml(value){
-    return String(value || "").replace(/[&<>"']/g, function(ch){
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch] || ch;
-    });
-  }
-
-  function getRowName(cell){
-    try{
-      const row = cell && cell.parentElement;
-      const nameCell = row && row.cells ? row.cells[1] : null;
-      const name = String(nameCell ? nameCell.innerText : "").trim();
-      return name || "이름 없음";
-    }catch(error){
-      return "이름 없음";
-    }
-  }
-
-  function openPhoneDropdown(cell){
-    const phone = cell ? (cell.dataset.phoneNumber || cleanPhone(cell.innerText)) : "";
-    if(phone.length < 9){
-      showToast("전화번호 확인 필요");
-      return;
-    }
-
-    closePhoneDropdown();
-    suppressClickUntil = Date.now() + 900;
-
-    const menu = document.createElement("div");
-    menu.id = "phoneDropdownMenu";
-    menu.className = "phone-dropdown-menu";
-    menu.setAttribute("role", "menu");
-    const rowName = getRowName(cell);
-    menu.innerHTML = `
-      <div class="phone-dropdown-name" title="${escapeHtml(rowName)}">${escapeHtml(rowName)}</div>
-      <button type="button" class="edit" data-action="edit">✏️ 편집</button>
-      <button type="button" class="call" data-action="call">📞 전화</button>
-      <button type="button" class="sms" data-action="sms">💬 문자</button>`;
-
-    menu.addEventListener("click", function(e){
-      const btn = e.target && e.target.closest ? e.target.closest("button[data-action]") : null;
-      if(!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const action = btn.dataset.action;
-      closePhoneDropdown();
-      if(action === "edit") enablePhoneEdit(cell);
-      if(action === "call") window.location.href = "tel:" + phone;
-      if(action === "sms") window.location.href = "sms:" + phone;
-    }, true);
-
-    menu.addEventListener("contextmenu", (e)=>e.preventDefault(), true);
-    positionDropdown(menu, cell);
-  }
-
-  function clearHoldTimer(){
-    clearTimeout(holdTimer);
-    holdTimer = null;
-  }
-
-  function cancelHold(){
-    clearHoldTimer();
-    activeCell = null;
-    activePointerId = null;
-  }
-
-  function isMultiTouch(e){
-    return !!(e && e.touches && e.touches.length > 1);
-  }
-
-  function getPoint(e){
-    return e.touches && e.touches[0] ? e.touches[0] : e;
-  }
-
-  function startHold(e){
-    // 마우스 오른쪽 버튼은 표의 편집 우클릭 메뉴에 전달한다.
-    if((e.pointerType==="mouse" || e.type==="mousedown") && e.button!==0) return;
-    if(isMultiTouch(e)){
-      cancelHold();
-      return;
-    }
-    const cell = getPhoneCell(e.target);
-    if(!cell) return;
-    if(cell.classList.contains("phone-hold-editing") || cell.classList.contains("cell-editing") || cell.isContentEditable){
-      return; // 더블클릭으로 편집 중일 때는 커서 이동/복사/붙여넣기 기본 동작 허용
-    }
-
-    e.stopPropagation();
-    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-
-    const p = getPoint(e);
-    startX = p.clientX || 0;
-    startY = p.clientY || 0;
-    activeCell = cell;
-    activePointerId = e.pointerId != null ? e.pointerId : null;
-    clearHoldTimer();
-
-    holdTimer = setTimeout(()=>{
-      if(!activeCell) return;
-      openPhoneDropdown(activeCell);
-      cancelHold();
-    }, LONG_PRESS_MS);
-  }
-
-  function moveHold(e){
-    if(!activeCell) return;
-    if(isMultiTouch(e)){
-      cancelHold();
-      return;
-    }
-    if(activePointerId != null && e.pointerId != null && e.pointerId !== activePointerId) return;
-    const p = getPoint(e);
-    const dx = Math.abs((p.clientX || 0) - startX);
-    const dy = Math.abs((p.clientY || 0) - startY);
-    if(dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX){
-      cancelHold();
-    }
-  }
-
-  function endHold(e){
-    const hadCell = !!activeCell;
-    cancelHold();
-    if(hadCell && Date.now() < suppressClickUntil && e){
-      e.preventDefault();
-      e.stopPropagation();
-      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-    }
-  }
-
-  function blockPhoneDefaults(e){
-    const cell = getPhoneCell(e.target);
-    if(!cell) return;
-    if(cell.classList.contains("phone-hold-editing") || cell.classList.contains("cell-editing") || cell.isContentEditable){
-      return; // 편집 상태에서는 텍스트 선택/복사/붙여넣기 허용
-    }
-    e.preventDefault();
-    e.stopPropagation();
-    if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-  }
-
-  function bindPhoneHold(){
-    markPhoneCells();
-    if(document.body.dataset.phoneHoldEditCallBind === "3") return;
-    document.body.dataset.phoneHoldEditCallBind = "3";
-
-    document.addEventListener("contextmenu", function(e){
-      // 모바일 길게 누르기에서만 브라우저 기본 메뉴를 막는다.
-      // PC의 연락처/비상연락처 우클릭은 표 편집 메뉴까지 전달한다.
-      const touchContext=e.pointerType==="touch" ||
-        (!e.pointerType && e.sourceCapabilities?.firesTouchEvents) ||
-        (window.matchMedia?.("(hover: none) and (pointer: coarse)").matches && e.button===0);
-      if(touchContext) blockPhoneDefaults(e);
-    }, true);
-    document.addEventListener("selectstart", blockPhoneDefaults, true);
-    document.addEventListener("dragstart", blockPhoneDefaults, true);
-
-    if(window.PointerEvent){
-      document.addEventListener("pointerdown", startHold, true);
-      document.addEventListener("pointermove", moveHold, true);
-      document.addEventListener("pointerup", endHold, true);
-      document.addEventListener("pointercancel", endHold, true);
-    }else{
-      document.addEventListener("touchstart", startHold, {capture:true, passive:true});
-      document.addEventListener("touchmove", moveHold, {capture:true, passive:true});
-      document.addEventListener("touchend", endHold, true);
-      document.addEventListener("touchcancel", endHold, true);
-      document.addEventListener("mousedown", startHold, true);
-      document.addEventListener("mousemove", moveHold, true);
-      document.addEventListener("mouseup", endHold, true);
-    }
-
-    document.addEventListener("dblclick", function(e){
-      const cell = getPhoneCell(e.target);
-      if(!cell) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if(e.stopImmediatePropagation) e.stopImmediatePropagation();
-      clearHoldTimer();
-      closePhoneDropdown();
-      enablePhoneEdit(cell);
-    }, true);
-
-    document.addEventListener("click", function(e){
-      const menu = document.getElementById("phoneDropdownMenu");
-      if(menu && !menu.contains(e.target) && !getPhoneCell(e.target)) closePhoneDropdown();
-      if(Date.now() < suppressClickUntil && getPhoneCell(e.target)) blockPhoneDefaults(e);
-    }, true);
-
-    document.addEventListener("scroll", closePhoneDropdown, true);
-    window.addEventListener("resize", closePhoneDropdown, true);
-
-    document.addEventListener("input", function(e){
-      const cell = getPhoneCell(e.target);
-      if(cell){
-        cell.dataset.phoneNumber = cleanPhone(cell.innerText);
-        cell.style.fontWeight = "400";
-      }
-    }, true);
-    document.addEventListener("blur", function(e){
-      const cell = e.target && e.target.closest ? e.target.closest("td.phone-hold-cell") : null;
-      if(cell){
-        cell.classList.remove("phone-hold-editing");
-        cell.dataset.phoneNumber = cleanPhone(cell.innerText);
-        cell.style.fontWeight = "400";
-      }
-    }, true);
-  }
-
-  document.addEventListener("DOMContentLoaded", function(){
-    setTimeout(bindPhoneHold, 300);
-    setTimeout(markPhoneCells, 1000);
-    setTimeout(markPhoneCells, 2500);
-    const observer = new MutationObserver(function(){
-      clearTimeout(window.__phoneHoldMarkTimer);
-      window.__phoneHoldMarkTimer = setTimeout(markPhoneCells, 150);
-    });
-    observer.observe(document.body, {childList:true, subtree:true, characterData:true});
-  });
-})();
-</script>
 
 
 
