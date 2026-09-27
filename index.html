@@ -694,6 +694,52 @@ body.readonly-mode #statusText{
 .button-group-panel[hidden]{
   display:none !important;
 }
+
+/* 시스템관리자: 인증 후 버튼 나열 대신 풀다운 메뉴로 표시 */
+.admin-button-group{
+  position:fixed !important;
+  z-index:2147483647 !important;
+  isolation:isolate !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:stretch !important;
+  flex-wrap:nowrap !important;
+  gap:3px !important;
+  width:min(220px, calc(100vw - 12px)) !important;
+  max-height:min(72vh, 72dvh) !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  padding:5px !important;
+  border:1px solid #b9c0cc !important;
+  border-radius:7px !important;
+  background:#fff !important;
+  box-shadow:0 8px 24px rgba(0,0,0,.22) !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+.admin-button-group[hidden]{display:none !important;}
+.admin-button-group > button{
+  display:block !important;
+  width:100% !important;
+  flex:0 0 auto !important;
+  margin:0 !important;
+  white-space:nowrap !important;
+}
+@media(max-width:480px){
+  .admin-button-group{
+    width:min(150px, calc(100vw - 8px)) !important;
+    max-height:min(68vh, 68dvh) !important;
+    gap:2px !important;
+    padding:3px !important;
+    border-radius:5px !important;
+  }
+  .admin-button-group > button{
+    height:22px !important;
+    min-height:22px !important;
+    line-height:20px !important;
+    font-size:9px !important;
+    padding:0 5px !important;
+  }
+}
 .button-group-panel .style-tools{
   display:inline-flex;
 }
@@ -1779,16 +1825,23 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
 /* 추가: 편집 기능 마우스 우클릭 풀다운 메뉴 */
 #editContextMenu{
   position:fixed;
-  z-index:99999;
+  z-index:2147483647;
   min-width:150px;
-  max-height:calc(100vh - 16px);
+  max-width:calc(100vw - 12px);
+  max-height:calc(100dvh - 12px);
+  overflow-x:hidden;
   overflow-y:auto;
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
   padding:4px;
   border:0;
   border-radius:5px;
   background:#fff;
   box-shadow:0 5px 18px rgba(0,0,0,.20);
   font-size:11px;
+  transform-origin:top left;
+  touch-action:pan-y;
+  contain:layout style paint;
 }
 #editContextMenu[hidden]{display:none !important;}
 #editContextMenu .ctx-item{
@@ -1805,6 +1858,7 @@ body.readonly-mode #memberTable tr > .readonly-hidden-column{
   text-align:left;
   font:inherit;
   cursor:pointer;
+  touch-action:manipulation;
 }
 #editContextMenu .ctx-item:hover{background:#eef3ff;}
 #editContextMenu .ctx-sep{height:1px;margin:3px 2px;background:#d8dde5;}
@@ -1865,9 +1919,15 @@ body.unlocked:not(.readonly-mode) #realtimeStatusBox{
 #editContextMenu .ctx-phone-sms{color:#1d4ed8;font-weight:700;}
 #editContextMenu .ctx-phone-only[hidden]{display:none !important;}
 @media(max-width:480px){
-  #editContextMenu{min-width:78px;font-size:7px;padding:2px;}
-  #editContextMenu .ctx-item{padding:4px 6px;min-height:20px;}
-  #editContextMenu .ctx-label{font-size:6px;padding:3px 6px 1px;}
+  #editContextMenu{
+    min-width:112px;
+    max-width:min(220px, calc(100vw - 12px));
+    font-size:10px;
+    padding:3px;
+    border-radius:6px;
+  }
+  #editContextMenu .ctx-item{padding:5px 7px;min-height:27px;}
+  #editContextMenu .ctx-label{font-size:8px;padding:3px 7px 2px;}
 }
 </style>
 </head>
@@ -1899,15 +1959,15 @@ body.unlocked:not(.readonly-mode) #realtimeStatusBox{
     <input id="nickSearch" type="search" placeholder="닉네임검색">
     <button type="button" id="clearSearchBtn">검색해제</button>
     <button type="button" id="sortBtn">이름정렬</button>
-    <button type="button" id="exportExcelBtn" title="화면에 표시되는 회원 목록을 엑셀 파일로 저장">엑셀저장</button>
-    <button type="button" id="importExcelBtn" title="엑셀 표의 회원 정보를 불러와 저장">엑셀불러오기</button>
-    <input type="file" id="importExcelFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
     <button type="button" id="adminColumnSettingBtn">열보기 설정</button>
     <button type="button" id="adminGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="adminButtonGroup">시스템관리자</button>
     <button type="button" id="editGroupToggleBtn" class="group-toggle-btn" aria-expanded="false" aria-controls="editButtonGroup">✏️ 편집</button>
     <span class="status" id="statusText">편집가능</span>
 
     <span class="button-group-panel admin-button-group" id="adminButtonGroup" hidden>
+      <button type="button" id="exportExcelBtn" title="화면에 표시되는 회원 목록을 엑셀 파일로 저장">엑셀저장</button>
+      <button type="button" id="importExcelBtn" title="엑셀 표의 회원 정보를 불러와 저장">엑셀불러오기</button>
+      <input type="file" id="importExcelFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
       <button type="button" id="syncSelectedMemberDbBtn" title="선택한 회원 1명의 수정 데이터를 Firebase 승인 DB에 반영">선택회원 DB반영</button>
       <button type="button" id="deleteMemberInfoBtn" title="이름 칸을 선택한 회원의 행과 관련 DB 자료를 함께 정리">정보삭제</button>
       <button type="button" id="clearCellContentBtn" title="선택된 셀의 내용만 삭제">셀내용삭제</button>
@@ -4725,6 +4785,48 @@ const firebaseConfig = {
       normalStart.hidden=!!show;
     }
 
+    let menuAnchorX=6;
+    let menuAnchorY=6;
+
+    function getVisualViewportInfo(){
+      const vv=window.visualViewport;
+      return {
+        width: vv ? vv.width : window.innerWidth,
+        height: vv ? vv.height : window.innerHeight,
+        scale: vv && vv.scale ? vv.scale : 1
+      };
+    }
+
+    function layoutOpenMenu(){
+      if(menu.hidden)return;
+      const vv=getVisualViewportInfo();
+      const gap=6;
+      /* 브라우저 핀치 줌 배율을 역보정해 실제 화면에서 메뉴 크기가 일정하게 보이게 한다. */
+      const inverseScale=1/Math.max(0.35,Math.min(15,vv.scale||1));
+
+      menu.style.transform="none";
+      menu.style.left="0px";
+      menu.style.top="0px";
+      menu.style.maxHeight=Math.max(96,(vv.height-gap*2)*(vv.scale||1))+"px";
+      menu.style.maxWidth=Math.max(112,(vv.width-gap*2)*(vv.scale||1))+"px";
+
+      const rawWidth=Math.max(menu.scrollWidth,menu.offsetWidth,1);
+      const rawHeight=Math.max(menu.scrollHeight,menu.offsetHeight,1);
+      const shownWidth=rawWidth*inverseScale;
+      const shownHeight=Math.min(rawHeight,parseFloat(menu.style.maxHeight)||rawHeight)*inverseScale;
+
+      let left=Number.isFinite(menuAnchorX)?menuAnchorX:gap;
+      let top=Number.isFinite(menuAnchorY)?menuAnchorY:gap;
+      if(left+shownWidth>vv.width-gap) left=Math.max(gap,vv.width-shownWidth-gap);
+      if(top+shownHeight>vv.height-gap) top=Math.max(gap,vv.height-shownHeight-gap);
+      left=Math.max(gap,left);
+      top=Math.max(gap,top);
+
+      menu.style.left=left+"px";
+      menu.style.top=top+"px";
+      menu.style.transform="scale("+inverseScale+")";
+    }
+
     function openMenuAt(clientX,clientY,target){
       if(document.body.classList.contains("readonly-mode"))return;
 
@@ -4738,17 +4840,10 @@ const firebaseConfig = {
 
       const phoneMode=isPhoneCell(cell);
       setPhoneItemsVisible(phoneMode);
+      menuAnchorX=Number(clientX)||6;
+      menuAnchorY=Number(clientY)||6;
       menu.hidden=false;
-      menu.style.left="0px";
-      menu.style.top="0px";
-      const rect=menu.getBoundingClientRect();
-      const gap=6;
-      let left=Number(clientX)||gap;
-      let top=Number(clientY)||gap;
-      if(left+rect.width>window.innerWidth-gap) left=Math.max(gap,window.innerWidth-rect.width-gap);
-      if(top+rect.height>window.innerHeight-gap) top=Math.max(gap,window.innerHeight-rect.height-gap);
-      menu.style.left=left+"px";
-      menu.style.top=top+"px";
+      layoutOpenMenu();
     }
 
     function openMenu(e){
@@ -4810,10 +4905,26 @@ const firebaseConfig = {
     table.addEventListener("pointerup",cancelPhoneHold,true);
     table.addEventListener("pointercancel",cancelPhoneHold,true);
 
+    /* 메뉴 터치가 편집 셀의 포커스를 빼앗아 모바일 키보드를 닫지 않게 한다. */
+    menu.addEventListener("pointerdown",e=>{
+      e.stopPropagation();
+      if(e.pointerType==="touch" || e.pointerType==="pen") e.preventDefault();
+    },true);
+    menu.addEventListener("touchstart",e=>{e.stopPropagation();},{passive:true,capture:true});
+
     document.addEventListener("click",e=>{if(!menu.hidden && !menu.contains(e.target))menu.hidden=true;});
     document.addEventListener("keydown",e=>{if(e.key==="Escape")menu.hidden=true;});
-    window.addEventListener("resize",()=>{menu.hidden=true;cancelPhoneHold();});
-    tableWrap.addEventListener("scroll",()=>{menu.hidden=true;cancelPhoneHold();});
+
+    /* 모바일 키보드 표시/해제나 핀치 줌으로 resize가 발생해도 메뉴를 닫지 않고 재배치한다. */
+    window.addEventListener("resize",()=>{layoutOpenMenu();cancelPhoneHold();});
+    if(window.visualViewport){
+      window.visualViewport.addEventListener("resize",layoutOpenMenu,{passive:true});
+      window.visualViewport.addEventListener("scroll",layoutOpenMenu,{passive:true});
+    }
+    tableWrap.addEventListener("scroll",()=>{
+      if(!menu.hidden) layoutOpenMenu();
+      cancelPhoneHold();
+    },{passive:true});
   }
 
   bindEditContextMenu();
@@ -5178,6 +5289,38 @@ const firebaseConfig = {
     ["adminGroupToggleBtn","editGroupToggleBtn"].forEach(id=>{const btn=$(id); if(btn){btn.classList.remove("is-open");btn.setAttribute("aria-expanded","false");}});
   }
 
+  function ensureSystemAdminDropdownTopLayer(){
+    const panel=$("adminButtonGroup");
+    if(!panel)return null;
+    // toolbar 내부 stacking context에서 분리하여 sticky 제목행보다 항상 앞에 표시
+    if(panel.parentElement!==document.body)document.body.appendChild(panel);
+    return panel;
+  }
+
+  function positionSystemAdminDropdown(){
+    const panel=ensureSystemAdminDropdownTopLayer();
+    const btn=$("adminGroupToggleBtn");
+    if(!panel || !btn || panel.hasAttribute("hidden"))return;
+    const r=btn.getBoundingClientRect();
+    const vw=window.visualViewport ? window.visualViewport.width : window.innerWidth;
+    const vh=window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const offLeft=window.visualViewport ? window.visualViewport.offsetLeft : 0;
+    const offTop=window.visualViewport ? window.visualViewport.offsetTop : 0;
+    panel.style.left="0px";
+    panel.style.top="0px";
+    const pr=panel.getBoundingClientRect();
+    let left=r.left;
+    let top=r.bottom+3;
+    if(left+pr.width>offLeft+vw-4) left=offLeft+vw-pr.width-4;
+    if(left<offLeft+4) left=offLeft+4;
+    if(top+pr.height>offTop+vh-4){
+      const above=r.top-pr.height-3;
+      top=above>=offTop+4 ? above : Math.max(offTop+4, offTop+vh-pr.height-4);
+    }
+    panel.style.left=Math.round(left)+"px";
+    panel.style.top=Math.round(top)+"px";
+  }
+
   async function openAdminGroupWithPassword(){
     if(!(await ensureAdminReadyForLogin()))return;
     const pw=prompt("시스템관리자 비밀번호를 입력하세요.");
@@ -5187,10 +5330,11 @@ const firebaseConfig = {
       return;
     }
     closeAllToolbarGroups();
-    const panel=$("adminButtonGroup");
+    const panel=ensureSystemAdminDropdownTopLayer();
     const btn=$("adminGroupToggleBtn");
     if(panel)panel.removeAttribute("hidden");
     if(btn){btn.classList.add("is-open");btn.setAttribute("aria-expanded","true");}
+    requestAnimationFrame(positionSystemAdminDropdown);
   }
 
   async function changeSystemAdminPassword(){
@@ -5211,6 +5355,19 @@ const firebaseConfig = {
 
   window.openAdminGroupWithPassword=openAdminGroupWithPassword;
   window.addEventListener("request-admin-group-open",openAdminGroupWithPassword);
+  window.addEventListener("resize",positionSystemAdminDropdown,{passive:true});
+  window.addEventListener("scroll",positionSystemAdminDropdown,{passive:true,capture:true});
+  if(window.visualViewport){
+    window.visualViewport.addEventListener("resize",positionSystemAdminDropdown,{passive:true});
+    window.visualViewport.addEventListener("scroll",positionSystemAdminDropdown,{passive:true});
+  }
+  document.addEventListener("pointerdown",e=>{
+    const panel=$("adminButtonGroup"), btn=$("adminGroupToggleBtn");
+    if(!panel || panel.hasAttribute("hidden"))return;
+    if(panel.contains(e.target) || (btn && btn.contains(e.target)))return;
+    panel.setAttribute("hidden","");
+    if(btn){btn.classList.remove("is-open");btn.setAttribute("aria-expanded","false");}
+  },true);
 
   function bindAdmin(){
     let hasSavedSession=false;
