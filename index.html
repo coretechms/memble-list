@@ -632,7 +632,7 @@ body.locked #tableWrap{
 }
 
 
-/* 읽기전용 모드: 보기/검색만 허용 */
+/* 운영진전용 모드: 보기/검색만 허용 */
 body.readonly-mode .style-tools,
 body.readonly-mode #sortBtn,
 body.readonly-mode #resetBtn,
@@ -740,6 +740,41 @@ body.readonly-mode #statusText{
     padding:0 5px !important;
   }
 }
+/* 시스템관리자 보안점검 결과창 */
+.security-audit-backdrop{
+  position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;
+  padding:12px;background:rgba(0,0,0,.38);box-sizing:border-box;
+}
+.security-audit-dialog{
+  width:min(560px,calc(100vw - 24px));max-height:min(82vh,82dvh);overflow:auto;
+  background:#fff;border:1px solid #cfd4dc;border-radius:12px;box-shadow:0 12px 36px rgba(0,0,0,.28);
+  padding:14px;font-family:"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif;color:#111;
+}
+.security-audit-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}
+.security-audit-title{font-size:17px;font-weight:800;}
+.security-audit-close{height:30px!important;min-height:30px!important;padding:0 10px!important;font-size:12px!important;line-height:28px!important;}
+.security-audit-summary{padding:9px 10px;border-radius:8px;font-size:13px;font-weight:800;margin-bottom:9px;}
+.security-audit-summary.ok{background:#ecfdf5;color:#047857;border:1px solid #bbf7d0;}
+.security-audit-summary.warn{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;}
+.security-audit-summary.danger{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
+.security-audit-meta{font-size:11px;color:#555;margin-bottom:8px;line-height:1.45;}
+.security-audit-list{display:grid;gap:5px;}
+.security-audit-item{padding:7px 8px;border:1px solid #e2e8f0;border-radius:7px;background:#f8fafc;font-size:12px;line-height:1.45;word-break:break-word;}
+.security-audit-item.ok{border-left:4px solid #10b981;}
+.security-audit-item.warn{border-left:4px solid #f59e0b;}
+.security-audit-item.danger{border-left:4px solid #ef4444;}
+.security-audit-note{margin-top:9px;padding-top:8px;border-top:1px solid #e5e7eb;font-size:10px;color:#666;line-height:1.45;}
+@media(max-width:480px){
+  .security-audit-backdrop{padding:6px;}
+  .security-audit-dialog{width:calc(100vw - 12px);max-height:86dvh;padding:9px;border-radius:8px;}
+  .security-audit-title{font-size:12px;}
+  .security-audit-summary{font-size:10px;padding:6px 7px;}
+  .security-audit-meta,.security-audit-item{font-size:9px;}
+  .security-audit-item{padding:5px 6px;}
+  .security-audit-note{font-size:8px;}
+  .security-audit-close{height:22px!important;min-height:22px!important;font-size:9px!important;line-height:20px!important;padding:0 6px!important;}
+}
+
 .button-group-panel .style-tools{
   display:inline-flex;
 }
@@ -757,7 +792,7 @@ body.readonly-mode #statusText{
 }
 
 
-/* 요청 수정: 읽기전용 모드에서는 주민번호 열 숨김 */
+/* 요청 수정: 운영진전용 모드에서는 주민번호 열 숨김 */
 body.readonly-mode #memberTable col:nth-child(5),
 body.readonly-mode #memberTable tr > *:nth-child(5){
   display:none !important;
@@ -771,7 +806,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 }
 
 
-/* 요청 수정: 읽기전용 로그인 / 비밀번호 초기화 버튼 높이 추가 10% 확대 + 글자 확대 */
+/* 요청 수정: 운영진전용 로그인 / 비밀번호 초기화 버튼 높이 추가 10% 확대 + 글자 확대 */
 #readOnlyLoginBtn,
 #adminResetPasswordBtn{
   height:33px !important;
@@ -793,7 +828,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
 
 
-/* 요청 수정: 읽기전용 로그인 버튼 중앙 정렬 */
+/* 요청 수정: 운영진전용 로그인 버튼 중앙 정렬 */
 #adminGate .admin-card .admin-row:has(#readOnlyLoginBtn){
   display:flex !important;
   width:100% !important;
@@ -820,7 +855,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 
 
 
-/* 요청 수정: 읽기전용 로그인 버튼 폭을 글자 크기에 맞게 축소 */
+/* 요청 수정: 운영진전용 로그인 버튼 폭을 글자 크기에 맞게 축소 */
 #adminGate .admin-card .admin-row:has(#readOnlyLoginBtn){
   display:flex !important;
   width:100% !important;
@@ -903,7 +938,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 }
 
 
-/* 요청 수정: 읽기전용 로그인 버튼만 50% 확대 + 글자 크기 확대 */
+/* 요청 수정: 운영진전용 로그인 버튼만 50% 확대 + 글자 크기 확대 */
 #adminGate .admin-card .admin-row:has(#readOnlyLoginBtn) #readOnlyLoginBtn{
   height:50px !important;
   min-height:50px !important;
@@ -1463,7 +1498,7 @@ body.readonly-mode #memberTable tr > *:nth-child(5){
 }
 
 
-/* 요청 수정: 읽기전용 로그인 열 보기/숨김은 관리자 설정값으로 동적 적용
+/* 요청 수정: 운영진전용 로그인 열 보기/숨김은 관리자 설정값으로 동적 적용
    기본 표시 열: 직책 / 이름 / 성별 / 연락처 / 닉네임 / 버스타는곳
    관리자/편집 모드에서는 기존 전체 열 유지 */
 body.readonly-mode #memberTable col.readonly-hidden-column{
@@ -1898,7 +1933,7 @@ html.member-refresh-readonly body:not(.readonly-mode){ }
 </script>
 
 <style id="requestedButtonVisibilityOnlyFix">
-/* 요청 수정: 읽기전용/관리자 버튼 가림만 적용 */
+/* 요청 수정: 운영진전용/관리자 버튼 가림만 적용 */
 body.readonly-mode #realtimeStatusBox,
 body.readonly-mode #nickSearch,
 body.readonly-mode #clearSearchBtn,
@@ -1941,7 +1976,7 @@ body.unlocked:not(.readonly-mode) #realtimeStatusBox{
       <button type="button" class="primary" id="adminLoginBtn">관리자 로그인</button>
     </div>
     <div class="admin-row">
-      <button type="button" id="readOnlyLoginBtn">읽기전용 로그인</button>
+      <button type="button" id="readOnlyLoginBtn">운영진전용 로그인</button>
     </div>
     <div class="admin-row">
       <button type="button" id="adminResetPasswordBtn">비밀번호 초기화</button>
@@ -1965,17 +2000,18 @@ body.unlocked:not(.readonly-mode) #realtimeStatusBox{
     <span class="status" id="statusText">편집가능</span>
 
     <span class="button-group-panel admin-button-group" id="adminButtonGroup" hidden>
-      <button type="button" id="exportExcelBtn" title="화면에 표시되는 회원 목록을 엑셀 파일로 저장">엑셀저장</button>
-      <button type="button" id="importExcelBtn" title="엑셀 표의 회원 정보를 불러와 저장">엑셀불러오기</button>
+      <button type="button" id="exportExcelBtn" title="화면에 표시되는 회원 목록을 엑셀 파일로 저장">엑셀 저장</button>
+      <button type="button" id="importExcelBtn" title="엑셀 표의 회원 정보를 불러와 저장">엑셀 불러오기</button>
       <input type="file" id="importExcelFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+      <button type="button" id="securityAuditBtn" title="외부 스크립트·Firebase 설정·위험 코드·숨김 요소를 점검">보안점검</button>
       <button type="button" id="syncSelectedMemberDbBtn" title="선택한 회원 1명의 수정 데이터를 Firebase 승인 DB에 반영">선택회원 DB반영</button>
-      <button type="button" id="deleteMemberInfoBtn" title="이름 칸을 선택한 회원의 행과 관련 DB 자료를 함께 정리">정보삭제</button>
-      <button type="button" id="clearCellContentBtn" title="선택된 셀의 내용만 삭제">셀내용삭제</button>
-      <button type="button" id="readOnlyColumnSettingBtn">읽기열설정</button>
-      <button type="button" id="dataBackupBtn">자료백업</button>
-      <button type="button" id="dataRestoreBtn">자료복구</button>
+      <button type="button" id="deleteMemberInfoBtn" title="이름 칸을 선택한 회원의 행과 관련 DB 자료를 함께 정리">선택행 정보삭제</button>
+      <button type="button" id="clearCellContentBtn" title="선택된 셀의 내용만 삭제">셀 내용삭제</button>
+      <button type="button" id="readOnlyColumnSettingBtn">운영진 열보기 설정</button>
+      <button type="button" id="dataBackupBtn">자료 백업</button>
+      <button type="button" id="dataRestoreBtn">자료 복구</button>
       <button type="button" id="adminChangePasswordBtn">비번변경</button>
-      <button type="button" id="readOnlyChangePasswordBtn">읽기비번변경</button> 
+      <button type="button" id="readOnlyChangePasswordBtn">운영진로그인 비번변경</button> 
       <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
       <button type="button" id="systemAdminChangePasswordBtn">시스템관리자 비번변경</button>
       <button type="button" id="resetBtn">초기화</button>
@@ -2089,7 +2125,7 @@ const firebaseConfig = {
   }
   function blockReadOnlyAction(){
     if(!isReadOnlyMode()) return false;
-    setStatus("읽기전용 모드: 편집할 수 없습니다");
+    setStatus("운영진전용 모드: 편집할 수 없습니다");
     return true;
   }
   function clearSelectedCellBorders(exceptCell=null){
@@ -3409,7 +3445,7 @@ const firebaseConfig = {
     }
   }
 
-  function setStatus(msg){statusText.textContent=msg;clearTimeout(window.__statusTimer);window.__statusTimer=setTimeout(()=>statusText.textContent=(document.body.classList.contains("readonly-mode")?"읽기전용":"편집 가능"),1800)}
+  function setStatus(msg){statusText.textContent=msg;clearTimeout(window.__statusTimer);window.__statusTimer=setTimeout(()=>statusText.textContent=(document.body.classList.contains("readonly-mode")?"운영진전용":"편집 가능"),1800)}
   function rowsArray(){return Array.from(table.tBodies[0]?.rows||[])}
   function cellText(cell){return String(cell?.innerText||"").trim()}
   function normalize(v){return String(v||"").trim().toLowerCase().replace(/\s+/g,"")}
@@ -4985,7 +5021,7 @@ const firebaseConfig = {
   function applyModeButtons(mode){
     const readOnly=mode==="readonly";
     const status=$("statusText");
-    if(status) status.textContent=readOnly ? "읽기전용" : "편집 가능";
+    if(status) status.textContent=readOnly ? "운영진전용" : "편집 가능";
     document.querySelectorAll("#memberTable td,#memberTable th").forEach(cell=>{
       cell.contentEditable="false";
       cell.classList.remove("cell-editing");
@@ -5002,7 +5038,7 @@ const firebaseConfig = {
     document.documentElement.classList.toggle("member-refresh-unlocked",!!isUnlocked);
     document.documentElement.classList.toggle("member-refresh-readonly",isReadOnly);
     if(isUnlocked){
-      /* PC/모바일 새로고침 유지: 로그인/읽기전용 진입 상태를 저장해 새로고침 후 같은 화면으로 복귀합니다. */
+      /* PC/모바일 새로고침 유지: 로그인/운영진전용 진입 상태를 저장해 새로고침 후 같은 화면으로 복귀합니다. */
       try{
         localStorage.setItem(SESSION_KEY,"1");
         localStorage.setItem(SESSION_MODE_KEY,isReadOnly?"readonly":"edit");
@@ -5182,7 +5218,7 @@ const firebaseConfig = {
       return false;
     }
     if(!readOnlyPasswordHash){
-      setGateMsg("읽기전용 비밀번호를 Firebase에서 읽지 못했습니다.","#b45309");
+      setGateMsg("운영진전용 비밀번호를 Firebase에서 읽지 못했습니다.","#b45309");
       return false;
     }
     if(!systemAdminPasswordHash){
@@ -5200,7 +5236,7 @@ const firebaseConfig = {
       if(input)input.value="";
       setGateMsg("");
     }else{
-      setGateMsg("관리자가 아닌 경우. 읽기전용으로 로그인하세요.");
+      setGateMsg("관리자가 아닌 경우. 운영진전용으로 로그인하세요.");
       if(input){input.select();input.focus();}
     }
   }
@@ -5213,7 +5249,7 @@ const firebaseConfig = {
       if(input)input.value="";
       setGateMsg("");
     }else{
-      setGateMsg("읽기전용 비밀번호가 맞지 않습니다.");
+      setGateMsg("운영진전용 비밀번호가 맞지 않습니다.");
       if(input){input.select();input.focus();}
     }
   }
@@ -5256,15 +5292,15 @@ const firebaseConfig = {
     const adminPw=prompt("관리자 비밀번호를 입력하세요.");
     if(adminPw===null)return;
     if(await sha256(adminPw.trim())!==adminPasswordHash){alert("관리자 비밀번호가 맞지 않습니다.");return;}
-    const next=prompt("새 읽기전용 비밀번호를 입력하세요.");
+    const next=prompt("새 운영진전용 비밀번호를 입력하세요.");
     if(next===null)return;
-    if(!next.trim()){alert("새 읽기전용 비밀번호가 비어 있습니다.");return;}
-    const again=prompt("새 읽기전용 비밀번호를 다시 입력하세요.");
+    if(!next.trim()){alert("새 운영진전용 비밀번호가 비어 있습니다.");return;}
+    const again=prompt("새 운영진전용 비밀번호를 다시 입력하세요.");
     if(again===null)return;
-    if(next.trim()!==again.trim()){alert("읽기전용 비밀번호가 서로 다릅니다.");return;}
+    if(next.trim()!==again.trim()){alert("운영진전용 비밀번호가 서로 다릅니다.");return;}
     readOnlyPasswordHash=await sha256(next.trim());
     writeAdminSync("readonly-password-change");
-    alert("읽기전용 비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
+    alert("운영진전용 비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
   }
   async function createRecoveryCode(){
     if(!(await ensureAdminReadyForLogin()))return;
@@ -5282,7 +5318,7 @@ const firebaseConfig = {
     adminPasswordHash=await sha256(DEFAULT_PASSWORD);
     adminRecoveryHash="";
     writeAdminSync("password-reset");
-    alert("관리자 비밀번호가 1234로 초기화되었고 Firebase에 실시간 동기화되었습니다.\n읽기전용 기본 비밀번호는 0000입니다.");
+    alert("관리자 비밀번호가 1234로 초기화되었고 Firebase에 실시간 동기화되었습니다.\n운영진전용 기본 비밀번호는 0000입니다.");
   }
   function closeAllToolbarGroups(){
     ["adminButtonGroup","editButtonGroup"].forEach(id=>{const panel=$(id); if(panel)panel.setAttribute("hidden","");});
@@ -5353,6 +5389,152 @@ const firebaseConfig = {
     alert("시스템관리자 비밀번호가 변경되었고 Firebase에 실시간 동기화되었습니다.");
   }
 
+  /* ===== 시스템관리자 보안점검 =====
+     목적: 현재 정상 파일 구조를 기준으로 외부 리소스/Firebase 주소/위험 실행코드/숨김 요소를 주기적으로 점검한다.
+     주의: 파일 내부 점검 코드이므로 침입 여부를 100% 증명하는 기능은 아니며, 변조 징후 탐지용이다. */
+  const SECURITY_AUDIT_INTERVAL_MS=10*60*1000;
+  const SECURITY_ALLOWED_SCRIPT_SRCS=[
+    "https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js",
+    "https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"
+  ];
+  const SECURITY_EXPECTED_FIREBASE=[
+    "member-b458f.firebaseapp.com",
+    "member-b458f-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "bus-seat-eb86c.firebaseapp.com",
+    "bus-seat-eb86c-default-rtdb.asia-southeast1.firebasedatabase.app",
+    'const FIREBASE_PATH = "memberList/main"',
+    'const BUS_SEAT_APPROVED_JOIN_PATH = "memberList/joinCodes"',
+    'const MEMBER_LIST_DELETED_JOIN_PATH = "memberList/deletedJoinCodes"'
+  ];
+  const SECURITY_ALLOWED_FIREBASE_HOSTS=new Set([
+    "member-b458f-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "bus-seat-eb86c-default-rtdb.asia-southeast1.firebasedatabase.app"
+  ]);
+  let securityLastAlertSignature="";
+
+  function securityEscapeHtml(v){
+    return String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+  }
+  function securityNowText(){
+    try{return new Date().toLocaleString("ko-KR");}catch(e){return new Date().toString();}
+  }
+  async function runSecurityAudit(detailMode=false){
+    const findings=[];
+    const add=(level,title,detail)=>findings.push({level,title,detail:String(detail||"")});
+    const html=document.documentElement.outerHTML;
+
+    // 1. 외부 script src 검사
+    const scriptSrcs=Array.from(document.scripts).map(s=>s.src).filter(Boolean);
+    const unknownScripts=scriptSrcs.filter(src=>!SECURITY_ALLOWED_SCRIPT_SRCS.includes(src));
+    if(unknownScripts.length) add("danger","미승인 외부 스크립트 발견",unknownScripts.join("\n"));
+    else add("ok","외부 스크립트","허용된 Firebase SDK 2개만 사용 중");
+
+    // 2. iframe/form 등 예상하지 않은 외부 로딩 요소 검사
+    const iframes=Array.from(document.querySelectorAll("iframe"));
+    if(iframes.length) add("danger","iframe 발견",iframes.map(x=>x.src||"src 없음").join("\n"));
+    else add("ok","iframe","없음");
+    const externalForms=Array.from(document.querySelectorAll("form[action]"))
+      .map(f=>f.getAttribute("action")||"")
+      .filter(v=>/^https?:/i.test(v));
+    if(externalForms.length) add("danger","외부 전송 form 발견",externalForms.join("\n"));
+    else add("ok","외부 전송 form","없음");
+
+    // 3. Firebase 기준 설정 검사
+    const missingFirebase=SECURITY_EXPECTED_FIREBASE.filter(v=>!html.includes(v));
+    if(missingFirebase.length) add("danger","Firebase 기준 설정 변경 가능성",missingFirebase.join("\n"));
+    else add("ok","Firebase 기준 설정","현재 기준값과 일치");
+    const firebaseHosts=[...html.matchAll(/https:\/\/([a-z0-9.-]+(?:firebaseio\.com|firebasedatabase\.app))/ig)].map(m=>m[1].toLowerCase());
+    const unknownFirebase=[...new Set(firebaseHosts.filter(h=>!SECURITY_ALLOWED_FIREBASE_HOSTS.has(h)))];
+    if(unknownFirebase.length) add("danger","미등록 Firebase DB 주소 발견",unknownFirebase.join("\n"));
+    else add("ok","Firebase DB 대상","등록된 2개 DB만 확인됨");
+
+    // 4. 위험 실행 계열 코드 검사: 문자열을 나눠 작성하여 검사 코드 자체가 오탐되지 않게 함
+    const inlineSource=Array.from(document.scripts).filter(s=>!s.src).map(s=>s.textContent||"").join("\n");
+    const dangerousPatterns=[
+      {name:"eval 실행", re:new RegExp("ev"+"al\\s*\\(","i")},
+      {name:"Function 생성자 실행", re:new RegExp("new\\s+Func"+"tion\\s*\\(","i")},
+      {name:"document.cookie 접근", re:new RegExp("document\\s*\\.\\s*coo"+"kie","i")},
+      {name:"sendBeacon 전송", re:new RegExp("send"+"Beacon\\s*\\(","i")},
+      {name:"WebSocket 연결", re:new RegExp("new\\s+Web"+"Socket\\s*\\(","i")}
+    ];
+    const dangerousFound=dangerousPatterns.filter(p=>p.re.test(inlineSource)).map(p=>p.name);
+    if(dangerousFound.length) add("warn","주의 코드 패턴 발견",dangerousFound.join(", "));
+    else add("ok","위험 실행 코드","대표 위험 패턴 없음");
+
+    // 5. 일반 네트워크 API가 새로 생겼는지 확인 (Firebase SDK 자체 통신은 외부 SDK 내부이므로 여기에는 나타나지 않음)
+    const networkPatterns=[
+      {name:"fetch",re:new RegExp("fet"+"ch\\s*\\(","i")},
+      {name:"XMLHttpRequest",re:new RegExp("XMLHttp"+"Request","i")}
+    ];
+    const networkFound=networkPatterns.filter(p=>p.re.test(inlineSource)).map(p=>p.name);
+    if(networkFound.length) add("warn","직접 네트워크 전송 API 발견",networkFound.join(", ")+" — 새로 추가된 코드인지 확인 필요");
+    else add("ok","직접 네트워크 전송 API","추가 사용 없음");
+
+    // 6. 중요 UI/보안 구성 요소 존재 여부
+    const criticalIds=["adminGate","adminPasswordInput","adminGroupToggleBtn","adminButtonGroup","systemAdminChangePasswordBtn","securityAuditBtn","memberTable"];
+    const missingIds=criticalIds.filter(id=>!document.getElementById(id));
+    if(missingIds.length) add("danger","중요 보안/UI 요소 누락",missingIds.join(", "));
+    else add("ok","중요 보안/UI 요소","모두 존재");
+
+    // 7. 페이지 외부 리소스 태그 검사
+    const resourceAttrs=[];
+    document.querySelectorAll("img[src],link[href],source[src],video[src],audio[src]").forEach(el=>{
+      const url=el.getAttribute("src")||el.getAttribute("href")||"";
+      if(/^https?:/i.test(url)) resourceAttrs.push(url);
+    });
+    if(resourceAttrs.length) add("warn","추가 외부 리소스 발견",[...new Set(resourceAttrs)].join("\n"));
+    else add("ok","추가 외부 리소스","없음");
+
+    const dangerCount=findings.filter(x=>x.level==="danger").length;
+    const warnCount=findings.filter(x=>x.level==="warn").length;
+    const status=dangerCount?"danger":warnCount?"warn":"ok";
+    const signature=await sha256(JSON.stringify(findings.filter(x=>x.level!=="ok")));
+    return {status,dangerCount,warnCount,findings,signature,checkedAt:securityNowText(),detailMode};
+  }
+
+  function showSecurityAuditReport(result){
+    document.querySelectorAll(".security-audit-backdrop").forEach(x=>x.remove());
+    const backdrop=document.createElement("div");
+    backdrop.className="security-audit-backdrop";
+    const dialog=document.createElement("div");
+    dialog.className="security-audit-dialog";
+    dialog.setAttribute("role","dialog");
+    dialog.setAttribute("aria-modal","true");
+    const label=result.status==="danger"?"위험 항목 발견":result.status==="warn"?"주의 항목 있음":"이상 징후 없음";
+    const summaryClass=result.status;
+    dialog.innerHTML=`
+      <div class="security-audit-head"><div class="security-audit-title">보안점검 결과</div><button type="button" class="security-audit-close">닫기</button></div>
+      <div class="security-audit-summary ${summaryClass}">${securityEscapeHtml(label)} · 위험 ${result.dangerCount} / 주의 ${result.warnCount}</div>
+      <div class="security-audit-meta">점검시간: ${securityEscapeHtml(result.checkedAt)}<br>자동점검: 앱 실행 후 + 10분 간격(이상 발견 시에만 경고)</div>
+      <div class="security-audit-list">${result.findings.map(x=>`<div class="security-audit-item ${x.level}"><b>${x.level==="danger"?"⛔":x.level==="warn"?"⚠️":"✓"} ${securityEscapeHtml(x.title)}</b><br>${securityEscapeHtml(x.detail).replace(/\n/g,"<br>")}</div>`).join("")}</div>
+      <div class="security-audit-note">이 기능은 파일 내부의 변조 징후를 점검합니다. 점검 코드 자체가 함께 변조될 수 있으므로 100% 침입 판정 기능은 아닙니다. Firebase 보안 규칙·접속기록·배포 서버 로그는 별도로 확인해야 합니다.</div>`;
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+    const close=()=>backdrop.remove();
+    dialog.querySelector(".security-audit-close").onclick=close;
+    backdrop.addEventListener("pointerdown",e=>{if(e.target===backdrop)close();});
+  }
+
+  async function manualSecurityAudit(){
+    const result=await runSecurityAudit(true);
+    showSecurityAuditReport(result);
+  }
+
+  async function automaticSecurityAudit(){
+    try{
+      const result=await runSecurityAudit(false);
+      if(result.status==="ok")return;
+      if(result.signature===securityLastAlertSignature)return;
+      securityLastAlertSignature=result.signature;
+      const msg=result.status==="danger"
+        ? `보안점검에서 위험 항목 ${result.dangerCount}개가 발견되었습니다.\n시스템관리자 → 보안점검에서 상세 내용을 확인하세요.`
+        : `보안점검에서 주의 항목 ${result.warnCount}개가 발견되었습니다.\n시스템관리자 → 보안점검에서 상세 내용을 확인하세요.`;
+      alert(msg);
+    }catch(e){
+      console.warn("Security audit failed",e);
+    }
+  }
+
   window.openAdminGroupWithPassword=openAdminGroupWithPassword;
   window.addEventListener("request-admin-group-open",openAdminGroupWithPassword);
   window.addEventListener("resize",positionSystemAdminDropdown,{passive:true});
@@ -5398,7 +5580,7 @@ const firebaseConfig = {
           e.stopPropagation();
           if(e.stopImmediatePropagation)e.stopImmediatePropagation();
           /* 모바일 키보드 Enter/완료는 관리자 비밀번호 확인만 실행합니다.
-             읽기전용 로그인은 반드시 읽기전용 로그인 버튼 클릭으로만 실행합니다. */
+             운영진전용 로그인은 반드시 운영진전용 로그인 버튼 클릭으로만 실행합니다. */
           if(document.body.classList.contains("locked")){
             unlockWithPassword();
           }
@@ -5412,6 +5594,8 @@ const firebaseConfig = {
     if(readOnlyChangeBtn)readOnlyChangeBtn.onclick=changeReadOnlyPassword;
     if(recoveryBtn)recoveryBtn.onclick=createRecoveryCode;
     if(systemChangeBtn)systemChangeBtn.onclick=changeSystemAdminPassword;
+    const securityAuditBtn=$("securityAuditBtn");
+    if(securityAuditBtn)securityAuditBtn.onclick=manualSecurityAudit;
     if(resetBtn)resetBtn.onclick=resetPassword;
 
     /* PC/모바일 새로고침 방지: pagehide/beforeunload/visibilitychange에서 로그인 상태를 삭제하지 않습니다.
@@ -5419,6 +5603,8 @@ const firebaseConfig = {
 
     initAdminFirebaseSync();
     restoreUnlockedSession();
+    setTimeout(automaticSecurityAudit,1200);
+    setInterval(automaticSecurityAudit,SECURITY_AUDIT_INTERVAL_MS);
   }
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bindAdmin);
   else bindAdmin();
@@ -5426,7 +5612,7 @@ const firebaseConfig = {
 </script>
 
 <script>
-/* 관리자 모드: 읽기전용 로그인에서 보일 열을 설정 */
+/* 관리자 모드: 운영진전용 로그인에서 보일 열을 설정 */
 (function(){
   const CONFIG_KEY = "memberList.readonly.visibleColumns.v1";
   const DEFAULT_VISIBLE = [0, 1, 2, 5, 11, 12]; // 직책/이름/성별/연락처/닉네임/버스타는곳
@@ -5502,8 +5688,8 @@ const firebaseConfig = {
     backdrop.className = "readonly-column-modal-backdrop";
     backdrop.innerHTML = `
       <div class="readonly-column-modal" role="dialog" aria-modal="true">
-        <h2>읽기전용 열 보기/숨김 설정</h2>
-        <p class="readonly-column-desc">체크한 열만 읽기전용 로그인 화면에서 보입니다.<br>관리자/편집 로그인에서는 모든 열이 그대로 보입니다.</p>
+        <h2>운영진전용 열 보기/숨김 설정</h2>
+        <p class="readonly-column-desc">체크한 열만 운영진전용 로그인 화면에서 보입니다.<br>관리자/편집 로그인에서는 모든 열이 그대로 보입니다.</p>
         <div class="readonly-column-list"></div>
         <div class="readonly-column-actions">
           <button type="button" class="all">전체보기</button>
@@ -5527,10 +5713,10 @@ const firebaseConfig = {
     backdrop.querySelector(".default").onclick = ()=>{ list.querySelectorAll("input").forEach(input=>input.checked = DEFAULT_VISIBLE.includes(Number(input.value))); };
     backdrop.querySelector(".save").onclick = ()=>{
       const selected = Array.from(list.querySelectorAll("input:checked")).map(input=>Number(input.value));
-      if(!selected.length){ alert("읽기전용에서 최소 1개 열은 보여야 합니다."); return; }
+      if(!selected.length){ alert("운영진전용에서 최소 1개 열은 보여야 합니다."); return; }
       saveConfig(selected);
       closeModal();
-      alert("읽기전용 열 보기/숨김 설정을 저장했습니다.");
+      alert("운영진전용 열 보기/숨김 설정을 저장했습니다.");
     };
     document.body.appendChild(backdrop);
   }
@@ -5564,7 +5750,7 @@ const firebaseConfig = {
 
 
 <style id="readonlyMobileForceStyle">
-/* 최종 보강: 모바일/확대 상태에서도 읽기전용 숨김 열 강제 적용 */
+/* 최종 보강: 모바일/확대 상태에서도 운영진전용 숨김 열 강제 적용 */
 body.readonly-mode #memberTable .readonly-hidden-column,
 body.readonly-mode #memberTable col.readonly-hidden-column,
 body.readonly-mode #memberTable tr > th.readonly-hidden-column,
@@ -5649,7 +5835,7 @@ body.readonly-mode #memberTable tr > td.readonly-hidden-column{
 
 </style>
 <script id="readonlyMobileForceFix">
-/* 최종 보강: 읽기전용 로그인 직후/모바일 리사이즈/표 재생성 후 열 숨김 재적용 */
+/* 최종 보강: 운영진전용 로그인 직후/모바일 리사이즈/표 재생성 후 열 숨김 재적용 */
 (function(){
   const CONFIG_KEY = "memberList.readonly.visibleColumns.v1";
   const DEFAULT_VISIBLE = [0, 1, 2, 5, 11, 12]; // 직책/이름/성별/연락처/닉네임/버스타는곳
@@ -6095,7 +6281,7 @@ body.unlocked:not(.readonly-mode).admin-column-view-enabled #memberTable tr > td
     backdrop.innerHTML = `
       <div class="admin-column-modal" role="dialog" aria-modal="true">
         <h2>관리자 열보기 설정</h2>
-        <p class="admin-column-desc">체크한 열만 관리자 화면에서 보입니다.<br>읽기전용 열 설정과는 별도로 저장됩니다.</p>
+        <p class="admin-column-desc">체크한 열만 관리자 화면에서 보입니다.<br>운영진전용 열 설정과는 별도로 저장됩니다.</p>
         <div class="admin-column-list"></div>
         <div class="admin-column-actions">
           <button type="button" class="all">전체보기</button>
