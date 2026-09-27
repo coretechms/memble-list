@@ -759,7 +759,13 @@ body.readonly-mode #statusText{
 .security-audit-summary.danger{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;}
 .security-audit-meta{font-size:11px;color:#555;margin-bottom:8px;line-height:1.45;}
 .security-audit-list{display:grid;gap:5px;}
-.security-audit-item{padding:7px 8px;border:1px solid #e2e8f0;border-radius:7px;background:#f8fafc;font-size:12px;line-height:1.45;word-break:break-word;}
+.security-audit-item{padding:7px 8px;border:1px solid #e2e8f0;border-radius:7px;background:#f8fafc;font-size:12px;line-height:1.45;word-break:break-word;cursor:pointer;user-select:none;}
+.security-audit-item:hover{background:#f1f5f9;}
+.security-audit-item:focus{outline:2px solid #1737c9;outline-offset:1px;}
+.security-audit-item .security-audit-chevron{float:right;font-weight:900;color:#64748b;}
+.security-audit-item-detail{display:none;margin-top:7px;padding:7px 8px;border-top:1px dashed #cbd5e1;background:#fff;border-radius:5px;color:#334155;line-height:1.5;white-space:pre-line;user-select:text;}
+.security-audit-item.is-open .security-audit-item-detail{display:block;}
+.security-audit-item.is-open .security-audit-chevron{transform:rotate(180deg);}
 .security-audit-item.ok{border-left:4px solid #10b981;}
 .security-audit-item.warn{border-left:4px solid #f59e0b;}
 .security-audit-item.danger{border-left:4px solid #ef4444;}
@@ -771,6 +777,7 @@ body.readonly-mode #statusText{
   .security-audit-summary{font-size:10px;padding:6px 7px;}
   .security-audit-meta,.security-audit-item{font-size:9px;}
   .security-audit-item{padding:5px 6px;}
+  .security-audit-item-detail{margin-top:5px;padding:5px 6px;font-size:8px;}
   .security-audit-note{font-size:8px;}
   .security-audit-close{height:22px!important;min-height:22px!important;font-size:9px!important;line-height:20px!important;padding:0 6px!important;}
 }
@@ -2005,14 +2012,14 @@ body.unlocked:not(.readonly-mode) #realtimeStatusBox{
       <input type="file" id="importExcelFile" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
       <button type="button" id="securityAuditBtn" title="외부 스크립트·Firebase 설정·위험 코드·숨김 요소를 점검">보안점검</button>
       <button type="button" id="syncSelectedMemberDbBtn" title="선택한 회원 1명의 수정 데이터를 Firebase 승인 DB에 반영">선택회원 DB반영</button>
-      <button type="button" id="deleteMemberInfoBtn" title="이름 칸을 선택한 회원의 행과 관련 DB 자료를 함께 정리">선택행 정보삭제</button>
-      <button type="button" id="clearCellContentBtn" title="선택된 셀의 내용만 삭제">셀 내용삭제</button>
+      <button type="button" id="deleteMemberInfoBtn" title="이름 칸을 선택한 회원의 행과 관련 DB 자료를 함께 정리">선택 행 정보삭제</button>
+      <button type="button" id="clearCellContentBtn" title="선택된 셀의 내용만 삭제">셀 내용 삭제</button>
       <button type="button" id="readOnlyColumnSettingBtn">운영진 열보기 설정</button>
       <button type="button" id="dataBackupBtn">자료 백업</button>
       <button type="button" id="dataRestoreBtn">자료 복구</button>
       <button type="button" id="adminChangePasswordBtn">비번변경</button>
-      <button type="button" id="readOnlyChangePasswordBtn">운영진로그인 비번변경</button> 
-      <button type="button" id="adminRecoveryCodeBtn">복구코드생성</button>
+      <button type="button" id="readOnlyChangePasswordBtn">운영진 로그인 비번변경</button> 
+      <button type="button" id="adminRecoveryCodeBtn">복구코드 생성</button>
       <button type="button" id="systemAdminChangePasswordBtn">시스템관리자 비번변경</button>
       <button type="button" id="resetBtn">초기화</button>
       <input id="dataRestoreFile" type="file" accept="application/json,.json" style="display:none">
@@ -4968,7 +4975,7 @@ const firebaseConfig = {
 })();
 </script>
 
-<script>
+<script data-security-audit-self="1">
 (function(){
   const PASS_KEY="memberList.admin.passwordHash.v1";
   const RECOVERY_KEY="memberList.admin.recoveryHash.v1";
@@ -5412,7 +5419,33 @@ const firebaseConfig = {
   ]);
   let securityLastAlertSignature="";
 
-  function securityEscapeHtml(v){
+  
+  function securityFindingHelp(item){
+    if(item && item.help) return item.help;
+    const title=String(item && item.title || "");
+
+    if(title.includes("주의 코드 패턴")){
+      return "의미: eval, Function 생성자, document.cookie, sendBeacon, WebSocket 같은 강한 기능이 실제 애플리케이션 코드에 포함됐는지 확인합니다.\n위험성: 이 기능들은 정상 용도로도 쓸 수 있지만, 비밀번호·회원정보 수집이나 외부 전송과 결합되면 위험할 수 있습니다.\n현재 판정: ver14.6의 document.cookie 경고는 보안점검 코드가 자신의 검사 문자열을 다시 읽은 오탐이었습니다. ver14.6부터 보안점검 자기 코드는 검사 대상에서 제외됩니다.\n조치: 이후 이 항목이 다시 나오면 실제 다른 코드에서 사용된 것이므로 해당 사용 위치를 점검해야 합니다.";
+    }
+    if(title.includes("직접 네트워크 전송 API")){
+      return "의미: fetch 또는 XMLHttpRequest처럼 브라우저에서 서버로 직접 요청을 보내는 API가 실제 애플리케이션 코드에 있는지 확인합니다.\n위험성: 그 자체로 악성은 아닙니다. 그러나 승인되지 않은 주소로 회원정보나 비밀번호를 보내면 정보 유출 위험이 있습니다.\n현재 판정: ver14.6의 XMLHttpRequest 경고는 보안점검 코드가 자신의 검사 문자열을 다시 읽은 오탐이었습니다. ver14.6부터 자기 점검 코드는 제외됩니다.\n조치: 이후 다시 발견되면 실제 호출 주소(URL)와 전송 데이터 내용을 확인해야 합니다.";
+    }
+    if(title.includes("외부 스크립트")){
+      return "의미: 이 HTML이 다른 서버에서 JavaScript를 불러오는지 확인합니다.\n위험성: 승인하지 않은 외부 스크립트가 추가되면 페이지 데이터와 회원정보에 접근할 수 있습니다.\n조치: 허용된 Firebase 공식 스크립트 외의 주소가 나오면 출처를 확인하세요.";
+    }
+    if(title.includes("Firebase")){
+      return "의미: Firebase 프로젝트 주소, databaseURL, 주요 DB 경로가 기준값과 같은지 확인합니다.\n위험성: 주소가 바뀌면 데이터가 다른 프로젝트로 전송되거나 잘못된 DB를 사용할 수 있습니다.\n조치: projectId, databaseURL, 주요 경로가 의도한 값과 일치하는지 확인하세요.";
+    }
+    if(title.includes("iframe") || title.includes("form")){
+      return "의미: 숨겨진 외부 프레임 또는 외부 전송 폼이 추가됐는지 확인합니다.\n위험성: 숨김 iframe/form은 피싱이나 정보 유출에 악용될 수 있습니다.\n조치: 발견된 대상 주소와 해당 HTML 위치를 확인하세요.";
+    }
+    if(item && item.level==="ok"){
+      return "현재 기준에서 이 항목에는 이상 징후가 발견되지 않았습니다.";
+    }
+    return "이 항목은 현재 파일이 설정한 보안 기준선과 다른 점이 있는지 확인하는 진단 항목입니다.\n주의 또는 위험으로 표시되면 발견된 내용과 실제 코드 사용 위치를 함께 확인하세요.";
+  }
+
+function securityEscapeHtml(v){
     return String(v??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   }
   function securityNowText(){
@@ -5449,7 +5482,10 @@ const firebaseConfig = {
     else add("ok","Firebase DB 대상","등록된 2개 DB만 확인됨");
 
     // 4. 위험 실행 계열 코드 검사: 문자열을 나눠 작성하여 검사 코드 자체가 오탐되지 않게 함
-    const inlineSource=Array.from(document.scripts).filter(s=>!s.src).map(s=>s.textContent||"").join("\n");
+    const inlineSource=Array.from(document.scripts)
+      .filter(s=>!s.src && !s.hasAttribute("data-security-audit-self"))
+      .map(s=>s.textContent||"")
+      .join("\n");
     const dangerousPatterns=[
       {name:"eval 실행", re:new RegExp("ev"+"al\\s*\\(","i")},
       {name:"Function 생성자 실행", re:new RegExp("new\\s+Func"+"tion\\s*\\(","i")},
@@ -5506,12 +5542,31 @@ const firebaseConfig = {
       <div class="security-audit-head"><div class="security-audit-title">보안점검 결과</div><button type="button" class="security-audit-close">닫기</button></div>
       <div class="security-audit-summary ${summaryClass}">${securityEscapeHtml(label)} · 위험 ${result.dangerCount} / 주의 ${result.warnCount}</div>
       <div class="security-audit-meta">점검시간: ${securityEscapeHtml(result.checkedAt)}<br>자동점검: 앱 실행 후 + 10분 간격(이상 발견 시에만 경고)</div>
-      <div class="security-audit-list">${result.findings.map(x=>`<div class="security-audit-item ${x.level}"><b>${x.level==="danger"?"⛔":x.level==="warn"?"⚠️":"✓"} ${securityEscapeHtml(x.title)}</b><br>${securityEscapeHtml(x.detail).replace(/\n/g,"<br>")}</div>`).join("")}</div>
+      <div class="security-audit-list">${result.findings.map((x,i)=>`<div class="security-audit-item ${x.level}" tabindex="0" role="button" aria-expanded="false" data-audit-index="${i}"><span class="security-audit-chevron">⌄</span><b>${x.level==="danger"?"⛔":x.level==="warn"?"⚠️":"✓"} ${securityEscapeHtml(x.title)}</b><br>${securityEscapeHtml(x.detail).replace(/\n/g,"<br>")}<div class="security-audit-item-detail"><b>상세 설명</b><br>${securityEscapeHtml(securityFindingHelp(x)).replace(/\n/g,"<br>")}</div></div>`).join("")}</div>
       <div class="security-audit-note">이 기능은 파일 내부의 변조 징후를 점검합니다. 점검 코드 자체가 함께 변조될 수 있으므로 100% 침입 판정 기능은 아닙니다. Firebase 보안 규칙·접속기록·배포 서버 로그는 별도로 확인해야 합니다.</div>`;
     backdrop.appendChild(dialog);
     document.body.appendChild(backdrop);
     const close=()=>backdrop.remove();
     dialog.querySelector(".security-audit-close").onclick=close;
+
+    dialog.querySelectorAll(".security-audit-item").forEach(item=>{
+      const toggle=()=>{
+        const open=!item.classList.contains("is-open");
+        item.classList.toggle("is-open",open);
+        item.setAttribute("aria-expanded",open?"true":"false");
+      };
+      item.addEventListener("click",e=>{
+        if(e.target.closest(".security-audit-item-detail")) return;
+        toggle();
+      });
+      item.addEventListener("keydown",e=>{
+        if(e.key==="Enter" || e.key===" "){
+          e.preventDefault();
+          toggle();
+        }
+      });
+    });
+
     backdrop.addEventListener("pointerdown",e=>{if(e.target===backdrop)close();});
   }
 
